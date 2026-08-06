@@ -1,0 +1,215 @@
+/* ============================================================
+   HOLOVIDA :: núcleo aleatorio determinista
+   Todo el juego usa una única semilla -> vidas reproducibles.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  function xmur3(str) {
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function () {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      h ^= h >>> 16;
+      return h >>> 0;
+    };
+  }
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function RNG(seed) {
+    this.seedStr = String(seed == null ? Date.now() + ':' + Math.random() : seed);
+    const s = xmur3(this.seedStr);
+    this._n = mulberry32(s());
+    this.calls = 0;
+  }
+
+  RNG.prototype.next = function () {
+    this.calls++;
+    return this._n();
+  };
+  /** float en [a,b) */
+  RNG.prototype.range = function (a, b) {
+    return a + this.next() * (b - a);
+  };
+  /** entero en [a,b] inclusive */
+  RNG.prototype.int = function (a, b) {
+    return Math.floor(this.range(a, b + 1));
+  };
+  /** true con probabilidad p */
+  RNG.prototype.chance = function (p) {
+    return this.next() < p;
+  };
+  RNG.prototype.pick = function (arr) {
+    if (!arr || !arr.length) return undefined;
+    return arr[Math.floor(this.next() * arr.length)];
+  };
+  RNG.prototype.pickN = function (arr, n) {
+    const copy = arr.slice();
+    const out = [];
+    while (out.length < n && copy.length) {
+      out.push(copy.splice(Math.floor(this.next() * copy.length), 1)[0]);
+    }
+    return out;
+  };
+  RNG.prototype.shuffle = function (arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(this.next() * (i + 1));
+      const t = a[i];
+      a[i] = a[j];
+      a[j] = t;
+    }
+    return a;
+  };
+  /** elección ponderada: items con .w (peso), por defecto 1 */
+  RNG.prototype.weighted = function (items, wf) {
+    const f = wf || function (o) { return o.w == null ? 1 : o.w; };
+    let total = 0;
+    for (let i = 0; i < items.length; i++) total += Math.max(0, f(items[i]));
+    if (total <= 0) return this.pick(items);
+    let r = this.next() * total;
+    for (let i = 0; i < items.length; i++) {
+      r -= Math.max(0, f(items[i]));
+      if (r <= 0) return items[i];
+    }
+    return items[items.length - 1];
+  };
+  /** campana: valor central con dispersión, recortado */
+  RNG.prototype.bell = function (min, max, rolls) {
+    const n = rolls || 3;
+    let s = 0;
+    for (let i = 0; i < n; i++) s += this.next();
+    return Math.round(min + (s / n) * (max - min));
+  };
+
+  // --- utilidades generales -------------------------------------------------
+  const U = {
+    clamp: function (v, a, b) { return v < a ? a : v > b ? b : v; },
+    /** formatea créditos: 1234567 -> 1.234.567 */
+    cr: function (n) {
+      const neg = n < 0;
+      const s = Math.abs(Math.round(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      return (neg ? '−' : '') + s + ' cr';
+    },
+    num: function (n) {
+      return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    },
+    esc: function (s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    },
+    /** rellena {slots} en una plantilla */
+    fill: function (tpl, slots) {
+      return String(tpl).replace(/\{(\w+)\}/g, function (m, k) {
+        return slots && slots[k] != null ? slots[k] : m;
+      });
+    },
+    titleCase: function (s) {
+      return String(s).charAt(0).toUpperCase() + String(s).slice(1);
+    }
+  };
+
+  // --- compresión LZW -> base64url (para enlaces de resumen) ----------------
+  function lzwEncode(str) {
+    const dict = new Map();
+    const data = String(str);
+    let out = [];
+    let phrase = data[0];
+    let code = 256;
+    for (let i = 1; i < data.length; i++) {
+      const c = data[i];
+      if (dict.has(phrase + c)) {
+        phrase += c;
+      } else {
+        out.push(phrase.length > 1 ? dict.get(phrase) : phrase.charCodeAt(0));
+        dict.set(phrase + c, code++);
+        phrase = c;
+      }
+    }
+    if (phrase !== '') out.push(phrase.length > 1 ? dict.get(phrase) : phrase.charCodeAt(0));
+    return out;
+  }
+
+  function lzwDecode(codes) {
+    const dict = {};
+    let currChar = String.fromCharCode(codes[0]);
+    let oldPhrase = currChar;
+    const out = [currChar];
+    let code = 256;
+    let phrase;
+    for (let i = 1; i < codes.length; i++) {
+      const currCode = codes[i];
+      if (currCode < 256) phrase = String.fromCharCode(currCode);
+      else phrase = dict[currCode] ? dict[currCode] : oldPhrase + currChar;
+      out.push(phrase);
+      currChar = phrase.charAt(0);
+      dict[code++] = oldPhrase + currChar;
+      oldPhrase = phrase;
+    }
+    return out.join('');
+  }
+
+  const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+  function packCodes(codes) {
+    // cada código cabe en 20 bits (suficiente para nuestros textos)
+    let bits = '';
+    for (let i = 0; i < codes.length; i++) {
+      bits += codes[i].toString(2).padStart(20, '0');
+    }
+    while (bits.length % 6) bits += '0';
+    let out = '';
+    for (let i = 0; i < bits.length; i += 6) out += B64[parseInt(bits.substr(i, 6), 2)];
+    return out;
+  }
+
+  function unpackCodes(s) {
+    let bits = '';
+    for (let i = 0; i < s.length; i++) {
+      const v = B64.indexOf(s[i]);
+      if (v < 0) continue;
+      bits += v.toString(2).padStart(6, '0');
+    }
+    const codes = [];
+    for (let i = 0; i + 20 <= bits.length; i += 20) {
+      codes.push(parseInt(bits.substr(i, 20), 2));
+    }
+    return codes;
+  }
+
+  U.pack = function (obj) {
+    try {
+      const json = JSON.stringify(obj);
+      // escapa a latin1 seguro para LZW por code point
+      const safe = encodeURIComponent(json);
+      return packCodes(lzwEncode(safe));
+    } catch (e) { return ''; }
+  };
+
+  U.unpack = function (str) {
+    try {
+      const codes = unpackCodes(str);
+      if (!codes.length) return null;
+      const safe = lzwDecode(codes);
+      return JSON.parse(decodeURIComponent(safe));
+    } catch (e) { return null; }
+  };
+
+  global.SW = global.SW || {};
+  global.SW.RNG = RNG;
+  global.SW.U = U;
+})(window);
