@@ -23,6 +23,9 @@ const SCRIPTS = [
   'src/data-world.js',
   'src/data-careers.js',
   'src/data-world-ext.js',
+  'src/pixelart.js',
+  'src/data-equipo.js',
+  'src/data-canon.js',
   'src/data-careers-ext.js',
   'src/data-events-vida.js',
   'src/data-events-vida2.js',
@@ -30,6 +33,7 @@ const SCRIPTS = [
   'src/data-events-actos2.js',
   'src/data-events-clon.js',
   'src/data-events-era.js',
+  'src/data-fuerza.js',
   'src/engine.js',
   'src/summary.js',
   'src/ui.js'

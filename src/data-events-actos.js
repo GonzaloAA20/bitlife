@@ -477,7 +477,9 @@
       id: 'ac_duelo', min: 14, max: 200, w: 7, slots: { n: 'nombre', l: 'lugar' },
       t: '{n} te reta a un duelo formal en {l}. Hay público.',
       c: [
-        { t: 'Aceptar el duelo', combate: { dif: 65, duelo: true }, out: '' },
+        { t: 'Aceptar el duelo a blásters', sub: 'necesitas un arma de fuego', req: function (st) { return SW.tieneArmaFuego(st); }, combate: { dif: 65, duelo: true, pistolas: true }, out: '' },
+        { t: 'Aceptar el duelo con sable', req: function (st) { return !!st.sable; }, combate: { dif: 65, duelo: true, sable: true }, out: '' },
+        { t: 'Aceptar el duelo a puños', combate: { dif: 55, duelo: true }, out: 'Sin armas. Como la gente honrada o la que no tiene nada.' },
         { t: 'Aceptar pero cambiar las reglas', fx: { carisma: 8, notoriedad: 5 }, combate: { dif: 45, duelo: true }, out: 'Propones armas de aturdimiento. Aceptan a regañadientes.' },
         { t: 'Rechazar públicamente', fx: { reputacion: -10, cordura: 4 }, out: 'Se ríen. Sigues vivo.' },
         { t: 'Atacarle antes de que empiece', fx: { alineamiento: -15, notoriedad: 12, destreza: 6 }, combate: { dif: 40, duelo: true }, out: 'Nada elegante. Muy eficaz.' }
@@ -528,7 +530,8 @@
      Cada uno construye eventos únicos combinando datos del mundo.
      Aquí es donde el espacio de decisiones se dispara.
      ============================================================ */
-  SW.GEN = {
+  SW.GEN = SW.GEN || {};
+  Object.assign(SW.GEN, {
 
     /* --- Contratos de los bajos fondos / gremio --- */
     contrato: function (rng, s) {
@@ -675,9 +678,9 @@
           empleo: { id: c.id, sueldo: sueldo }
         };
       });
-      opciones.push({ t: 'Ninguna de estas', fx: { cordura: 3 }, out: 'Sigues buscando.' });
-      return { id: 'gen_empleo', gen: true, t: 'Ofertas disponibles este año:', c: opciones };
+      opciones.push({ t: '◂ Ninguna de estas', volver: true });
+      return { id: 'gen_empleo', gen: true, esMenu: true, t: 'Ofertas disponibles este año:', c: opciones };
     }
-  };
+  });
 
 })(window);

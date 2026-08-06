@@ -18,9 +18,10 @@ Naces, creces, eliges, te equivocas y mueres. Al final te llevas una tarjeta con
 | Decisiones posibles | **~13,5 millones** de nodos de decisión |
 | Escenarios únicos | ~3,5 millones |
 | Especies jugables | 61 (incluido el clon de Kamino) |
-| Mundos | 113 |
+| Mundos | 113, con dato real de cada uno al llegar |
 | Carreras | 50 |
 | Poderes de la Fuerza | 30 |
+| Personajes conocidos | 54, cada uno solo en su época |
 
 El número sale de combinar **199 plantillas de evento escritas a mano** con los *slots* variables de cada una (mundo, criatura, lugar, objeto, facción, rumor…) más **ocho generadores procedurales** (contratos, rutas de carga, encuentros de acción, combates espaciales, ofertas de empleo, misiones militares, encargos de facción y dilemas morales). La cifra exacta se calcula en tiempo de ejecución y se muestra en la portada.
 
@@ -30,12 +31,34 @@ Un mismo evento no se repite: hay memoria de los últimos catorce y el peso de c
 Nombre, tratamiento, especie (con esperanza de vida y bonos propios), era galáctica (8, de la Alta República a la Primera Orden), mundo natal, origen social y un **retrato holográfico** generado en SVG que puedes ajustar pieza a pieza: piel, ojos, pelo, marcas, tocado, ropa y forma del cráneo.
 
 ### Ciclo de juego
-Cada año pasan cosas por su cuenta **y además eliges una actividad**:
+Cada año pasan cosas por su cuenta **y además tienes tres acciones** (una de crío, dos de adolescente) para gastar en las vías disponibles. Entrar en un menú a mirar **no consume la acción**: todos tienen salida (`◂ Volver`) y solo se gasta cuando decides algo de verdad.
+
+Como hay tres acciones por año, las subidas tienen **rendimientos decrecientes**: cuanto más alta está una estadística, menos aporta cada acierto. Subir de 20 a 30 es fácil; de 80 a 90, mucho menos.
+
+Las vías:
 
 `Trabajo` · `Formación` · `Social` · `Bajos fondos` · `Hangar` · `Viajar` · `La Fuerza` · `Mercado` · `Acción` · `Cuerpo y mente` · `Escuadrón` · `Política` · `Exploración`
 
 ### Cómo crecen las estadísticas
 Naces con casi nada (físico 5, intelecto 5…). Cada año subes un poco por pura edad, con una curva que acelera en la infancia, se estanca sobre los 25 y decae a partir de los 55. Ese crecimiento pasivo tiene un **techo propio de cada personaje** (unos 55 ± 12): de ahí para arriba solo se sube decidiendo. Los bonos de especie, era y origen no se aplican de golpe al nacer, sino que se van expresando mientras creces.
+
+### Objetos que importan
+Los objetos no son una lista decorativa. Sin un arma de fuego no puedes batirte en un duelo de blásters —la opción aparece bloqueada—, la armadura resta daño de verdad y pelear con las manos desnudas penaliza. Se consiguen comprando en la armería, robándolas del mostrador, ganándolas en combate, fabricándolas si tienes el oficio, o heredándolas.
+
+Cada vez que consigues algo importante —un arma, una nave, un cristal, un sable— se abre una **vitrina con su pixel art**: el sable sale del color de tu cristal, la nave con la silueta de su clase.
+
+### Cristales kyber y el Sable Oscuro
+**El cristal elige, no tú.** El color depende de quién eres: azul y verde son lo común, el amarillo es de los centinelas, el púrpura solo canta para quien camina por el filo, el blanco exige un cristal purificado y el rojo hay que sangrarlo con odio (solo con alineamiento oscuro).
+
+El **negro no es un color de kyber**: el Sable Oscuro es una pieza única forjada por Tarre Vizsla, va unida al gobierno de Mandalore y, según el Credo, solo cambia de manos ganándola en combate. No se construye ni se compra.
+
+### Personajes conocidos
+Con muy poca probabilidad —sube algo si eres famoso o infame— te cruzas con alguien de la saga: 54 personajes, cada uno **solo en las épocas en que estuvo activo**. Encontrarte a Obi-Wan durante las Guerras Clon puede pasar; en la Nueva República, no. Y el encuentro cambia según quién seas: un sith y un civil no tienen la misma conversación con un jedi.
+
+Los maestros también tienen nombre: al entrar en la Orden (o al arrodillarte ante un sith) hay ~30% de que te toque alguien canónico de tu era, y si no, uno generado del mismo estilo.
+
+### El camino de la Fuerza
+No es una carrera más. Un jedi **no puede casarse** (o lo hace en secreto, y eso tiene su propio evento), **no acumula posesiones**, recibe misiones del Consejo y **no se alista en ningún ejército** — ni siquiera en las Guerras Clon, donde el rango de general se lo dan sin preguntarle. Un sith tampoco se alista: manipula. Y llegado el momento se topa con la **Regla de los Dos**, que solo tiene una salida limpia y ninguna cómoda.
 
 ### Heridas
 Un golpe fuerte no baja la salud y ya: abre una **herida** que reduce tu salud máxima mientras siga abierta y tarda años en cerrar sola. Se puede acelerar en una clínica pagando. La salud, mientras tanto, se regenera lentamente hasta el techo que dejen las heridas.
@@ -59,6 +82,11 @@ Una especie jugable con guion propio: naces en Kamino con una designación CT-, 
 - **Facciones**: Imperio, Rebelión, Orden Jedi, Sith, cárteles Hutt, mandalorianos, Sol Negro y más, con reputación propia.
 - **Prisión, deudas, adicciones, guerra, epidemias, herencias, legado y vejez.**
 - **Semilla determinista**: la misma semilla da la misma vida. Sirve para retar a alguien a jugar tu partida.
+
+### Cómo se ve
+La interfaz **cambia de color según el planeta**: el desierto la tiñe de ámbar, el hielo de cian pálido, los mundos volcánicos de rojo, las ciudades-planeta de violeta. Se nota dónde estás sin leer nada.
+
+La gente que conoces se muestra con **quién es y a qué se dedica** («Mirus Kryze — hermano, cocinero de puerto»), los personajes canónicos van marcados en oro, y no aparecen dos parejas a la vez ni se duplica a nadie: si vuelves a encontrarte con alguien, el vínculo se refuerza en lugar de crear una persona nueva.
 
 ### Compartir
 Al morir tienes tres opciones:
@@ -89,8 +117,15 @@ index.html                    punto de entrada
 assets/style.css              estética retrofuturista (CRT, fósforo cian, art déco)
 src/rng.js                    aleatoriedad determinista + compresión de enlaces
 src/data-world.js             especies, mundos, facciones, nombres, objetos, naves
+src/data-world-ext.js         expansión del universo + bandos y eras
 src/data-careers.js           carreras, estudios, poderes, actividades
+src/pixelart.js               sprites en rejilla de caracteres y su renderizador
+src/data-equipo.js            fichas de combate de los objetos y la armería
+src/data-canon.js             personajes conocidos, datos de mundo, reglas del kyber
+src/data-fuerza.js            el camino jedi y sith, con sus renuncias
 src/data-events-vida.js       eventos del ciclo anual (infancia → vejez)
+src/data-events-clon.js       la vida de un clon, de Kamino a la Orden 66
+src/data-events-era.js        eventos atados a cada época
 src/data-events-actos.js      eventos por actividad + generadores procedurales
 src/engine.js                 estado, ciclo anual, efectos, combate, muerte
 src/summary.js                retrato SVG, tarjeta de vida, enlaces, métricas

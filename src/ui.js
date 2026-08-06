@@ -11,6 +11,42 @@
 
   const UI = { juego: null, creador: null, app: null, mini: null };
 
+  /* ============================================================
+     AMBIENTE POR MUNDO
+     Cada bioma tiñe la interfaz. No es decorado: te dice de un
+     vistazo dónde estás sin leer nada.
+     ============================================================ */
+  const AMBIENTES = [
+    { re: /desierto|árido|arena|dunas|sal/i,        id: 'desierto',  acento: '#ffb03a', cielo: '#3a2410', suelo: '#1a1006', niebla: '#c88a3a' },
+    { re: /hielo|glaciar|tundra|helad/i,             id: 'hielo',     acento: '#a8e8ff', cielo: '#0e2a3a', suelo: '#071620', niebla: '#7fc4e8' },
+    { re: /océano|oceán|lagos|acuát|agua|mar/i,      id: 'oceano',    acento: '#3ad6ff', cielo: '#052436', suelo: '#03131e', niebla: '#2a9ac8' },
+    { re: /volcán|volcan|lava|basalto|ceniza/i,      id: 'volcanico', acento: '#ff5a3a', cielo: '#3a0e08', suelo: '#1a0604', niebla: '#c83a1a' },
+    { re: /jungla|selva|bosque|hongo|pradera|verde/i,acento: '#6aff8a', id: 'selva',    cielo: '#0a2a18', suelo: '#04120a', niebla: '#3aa85a' },
+    { re: /ciudad|urban|subciudad|industrial|fábrica|estación|anillo|orbital/i, id: 'ciudad', acento: '#c98aff', cielo: '#1a1030', suelo: '#0a0618', niebla: '#8a5ad8' },
+    { re: /pantano|tumbas|ruinas|penumbra|sombr|niebla/i, id: 'sombra', acento: '#8affc0', cielo: '#0e2018', suelo: '#050e0a', niebla: '#4a8a6a' },
+    { re: /cristal|kyber|gas|nube/i,                  id: 'cristal',   acento: '#ffd6f5', cielo: '#2a1030', suelo: '#12061a', niebla: '#c86ad8' }
+  ];
+
+  UI.ambienteDe = function (mundoNombre) {
+    const m = SW.mundo(mundoNombre);
+    const texto = (m.bio || '') + ' ' + (m.vibe || '');
+    for (let i = 0; i < AMBIENTES.length; i++) {
+      if (AMBIENTES[i].re.test(texto)) return AMBIENTES[i];
+    }
+    return { id: 'neutro', acento: '#3ad6ff', cielo: '#0d2438', suelo: '#04070c', niebla: '#1d7fa0' };
+  };
+
+  UI.aplicarAmbiente = function (mundoNombre) {
+    const a = UI.ambienteDe(mundoNombre);
+    const r = document.documentElement;
+    r.style.setProperty('--acento', a.acento);
+    r.style.setProperty('--cielo', a.cielo);
+    r.style.setProperty('--suelo', a.suelo);
+    r.style.setProperty('--niebla', a.niebla);
+    r.setAttribute('data-bioma', a.id);
+    return a;
+  };
+
   UI.init = function () {
     UI.app = $('#app');
     const hash = location.hash || '';
@@ -125,17 +161,43 @@
     h += '<div class="holo-marco">' + SW.retrato(c.apariencia, 190) + '</div>';
     h += '<button class="btn mini bloque" data-a="rand-cara">⟳ generar aspecto</button>';
     h += '<div class="ap-controles">';
-    ['piel', 'ojos', 'pelo', 'marca', 'tocado', 'ropa'].forEach(function (k) {
-      h += '<label>' + U.titleCase(k) + '<select data-ap="' + k + '">' +
-        SW.APARIENCIA[k].map(function (o) {
-          const etq = SW.NOMBRE_COLOR[o] || o;
-          const est = o.charAt(0) === '#' ? ' style="background:' + o + ';color:#04070c"' : '';
-          return '<option value="' + U.esc(o) + '"' + est + (c.apariencia[k] === o ? ' selected' : '') + '>' + U.esc(etq) + '</option>';
-        }).join('') + '</select></label>';
+
+    /* colores: muestras que se tocan, no desplegables */
+    [['piel', 'Piel'], ['ojos', 'Ojos'], ['pelo', 'Pelo']].forEach(function (par) {
+      const k = par[0];
+      h += '<div class="ap-grupo"><label class="ap-lab">' + par[1] +
+        ' <span class="dim">' + U.esc(SW.NOMBRE_COLOR[c.apariencia[k]] || c.apariencia[k]) + '</span></label>' +
+        '<div class="muestras">';
+      SW.APARIENCIA[k].forEach(function (o) {
+        const activo = c.apariencia[k] === o;
+        if (o === 'ninguno') {
+          h += '<button class="muestra sin' + (activo ? ' on' : '') + '" data-apv="' + k + '|' + U.esc(o) + '" title="sin pelo">∅</button>';
+        } else {
+          h += '<button class="muestra' + (activo ? ' on' : '') + '" style="background:' + o + '" data-apv="' + k + '|' + U.esc(o) + '" title="' + U.esc(SW.NOMBRE_COLOR[o] || o) + '"></button>';
+        }
+      });
+      h += '</div></div>';
     });
-    h += '<label>Cráneo<select data-ap="forma">' + [0, 1, 2, 3].map(function (i) {
-      return '<option value="' + i + '"' + (c.apariencia.forma === i ? ' selected' : '') + '>tipo ' + (i + 1) + '</option>';
-    }).join('') + '</select></label>';
+
+    /* cráneo: cuatro siluetas en botones grandes */
+    h += '<div class="ap-grupo"><label class="ap-lab">Cráneo</label><div class="ap-fila">';
+    [0, 1, 2, 3].forEach(function (i) {
+      h += '<button class="ap-btn' + (c.apariencia.forma === i ? ' on' : '') + '" data-apv="forma|' + i + '">' +
+        ['◍', '◆', '▣', '⬟'][i] + '</button>';
+    });
+    h += '</div></div>';
+
+    /* el resto, en carrusel de flechas: en móvil es mucho más cómodo */
+    [['marca', 'Marcas'], ['tocado', 'Tocado'], ['ropa', 'Ropa']].forEach(function (par) {
+      const k = par[0];
+      h += '<div class="ap-grupo"><label class="ap-lab">' + par[1] + '</label>' +
+        '<div class="ap-carrusel">' +
+        '<button class="ap-flecha" data-apciclo="' + k + '|-1">◂</button>' +
+        '<span class="ap-valor">' + U.esc(c.apariencia[k]) + '</span>' +
+        '<button class="ap-flecha" data-apciclo="' + k + '|1">▸</button>' +
+        '</div></div>';
+    });
+
     h += '</div></div>';
 
     h += '<div class="col-datos">';
@@ -184,9 +246,22 @@
   UI.bindCrear = function () {
     const c = UI.creador;
     UI.app.onclick = function (e) {
-      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo]');
+      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo],[data-apv],[data-apciclo]');
       if (!b || b.disabled) return;
       UI.leerCampos();
+      if (b.dataset.apv) {
+        const par = b.dataset.apv.split('|');
+        c.apariencia[par[0]] = par[0] === 'forma' ? parseInt(par[1], 10) : par[1];
+        UI.renderCrear(); return;
+      }
+      if (b.dataset.apciclo) {
+        const par = b.dataset.apciclo.split('|');
+        const lista = SW.APARIENCIA[par[0]];
+        const i = lista.indexOf(c.apariencia[par[0]]);
+        const n = (i + parseInt(par[1], 10) + lista.length) % lista.length;
+        c.apariencia[par[0]] = lista[n];
+        UI.renderCrear(); return;
+      }
       if (b.dataset.esp) {
         c.especie = b.dataset.esp;
         UI.coherenciaCreador();
@@ -270,6 +345,7 @@
     if (s.muerto && !g.cola.length) { UI.pantallaFin(); return; }
 
     const m = SW.mundo(s.mundo);
+    const amb = UI.aplicarAmbiente(s.mundo);
     let h = '<div class="hud">';
 
     /* --- barra superior: siempre visible --- */
@@ -277,8 +353,9 @@
       '<button class="btn mini solo-movil" data-a="ficha">☰</button>' +
       '<div class="tb-id"><b>' + U.esc(s.nombre) + '</b><span>' + U.esc(s.especieN) + '</span></div>' +
       '<div class="tb-edad"><b>' + s.edad + '</b><span>' + (s.ritmo > 1 ? 'años · aspecto ' + s.edadBio : 'años') + '</span></div>' +
-      '<div class="tb-mundo"><b>✦ ' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + ' · ' + U.esc(s.eraN) + '</span></div>' +
+      '<div class="tb-mundo"><b><i class="bioma-punto"></i>' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + ' · ' + U.esc(s.eraN) + '</span></div>' +
       '<div class="tb-cr"><b>' + U.cr(s.stats.creditos) + '</b><span>créditos</span></div>' +
+      '<div class="tb-acc"><b>' + UI.pips(s) + '</b><span>acciones</span></div>' +
       '<div class="tb-mini">' + UI.miniBarras(s) + '</div>' +
       '<button class="btn mini" data-a="menu">≡</button>' +
       '</header>';
@@ -296,21 +373,30 @@
       h += '<button class="btn grande" data-a="fin">▸ VER RESUMEN DE VIDA</button>';
     } else {
       h += '<div class="acts">';
+      const sinTiempo = s.acciones <= 0;
       g.menuActividades().forEach(function (a) {
-        h += '<button class="act' + (g.actividadUsada ? ' off' : '') + '" data-act="' + a.id + '" title="' + U.esc(a.desc) + '">' +
+        h += '<button class="act' + (sinTiempo ? ' off' : '') + '" data-act="' + a.id + '" title="' + U.esc(a.desc) + '">' +
           '<i>' + a.ico + '</i><span>' + U.esc(a.n) + '</span></button>';
       });
       h += '</div>';
-      h += '<button class="btn grande avanzar" data-a="avanzar">▸ AÑO ' + (s.edad + 1) + '</button>';
+      h += '<button class="btn grande avanzar" data-a="avanzar">▸ AÑO ' + (s.edad + 1) +
+        (s.acciones > 0 ? ' <em>(te quedan ' + s.acciones + ')</em>' : '') + '</button>';
     }
     h += '</footer></div>';
 
     UI.app.innerHTML = h;
     if (g.cola.length) UI.mostrarEvento();
+    UI.mostrarPopup();
     const cons = $('#consola');
     if (cons) cons.scrollTop = cons.scrollHeight;
     UI.bindJuego();
     UI.guardarPartida();
+  };
+
+  UI.pips = function (s) {
+    let h = '';
+    for (let i = 0; i < s.accionesMax; i++) h += '<i class="pip' + (i < s.acciones ? ' on' : '') + '"></i>';
+    return h;
   };
 
   /** micro-barras de la topbar, para no depender del panel */
@@ -378,10 +464,19 @@
         }).join('') + '</p></div>';
     }
 
+    if (s.conocidos && s.conocidos.length) {
+      h += '<div class="ficha"><h4>Te has cruzado con</h4><p class="mini-lista">' +
+        s.conocidos.map(function (n) { return '<span class="tag mini canon">' + U.esc(n) + '</span>'; }).join('') +
+        '</p></div>';
+    }
+
     if (s.relaciones.length) {
       h += '<div class="ficha rels"><h4>Gente (' + s.relaciones.length + ')</h4>';
-      s.relaciones.slice(-10).forEach(function (r) {
-        h += '<div class="rel"><b>' + U.esc(r.nombre) + '</b><span>' + U.esc(r.tipo) + '</span>' +
+      s.relaciones.slice(-12).forEach(function (r) {
+        h += '<div class="rel' + (r.canon ? ' canon' : '') + '">' +
+          '<b>' + U.esc(r.nombre) + '</b>' +
+          '<span class="rel-tipo">' + U.esc(r.tipo) + '</span>' +
+          (r.quien ? '<span class="rel-quien">(' + U.esc(r.quien) + ')</span>' : '') +
           '<i class="' + (r.afecto >= 0 ? 'pos' : 'neg') + '" style="width:' + Math.abs(r.afecto) / 2 + '%"></i></div>';
       });
       h += '</div>';
@@ -401,6 +496,44 @@
       h += '<p class="l l-' + l.tipo + '">' + l.txt + '</p>';
     });
     return h;
+  };
+
+  /* ============================================================
+     VITRINA: cuando consigues algo, se ve
+     ============================================================ */
+  UI.mostrarPopup = function () {
+    const g = UI.juego;
+    if (!g || !g.popups || !g.popups.length) return;
+    const p = g.popups[0];
+
+    const cont = document.createElement('div');
+    cont.className = 'vitrina-overlay';
+    cont.innerHTML =
+      '<div class="vitrina">' +
+      '<div class="vit-cab">' + U.esc(p.titulo) + '</div>' +
+      '<div class="vit-arte"><div class="vit-halo"></div></div>' +
+      '<div class="vit-nombre">' + U.esc(p.nombre) + '</div>' +
+      '<p class="vit-desc">' + U.esc(p.desc) + '</p>' +
+      (p.stats && p.stats.length
+        ? '<div class="vit-stats">' + p.stats.map(function (x) { return '<span>' + U.esc(x) + '</span>'; }).join('') + '</div>'
+        : '') +
+      '<button class="btn grande bloque" data-vit>CONTINUAR</button>' +
+      '</div>';
+    document.body.appendChild(cont);
+
+    try {
+      const arte = cont.querySelector('.vit-arte');
+      const cv = SW.pixel(p.sprite, { escala: 7, dinamico: p.color || '#c8d4e0' });
+      arte.appendChild(cv);
+      if (p.color) arte.style.setProperty('--halo', p.color);
+    } catch (e) {}
+
+    cont.addEventListener('click', function (e) {
+      if (!e.target.closest('[data-vit]') && e.target !== cont) return;
+      cont.remove();
+      g.popups.shift();
+      UI.mostrarPopup();
+    });
   };
 
   /* ---------------- Eventos ---------------- */
@@ -435,7 +568,7 @@
       if (!b || b.disabled) return;
       if (b.dataset.op != null) { UI.elegirOpcion(parseInt(b.dataset.op, 10)); return; }
       if (b.dataset.act) {
-        if (UI.juego.actividadUsada) { UI.flash('Ya has usado tu actividad de este año.'); return; }
+        if (UI.juego.s.acciones <= 0) { UI.flash('Ya no te queda tiempo este año. Avanza de año.'); return; }
         UI.juego.hacerActividad(b.dataset.act);
         UI.renderJuego(); return;
       }

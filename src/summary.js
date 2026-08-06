@@ -87,6 +87,9 @@
       he: (s.heridas || []).map(function (h) { return h.n + ' (−' + h.sev + ')'; }),
       ba: s.bando ? (SW.faccion(s.bando) || {}).n : null,
       hb: s.habilidades,
+      cn: s.conocidos || [],
+      ob: (s.objetos || []).slice(0, 12),
+      ma: s.maestro || null,
       tr: s.trabajo ? (SW.carrera(s.trabajo) ? SW.carrera(s.trabajo).n : s.trabajo) : null,
       rg: s.rango,
       ti: s.titulos,
@@ -128,6 +131,8 @@
     if (s.heridas && s.heridas.length) L.push('║ Heridas: ' + s.heridas.map(function (h) { return h.n; }).join(', '));
     L.push('║ Alineamiento: ' + SW.etiquetaAlineamiento(s.stats.alineamiento));
     if (s.sable) L.push('║ Sable: hoja ' + s.sable.color + ' (' + s.sable.forma + ')');
+    if (s.maestro) L.push('║ Maestro: ' + s.maestro);
+    if (s.conocidos && s.conocidos.length) L.push('║ Se cruzó con: ' + s.conocidos.join(', '));
     if (s.nave) L.push('║ Nave: ' + (s.naveNombre || s.nave.n));
     L.push('║ Mundos visitados: ' + s.contadores.mundosVisitados);
     L.push('╠══ MOMENTOS ══════════════════');
@@ -163,6 +168,7 @@
     h += '<p class="cv-sub">' + U.esc(d.er) + ' · nacid@ en ' + U.esc(d.m) + '</p>';
     h += '<p class="cv-estado ' + (d.mu ? 'muerto' : 'vivo') + '">' + (d.mu ? '☠ Murió a los ' + d.ed + ' — ' + U.esc(d.cm) : '● ' + d.ed + ' años, sigue en pie') + '</p>';
     if (d.tr) h += '<p class="cv-sub">' + U.esc(d.rg || '') + ' — ' + U.esc(d.tr) + '</p>';
+    if (d.ma) h += '<p class="cv-sub">Maestro: <b>' + U.esc(d.ma) + '</b></p>';
     h += '</div></div>';
 
     if (d.ti && d.ti.length) {
@@ -192,6 +198,15 @@
 
     if (d.hb && d.hb.length) {
       h += '<div class="cv-seccion"><h3>Oficios</h3><p>' + d.hb.map(U.esc).join(' · ') + '</p></div>';
+    }
+
+    if (d.ob && d.ob.length) {
+      h += '<div class="cv-seccion"><h3>Lo que llevaba encima</h3><p>' + d.ob.map(U.esc).join(' · ') + '</p></div>';
+    }
+
+    if (d.cn && d.cn.length) {
+      h += '<div class="cv-seccion"><h3>Se cruzó con</h3><p class="cv-canon">' +
+        d.cn.map(function (n) { return '<span class="tag oro">' + U.esc(n) + '</span>'; }).join('') + '</p></div>';
     }
 
     if (d.po && d.po.length) {
@@ -245,6 +260,7 @@
       });
     }
     contar(SW.EVENTOS);
+    contar(SW.GUION || []);
     for (const k in SW.ACTOS) contar(SW.ACTOS[k]);
 
     // generadores procedurales
@@ -256,7 +272,9 @@
       { e: SW.CARRERAS.length * 4, o: 5 },                          // empleo
       { e: 9 * 7 * pools.mundo, o: 4 },                             // misión militar
       { e: 8 * pools.faccion * pools.mundo, o: 4 },                 // encargo de facción
-      { e: 4 * 40 * 40 * pools.lugar, o: 3 }                        // dilema moral
+      { e: 4 * 40 * 40 * pools.lugar, o: 3 },                       // dilema moral
+      { e: (SW.CANON ? SW.CANON.length : 0) * pools.lugar, o: 4 },   // encuentros canónicos
+      { e: 12 * 4, o: 6 }                                            // armería
     ];
     let genEsc = 0, genNodos = 0;
     gen.forEach(function (g) { genEsc += g.e; genNodos += g.e * g.o; });
@@ -272,7 +290,8 @@
       especies: SW.ESPECIES.length,
       mundos: SW.MUNDOS.length,
       carreras: SW.CARRERAS.length,
-      poderes: SW.PODERES.length
+      poderes: SW.PODERES.length,
+      canon: SW.CANON ? SW.CANON.length : 0
     };
   };
 

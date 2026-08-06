@@ -69,6 +69,7 @@
       habilidades: [],
       idiomas: ['básico'],
       objetos: [],
+      conocidos: [],          // gente conocida del canon con la que te has cruzado
       estudios: [],
       relaciones: [],
       relacionesPasadas: [],
@@ -86,6 +87,8 @@
       legado: null,
       recientes: [],
       vistos: {},
+      acciones: 3,            // acciones por año
+      accionesMax: 3,
       historia: [],
       hitos: []
     };
@@ -150,6 +153,12 @@
     if (this.s.especie === 'clon') this.log('Designación ' + this.s.nombre + '. Lote de Kamino. Crecerás al doble de velocidad.', 'res');
   }
 
+  /** Cola de vitrinas: la interfaz las muestra una a una */
+  Game.prototype.popup = function (datos) {
+    this.popups = this.popups || [];
+    this.popups.push(datos);
+  };
+
   Game.prototype.log = function (txt, tipo) {
     this.s.historia.push({ edad: this.s.edad, txt: txt, tipo: tipo || 'ev' });
     this.logAño.push({ txt: txt, tipo: tipo || 'ev' });
@@ -201,7 +210,7 @@
       if (e.esp && e.esp.indexOf(s.especie) < 0) continue;
       if (e.espNo && e.espNo.indexOf(s.especie) >= 0) continue;
       if (e.unaVez && s.vistos[e.id]) continue;
-      if (s.recientes.indexOf(e.id) >= 0) continue;
+      if (s.recientes.indexOf(e.id) >= 0 && pool.length > 6) continue;
       if (e.req) { try { if (!e.req(s)) continue; } catch (err) { continue; } }
       out.push(e);
     }
@@ -254,6 +263,8 @@
     s.edad++;
     s.edadBio += s.ritmo;
     s.contadores.años++;
+    s.accionesMax = s.edadBio < 6 ? 1 : (s.edadBio < 12 ? 2 : 3);
+    s.acciones = s.accionesMax;
     this.actividadUsada = false;
 
     if (s.carcelAños > 0) {
@@ -263,6 +274,7 @@
       this.aplicarFx({ cordura: -6, destreza: 3, fisico: 2 }, {});
       this.log('Año en prisión. Quedan ' + s.carcelAños + '.', 'mal');
       if (s.carcelAños === 0) this.log('Sales en libertad.', 'bien');
+      s.acciones = 1;   // dentro se puede hacer poco
       this.fase = 'menu';
       return;
     }
@@ -293,6 +305,15 @@
       const ev = guion.sort(function (a, b) { return (b.prio || 0) - (a.prio || 0); })[0];
       const inst = this.prepararEvento(ev);
       if (inst) this.cola.push(inst);
+    }
+
+    // encuentro con alguien conocido: muy raro, y más si eres un don nadie
+    if (s.edadBio > 12 && SW.GEN.canon) {
+      const fama = (s.stats.reputacion + s.stats.notoriedad) / 200;
+      if (this.rng.chance(0.014 + fama * 0.045)) {
+        const ev = SW.GEN.canon(this.rng, s);
+        if (ev && s.conocidos.indexOf(ev.canon.n) < 0) this.cola.push(this.prepararGen(ev));
+      }
     }
 
     const n = s.edadBio < 6 ? 1 : this.rng.int(1, 2);
@@ -453,12 +474,18 @@
         else v = parseFloat(v) || 0;
       }
       if (k === 'creditos' && v === -999999) v = -Math.max(0, s.stats.creditos);
+      // cuanto más alto está algo, menos aporta cada acierto
+      if (v > 0 && s.stats[k] != null && k !== 'creditos' && k !== 'alineamiento') {
+        v = v * Math.max(0.12, 1 - s.stats[k] / 118);
+      }
       if (k === 'fuerza' && v > 0 && !s.sensible) {
         v = v * 0.15;
         if (s.stats.fuerza + v > 15) v = Math.max(0, 15 - s.stats.fuerza);
       }
       if (k === 'salud' && v < 0) {
-        const mitig = 1 - Math.min(0.4, (s.stats.fisico / 320) + (s.stats.destreza / 500) + s.cibernetica.length * 0.05);
+        const eq = SW.bonosEquipo ? SW.bonosEquipo(s) : { def: 0 };
+        const mitig = 1 - Math.min(0.55, (s.stats.fisico / 320) + (s.stats.destreza / 500) +
+          s.cibernetica.length * 0.05 + (eq.def || 0) / 90);
         v = v * mitig;
         // los golpes fuertes dejan herida, y las heridas tardan años
         if (v <= -14) this.herir(this.rng.pick(SW.HERIDAS), Math.min(26, Math.abs(v) * 0.55));
@@ -509,6 +536,9 @@
     const texto = soloBase ? null : (d.out || (d.p != null && d.t ? d.t : null));
     if (texto) this.log(U.fill(texto, slots), d.tono || 'res');
 
+    if (d.volver) { this.devolverAccion(); return; }
+    if (d.darItem) this.darObjeto(d.darItem);
+    if (d.conocer) this.conocerCanon(d.conocer);
     if (d.flag) s.flags[U.fill(d.flag, slots)] = true;
     if (d.quitarFlag) delete s.flags[d.quitarFlag];
     if (d.contador) for (const k in d.contador) s.contadores[k] = (s.contadores[k] || 0) + d.contador[k];
@@ -516,7 +546,7 @@
     if (d.herida) this.herir(d.herida.n || 'herida', d.herida.sev || 12, d.herida.cronica);
     if (d.curarHeridas) { s.heridas = []; this.log('Te reconstruyen entero. Sales sin heridas abiertas.', 'bien'); }
 
-    if (d.rel) this.añadirRelacion(d.rel.tipo, d.rel.afecto, slots.n);
+    if (d.rel) this.añadirRelacion(d.rel.tipo, d.rel.afecto, d.rel.canon || slots.n, d.rel.quien, !!d.rel.canon);
     if (d.relTodas) s.relaciones.forEach(function (r) { r.afecto = U.clamp(r.afecto + d.relTodas, -100, 100); });
     if (d.relHijos) s.relaciones.forEach(function (r) { if (r.tipo === 'hijo') r.afecto = U.clamp(r.afecto + d.relHijos, -100, 100); });
     if (d.relPareja) s.relaciones.forEach(function (r) { if (r.tipo === 'pareja' || r.tipo === 'cónyuge') r.afecto = U.clamp(r.afecto + d.relPareja, -100, 100); });
@@ -553,6 +583,7 @@
     if (d.estudio) this.matricular(d.estudio);
     if (d.matricula) this.cola.unshift(this.prepararGen(this.menuMatricula()));
     if (d.tienda) this.cola.unshift(this.prepararGen(this.menuTienda()));
+    if (d.armeria) this.cola.unshift(this.prepararGen(SW.GEN.armeria(rng, s)));
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
     if (d.viajar) this.cola.unshift(this.prepararGen(this.menuViaje()));
     if (d.fuerzaMenu) this.cola.unshift(this.prepararGen(this.menuFuerza()));
@@ -565,8 +596,11 @@
     if (d.habilidad && s.habilidades.indexOf(d.habilidad) < 0) { s.habilidades.push(d.habilidad); this.log('Nueva habilidad: ' + d.habilidad + '.', 'bien'); }
     if (d.idioma && s.idiomas.indexOf(d.idioma) < 0) { s.idiomas.push(d.idioma); this.log('Aprendes ' + d.idioma + '.', 'bien'); }
     if (d.cibernetica) { s.cibernetica.push(typeof d.cibernetica === 'string' ? d.cibernetica : 'prótesis'); this.log('Implante instalado.', 'bien'); }
+    if (d.asignarMaestro) this.asignarMaestro(d.asignarMaestro);
+    if (d.vaciarObjetos) { s.objetos = []; this.log('Entregas todo lo que tenías.', 'res'); }
     if (d.despertar) this.despertar();
-    if (d.kyber) { s.kyber = rng.pick(SW.COLORES_KYBER); this.log('Cristal kyber ' + s.kyber.c + ' en tu poder.', 'bien'); this.hito('Obtiene un cristal kyber ' + s.kyber.c); }
+    if (d.kyber) this.darKyber();
+    if (d.sableOscuro) this.darSableOscuro();
     if (d.sableNuevo) this.construirSable(null);
     if (d.sablePierde) { s.sable = null; this.log('Ya no tienes sable.', 'mal'); }
     if (d.naveCompra) this.darNave(rng.pick(SW.NAVES));
@@ -614,14 +648,62 @@
     return n;
   };
 
-  Game.prototype.añadirRelacion = function (tipo, afecto, nombre) {
+  /* Oficios y señas que hacen memorable a la gente que conoces */
+  const OFICIOS = [
+    'mecánica de hangar', 'piloto de carga', 'médico de urgencias', 'contrabandista',
+    'cocinero de puerto', 'chatarrero', 'guardia de aduanas', 'músico de cantina',
+    'minero de especia', 'archivera', 'domador de bestias', 'falsificador',
+    'capataz de muelle', 'ingeniera de droides', 'cazarrecompensas retirado',
+    'granjera de humedad', 'traficante de información', 'monje de los Whills'
+  ];
+
+  Game.prototype.añadirRelacion = function (tipo, afecto, nombre, quien, esCanon) {
     const s = this.s, rng = this.rng;
-    const n = this.nombreLibre(nombre || SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'togruta', 'duros'])));
+    // si ya conoces a esa persona, se refuerza el vínculo en vez de duplicarla
+    if (nombre) {
+      const ya = s.relaciones.filter(function (r) { return r.nombre === nombre; })[0];
+      if (ya) {
+        ya.afecto = U.clamp(ya.afecto + Math.round((afecto || 20) / 2), -100, 100);
+        this.log('Vuelves a ver a ' + ya.nombre + '. La cosa se estrecha.', 'rel');
+        return ya.nombre;
+      }
+    }
+    const n = esCanon ? nombre : this.nombreLibre(nombre || SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'togruta', 'duros'])));
     const esp = rng.pick(SW.ESPECIES);
-    s.relaciones.push({ nombre: n, tipo: tipo, afecto: U.clamp(afecto || 20, -100, 100), especie: esp.n, desde: s.edad });
-    this.log('Nueva relación: ' + n + ' (' + tipo + ').', 'rel');
+    const desc = quien || (esCanon ? '' : rng.pick(OFICIOS));
+    s.relaciones.push({
+      nombre: n, tipo: tipo, afecto: U.clamp(afecto || 20, -100, 100),
+      especie: esCanon ? '' : esp.n, quien: desc, canon: !!esCanon, desde: s.edad
+    });
+    this.log('Nueva relación: <b>' + n + '</b> — ' + tipo + (desc ? ', ' + desc : '') + '.', 'rel');
     if (tipo === 'cónyuge' || tipo === 'pareja') this.hito(U.titleCase(tipo) + ': ' + n);
+    this.podarRelaciones();
     return n;
+  };
+
+  /** Se pierde el contacto con la gente que ni te importa ni te odia */
+  Game.prototype.podarRelaciones = function () {
+    const s = this.s;
+    if (s.relaciones.length <= 12) return;
+    const prioridad = { 'cónyuge': 5, 'pareja': 5, 'hijo': 5, 'hermano': 4, 'hermano de lote': 4, 'mentor': 3, 'aprendiz': 3, 'rival': 3, 'amigo': 2 };
+    const orden = s.relaciones.slice().sort(function (a, b) {
+      const pa = (prioridad[a.tipo] || 1) * 100 + Math.abs(a.afecto);
+      const pb = (prioridad[b.tipo] || 1) * 100 + Math.abs(b.afecto);
+      return pa - pb;
+    });
+    const fuera = orden[0];
+    if ((prioridad[fuera.tipo] || 1) >= 3) return;
+    s.relaciones = s.relaciones.filter(function (r) { return r !== fuera; });
+    s.relacionesPasadas.push(fuera);
+    this.log('Pierdes el contacto con ' + fuera.nombre + '.', 'rel');
+  };
+
+  /** Registrar que te has cruzado con alguien conocido */
+  Game.prototype.conocerCanon = function (p) {
+    const s = this.s;
+    if (s.conocidos.indexOf(p.n) >= 0) return;
+    s.conocidos.push(p.n);
+    this.hito('Se cruza con ' + p.n);
   };
   Game.prototype.nuevaRelacion = function () {
     const rng = this.rng;
@@ -661,6 +743,11 @@
   };
   Game.prototype.casarse = function () {
     const s = this.s;
+    if (SW.puedeCasarse && !SW.puedeCasarse(s)) {
+      this.log('La Orden prohíbe el apego. No hay boda: hay una conversación difícil.', 'mal');
+      this.aplicarFx({ cordura: -8 }, {});
+      return;
+    }
     const yaCasado = s.relaciones.filter(function (r) { return r.tipo === 'cónyuge'; })[0];
     let p = s.relaciones.filter(function (r) { return r.tipo === 'pareja'; })[0];
     if (yaCasado) {
@@ -686,9 +773,33 @@
   Game.prototype.darObjeto = function (nombre) {
     const s = this.s, rng = this.rng;
     let o = nombre ? SW.OBJETOS.filter(function (x) { return x.n === nombre; })[0] : null;
+    if (!o && nombre && SW.fichaObjeto(nombre)) o = { n: nombre, t: 'arma', p: 2000 };
     if (!o) o = rng.pick(SW.OBJETOS);
+    if (s.objetos.indexOf(o.n) >= 0 && rng.chance(0.5)) {
+      this.log('Otro ' + o.n + '. Vendes el viejo.', 'cr');
+      s.stats.creditos += Math.round((o.p || 500) * 0.4);
+      return;
+    }
     s.objetos.push(o.n);
-    this.log('Obtienes: ' + o.n + '.', 'bien');
+    const ficha = SW.fichaObjeto(o.n);
+    this.log('Obtienes: <b>' + o.n + '</b>.', 'bien');
+    this.popup({
+      tipo: 'objeto',
+      titulo: 'OBJETO OBTENIDO',
+      nombre: o.n,
+      sprite: SW.spriteDeObjeto(o),
+      desc: ficha
+        ? (ficha.cat === 'fuego' ? 'Arma de fuego. Ahora puedes batirte en duelos de pistolas.'
+          : ficha.cat === 'filo' ? 'Arma blanca. Sirve de cerca.'
+          : ficha.cat === 'peto' ? 'Protección: resta daño en combate.'
+          : 'Herramienta útil.')
+        : (o.t === 'reliquia' ? 'Una pieza antigua. Alguien pagaría por ella.' : 'Guardado en tu petate.'),
+      stats: ficha ? [
+        ficha.atk ? '+' + ficha.atk + ' ataque' : null,
+        ficha.def ? '+' + ficha.def + ' defensa' : null,
+        ficha.precision ? '+' + ficha.precision + ' precisión' : null
+      ].filter(Boolean) : []
+    });
   };
   Game.prototype.darMascota = function (tipo) {
     const s = this.s, rng = this.rng;
@@ -706,8 +817,16 @@
     const s = this.s;
     s.nave = nave;
     s.naveEstado = 85;
-    this.log('Ahora tienes: ' + nave.n + '.', 'bien');
+    this.log('Ahora tienes: <b>' + nave.n + '</b>.', 'bien');
     this.hito('Consigue una nave: ' + nave.n);
+    this.popup({
+      tipo: 'nave',
+      titulo: 'NAVE ADQUIRIDA',
+      nombre: nave.n,
+      sprite: SW.spriteDeNave(nave),
+      desc: 'Clase ' + nave.cls + '. Ya puedes hacer rutas de carga y meterte en combates espaciales.',
+      stats: ['velocidad ' + nave.vel, 'carga ' + nave.carga, 'armamento ' + nave.arm]
+    });
   };
 
   /* ---------------- Facciones y bandos ---------------- */
@@ -758,6 +877,15 @@
 
   Game.prototype.menuBando = function () {
     const s = this.s;
+    if (SW.puedeAlistarse && !SW.puedeAlistarse(s)) {
+      return {
+        id: 'menu_bando', gen: true, esMenu: true,
+        t: s.trabajo === 'jedi'
+          ? 'Eres de la Orden. Los jedi no se alistan en ejércitos: sirven a la República a través del Consejo, y solo si el Consejo lo ordena.'
+          : 'Un sith no se alista. Un sith coloca a otros donde le conviene y espera.',
+        c: [{ t: '◂ Entendido', volver: true }]
+      };
+    }
     const bandos = SW.bandosDeEra(s.era, s);
     const c = bandos.map(function (b) {
       return { t: b.n, sub: b.desc, bando: b.id, fx: b.fx || {}, out: b.out || '' };
@@ -839,13 +967,65 @@
     this.log('Aprendes: ' + p.n + '. ' + p.desc, 'bien');
     this.hito('Aprende ' + p.n);
   };
-  Game.prototype.construirSable = function (color) {
+  /** El cristal escoge: el color depende de quién eres, no de lo que quieras */
+  Game.prototype.darKyber = function () {
     const s = this.s, rng = this.rng;
-    const k = color || s.kyber || rng.pick(SW.COLORES_KYBER);
-    s.sable = { color: k.c, hex: k.hex, forma: s.forma || rng.pick(SW.FORMAS_SABLE) };
-    s.forma = s.sable.forma;
-    this.log('Construyes tu sable de luz: hoja ' + k.c + ', forma ' + s.sable.forma + '.', 'bien');
+    const pool = SW.COLORES_KYBER.filter(function (k) {
+      if (k.req) { try { return k.req(s); } catch (e) { return false; } }
+      return true;
+    });
+    const k = rng.weighted(pool, function (x) { return x.w || 1; });
+    s.kyber = k;
+    this.log('El cristal responde en tu mano. Es <b>' + k.c + '</b>. ' + k.s, 'bien');
+    this.hito('Obtiene un cristal kyber ' + k.c);
+    this.popup({
+      tipo: 'kyber', titulo: 'CRISTAL KYBER', nombre: 'cristal ' + k.c,
+      sprite: 'kyber', color: k.hex, desc: k.s,
+      stats: ['el cristal elige, no tú']
+    });
+  };
+
+  /** El Sable Oscuro no se construye: se hereda o se gana en combate */
+  Game.prototype.darSableOscuro = function () {
+    const s = this.s;
+    const D = SW.SABLE_OSCURO;
+    s.sable = { color: D.c, hex: D.filo, forma: s.forma || 'Makashi', oscuro: true };
+    s.flags.sable_oscuro = true;
+    s.faccionRep.mandalorianos = U.clamp((s.faccionRep.mandalorianos || 0) + 30, -100, 100);
+    this.log('El <b>Sable Oscuro</b> pasa a tus manos. ' + D.s, 'bien');
+    this.hito('Empuña el Sable Oscuro');
+    this.popup({
+      tipo: 'sable', titulo: 'SABLE OSCURO', nombre: 'el Sable Oscuro de Tarre Vizsla',
+      sprite: 'sable_oscuro', color: D.filo, desc: D.s,
+      stats: ['pieza única', 'reclama Mandalore', 'solo cambia de manos en combate']
+    });
+  };
+
+  Game.prototype.asignarMaestro = function (lado) {
+    const s = this.s, rng = this.rng;
+    const m = SW.maestroDe(rng, s.era, lado);
+    s.maestro = m.n;
+    const quien = lado === 'sith' ? 'tu maestro sith' : 'tu maestro jedi';
+    this.añadirRelacion(lado === 'sith' ? 'maestro sith' : 'maestro jedi',
+      lado === 'sith' ? 15 : 55, m.n, quien, m.canon);
+    this.log('Tu maestro será <b>' + m.n + '</b>' + (m.canon ? ' — sí, ese.' : '.'), 'bien');
+    this.hito('Maestro: ' + m.n);
+    if (m.canon) s.conocidos.push(m.n);
+  };
+
+  Game.prototype.construirSable = function (forma) {
+    const s = this.s, rng = this.rng;
+    if (!s.kyber) { this.log('Sin cristal no hay sable.', 'mal'); return; }
+    const k = s.kyber;
+    s.forma = forma || s.forma || rng.pick(SW.FORMAS_SABLE);
+    s.sable = { color: k.c, hex: k.hex, forma: s.forma };
+    this.log('Construyes tu sable de luz: hoja <b>' + k.c + '</b>, forma ' + s.sable.forma + '.', 'bien');
     this.hito('Construye un sable de luz ' + k.c);
+    this.popup({
+      tipo: 'sable', titulo: 'SABLE DE LUZ', nombre: 'sable de hoja ' + k.c,
+      sprite: 'sable', color: k.hex, desc: k.s + ' Forma de combate: ' + s.sable.forma + '.',
+      stats: ['+16 ataque', '+6 defensa', 'permite duelos de sable']
+    });
   };
 
   /* ---------------- Movimiento ---------------- */
@@ -860,8 +1040,10 @@
       s.mundosVistos.push(d);
       s.contadores.mundosVisitados = s.mundosVistos.length;
     }
-    this.log('✈ ' + anterior + ' → <b>' + d + '</b> (' + m.r + ', ' + m.bio + ')' +
-      (motivo ? ' — ' + motivo : '') + '. ' + U.titleCase(m.vibe) + '.', 'viaje');
+    const dato = SW.datoMundo ? SW.datoMundo(d) : null;
+    this.log('✈ ' + anterior + ' → <b>' + d + '</b> <span class="dim">(' + m.r + ' · ' + m.bio + ')</span>' +
+      (motivo ? ' — ' + motivo : '') + '.', 'viaje');
+    this.log('<span class="dato">◈ ' + (dato || U.titleCase(m.vibe)) + '</span>', 'dato');
     this.hito('Se traslada a ' + d);
   };
 
@@ -898,13 +1080,37 @@
 
   Game.prototype.poderCombate = function () {
     const s = this.s;
-    return s.stats.destreza * 0.55 + s.stats.fisico * 0.35 + (s.sensible ? s.stats.fuerza * 0.3 : 0) +
-      (s.sable ? 14 : 0) + (s.habilidades.indexOf('luchador') >= 0 ? 9 : 0) +
-      (s.habilidades.indexOf('tirador') >= 0 ? 7 : 0) + s.cibernetica.length * 4;
+    const eq = SW.bonosEquipo(s);
+    let p = s.stats.destreza * 0.55 + s.stats.fisico * 0.35 +
+      (s.sensible ? s.stats.fuerza * 0.3 : 0) +
+      (s.habilidades.indexOf('luchador') >= 0 ? 9 : 0) +
+      (s.habilidades.indexOf('tirador') >= 0 ? 7 : 0) +
+      s.cibernetica.length * 4 +
+      eq.atk * 0.8 + eq.precision * 0.4;
+    // pelear con las manos desnudas contra alguien armado se nota
+    if (!SW.armaDeMano(s)) p -= 14;
+    return p;
+  };
+
+  /** Reducción de daño por armadura y prótesis */
+  Game.prototype.defensa = function () {
+    const eq = SW.bonosEquipo(this.s);
+    return eq.def;
   };
 
   Game.prototype.iniciarCombate = function (cfg) {
     const s = this.s;
+    cfg = cfg || {};
+    if (cfg.pistolas && !SW.tieneArmaFuego(s)) {
+      this.log('Un duelo de blásters sin bláster no es un duelo: es un suicidio. Te retiras entre risas.', 'mal');
+      this.aplicarFx({ reputacion: -8, cordura: -5 }, {});
+      return;
+    }
+    if (cfg.sable && !s.sable) {
+      this.log('No tienes sable. No hay duelo posible.', 'mal');
+      return;
+    }
+    if (!SW.armaDeMano(s)) this.log('Peleas con lo puesto: sin arma, todo cuesta más.', 'mal');
     this.escena = {
       tipo: 'combate',
       cfg: cfg || {},
@@ -1044,8 +1250,8 @@
   /* --- minijuego de reflejos dentro del combate --- */
   Game.prototype.eventoMinijuego = function () {
     const s = this.s;
-    const armado = !!s.sable || s.habilidades.indexOf('tirador') >= 0;
-    const modo = this.escena && this.escena.cfg.duelo && !s.sable ? 'desenfundar' : (s.sable ? 'filo' : 'desenfundar');
+    // con sable se para el filo; con bláster se desenfunda; sin nada, reflejos a pelo
+    const modo = s.sable ? 'filo' : (SW.tieneArmaFuego(s) ? 'desenfundar' : 'filo');
     return {
       id: 'escena_minijuego', gen: true,
       t: '<span class="scene-tag">TE LA JUEGAS</span>' +
@@ -1080,6 +1286,12 @@
     const e = this.escena, s = this.s;
     if (!e) return;
     if (victoria) {
+      if (e.cfg.sableOscuro) this.darSableOscuro();
+      if (e.cfg.canon) {
+        this.log('Has ganado un combate del que se va a hablar.', 'bien');
+        this.aplicarFx({ reputacion: 15, notoriedad: 15 }, {});
+        this.hito('Vence a alguien de leyenda');
+      }
       const botin = e.cfg.botin || 0;
       if (botin) { s.stats.creditos += botin; this.log('Victoria. Cobras ' + U.cr(botin) + '.', 'cr'); }
       else this.log('Victoria.', 'bien');
@@ -1214,9 +1426,10 @@
         comprar: puede ? o.n : null
       };
     });
+    c.push({ t: 'Ir a la armería', sub: 'armas y protección', armeria: true });
     c.push({ t: 'Vender algo tuyo', vender: true });
-    c.push({ t: 'Salir del mercado', fx: {}, out: 'Sales sin gastar. Raro.' });
-    return { id: 'menu_tienda', gen: true, t: 'MERCADO de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
+    c.push({ t: '◂ Salir del mercado sin comprar', volver: true });
+    return { id: 'menu_tienda', gen: true, esMenu: true, t: 'MERCADO de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
   };
 
   Game.prototype.menuHangar = function () {
@@ -1239,8 +1452,8 @@
       c.push({ t: 'Mejorar armamento — ' + U.cr(30000), req: function (st) { return st.stats.creditos >= 30000; }, fx: { creditos: -30000 }, mejora: 'arm' });
       c.push({ t: 'Vender tu ' + s.nave.n, venderNave: true });
     }
-    c.push({ t: 'Salir del hangar', fx: {} });
-    return { id: 'menu_hangar', gen: true, t: 'HANGAR de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
+    c.push({ t: '◂ Salir del hangar', volver: true });
+    return { id: 'menu_hangar', gen: true, esMenu: true, t: 'HANGAR de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
   };
 
   Game.prototype.menuViaje = function () {
@@ -1267,8 +1480,8 @@
       sub: 'gratis, pero un año duro y sin elegir destino',
       fx: { fisico: 4, cordura: -5, creditos: 600 }, mover: true, motivo: 'trabajando el pasaje'
     });
-    c.push({ t: 'Quedarte en ' + s.mundo, fx: { cordura: 2 } });
-    return { id: 'menu_viaje', gen: true, t: 'PUERTO ESTELAR de ' + s.mundo + ' (' + reg + ') — tienes ' + U.cr(s.stats.creditos), c: c };
+    c.push({ t: '◂ Quedarte en ' + s.mundo, volver: true });
+    return { id: 'menu_viaje', gen: true, esMenu: true, t: 'PUERTO ESTELAR de ' + s.mundo + ' (' + reg + ') — tienes ' + U.cr(s.stats.creditos), c: c };
   };
 
   Game.prototype.menuFuerza = function () {
@@ -1281,9 +1494,10 @@
       { t: 'Estudiar textos prohibidos', sub: 'Rápido y caro', fx: { fuerza: 13, alineamiento: -12, cordura: -8 }, poder: 'auto_oscuro' },
       { t: 'Estudiar textos de la Orden', sub: 'Lento y sólido', fx: { fuerza: 9, alineamiento: 10, cordura: 5 }, poder: 'auto_luz' },
       { t: 'Practicar una forma de sable', req: function (st) { return !!st.sable; }, fx: { destreza: 8, fuerza: 5 }, habilidad: 'duelista' },
-      { t: 'Ayunar y desconectar', fx: { fuerza: -5, cordura: 15, salud: 5 } }
+      { t: 'Ayunar y desconectar', fx: { fuerza: -5, cordura: 15, salud: 5 } },
+      { t: '◂ Hoy no', volver: true }
     ];
-    return { id: 'menu_fuerza', gen: true, t: 'LA FUERZA — nivel ' + s.stats.fuerza + ' · alineamiento ' + SW.etiquetaAlineamiento(s.stats.alineamiento), c: c };
+    return { id: 'menu_fuerza', gen: true, esMenu: true, t: 'LA FUERZA — nivel ' + s.stats.fuerza + ' · alineamiento ' + SW.etiquetaAlineamiento(s.stats.alineamiento), c: c };
   };
 
   Game.prototype.menuClinica = function () {
@@ -1305,8 +1519,8 @@
       c.push({ t: 'No tienes heridas abiertas', sub: 'el médico te mira con envidia', fx: { cordura: 3 } });
     }
     c.push({ t: 'Tanque de bacta completo — ' + U.cr(30000), req: function (st) { return st.stats.creditos >= 30000; }, fx: { creditos: -30000, salud: 20 }, curarHeridas: true });
-    c.push({ t: 'Salir de la clínica', fx: {} });
-    return { id: 'menu_clinica', gen: true, t: 'CLÍNICA de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
+    c.push({ t: '◂ Salir de la clínica', volver: true });
+    return { id: 'menu_clinica', gen: true, esMenu: true, t: 'CLÍNICA de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
   };
 
   Game.prototype.menuMatricula = function () {
@@ -1324,8 +1538,8 @@
         estudio: puede ? e.id : null
       };
     });
-    c.push({ t: 'Ninguno', fx: {} });
-    return { id: 'menu_matricula', gen: true, t: 'PROGRAMAS DE FORMACIÓN disponibles', c: c };
+    c.push({ t: '◂ Ninguno por ahora', volver: true });
+    return { id: 'menu_matricula', gen: true, esMenu: true, t: 'PROGRAMAS DE FORMACIÓN disponibles', c: c };
   };
 
   Game.prototype.menuNombreNave = function () {
@@ -1335,17 +1549,35 @@
     const nombres = [];
     for (let i = 0; i < 5; i++) nombres.push(rng.pick(adj) + ' ' + rng.pick(comp));
     return {
-      id: 'menu_nave_nombre', gen: true,
+      id: 'menu_nave_nombre', gen: true, esMenu: true,
       t: 'Hay que bautizarla. En el Borde dicen que una nave sin nombre no vuelve.',
       c: nombres.map(function (n) { return { t: '"' + n + '"', ponerNombreNave: n }; })
     };
   };
 
   Game.prototype.menuSable = function () {
+    const s = this.s;
+    const k = s.kyber;
+    const notas = {
+      'Shii-Cho': 'La Forma I. Básica, tosca y fiable cuando todo falla.',
+      'Makashi': 'La Forma II. Duelo puro, elegante, pensada contra otro sable.',
+      'Soresu': 'La Forma III. Defensa cerrada; nadie gana rápido contra ella.',
+      'Ataru': 'La Forma IV. Acrobática y agotadora.',
+      'Shien/Djem So': 'La Forma V. Devolver el golpe con más fuerza de la que vino.',
+      'Niman': 'La Forma VI. Equilibrada, la del diplomático.',
+      'Juyo/Vaapad': 'La Forma VII. Al filo del lado oscuro; pocos la controlan.'
+    };
+    const c = SW.FORMAS_SABLE.filter(function (f) {
+      if (f === 'Juyo/Vaapad') return s.stats.fuerza > 55;
+      return true;
+    }).map(function (f) {
+      return { t: f, sub: notas[f] || '', construirForma: f };
+    });
     return {
-      id: 'menu_sable', gen: true,
-      t: 'El cristal responde. ¿Qué color canta dentro de ti?',
-      c: SW.COLORES_KYBER.map(function (k) { return { t: 'Hoja ' + k.c, sub: k.s, colorSable: k.c }; })
+      id: 'menu_sable', gen: true, esMenu: true,
+      t: 'Tu cristal es <b>' + (k ? k.c : '—') + '</b>: eso ya está decidido, el cristal eligió por ti. ' +
+         'Lo que sí eliges es cómo peleas.',
+      c: c.concat([{ t: '◂ Todavía no', volver: true }])
     };
   };
 
@@ -1361,22 +1593,108 @@
 
   Game.prototype.hacerActividad = function (id) {
     const s = this.s, rng = this.rng;
+    if (s.acciones <= 0) { this.log('Ya no te queda tiempo este año.', 'res'); return; }
+    s.acciones--;
+    this.actividadEnCurso = id;
     const pool = SW.ACTOS[id] || [];
     const posibles = this.eventosPosibles(pool);
     if (!posibles.length) {
-      // nunca dejes al jugador sin nada: tira de generador
-      const gens = { crimen: 'contrato', nave: 'ruta', accion: 'accion', viaje: null };
+      // nunca dejes al jugador sin nada que decidir
+      const gens = { crimen: 'contrato', nave: 'ruta', accion: 'accion', escuadron: 'mision', politica: 'encargo', exploracion: 'encargo' };
       const g = gens[id];
-      if (g && SW.GEN[g]) { this.cola.push(this.prepararGen(SW.GEN[g](rng, s))); }
-      else if (id === 'viaje') { this.cola.push(this.prepararGen(this.menuViaje())); }
-      else { this.log('Este año no surge nada por esa vía.', 'res'); }
+      if (g && SW.GEN[g]) this.cola.push(this.prepararGen(SW.GEN[g](rng, s)));
+      else if (id === 'viaje') this.cola.push(this.prepararGen(this.menuViaje()));
+      else if (id === 'mercado') this.cola.push(this.prepararGen(this.menuTienda()));
+      else if (id === 'salud') this.cola.push(this.prepararGen(this.menuClinica()));
+      else if (id === 'fuerza') this.cola.push(this.prepararGen(this.menuFuerza()));
+      else this.cola.push(this.prepararGen(this.rellenoActividad(id)));
     } else {
       const ev = this.elegirEvento(posibles);
       const inst = this.prepararEvento(ev);
       if (inst) this.cola.push(inst);
     }
-    this.actividadUsada = true;
+    this.actividadUsada = s.acciones <= 0;
     this.fase = 'evento';
+  };
+
+  /** El jugador ha salido de un menú sin decidir nada: se le devuelve la acción */
+  Game.prototype.devolverAccion = function () {
+    const s = this.s;
+    if (s.acciones < s.accionesMax) s.acciones++;
+    this.actividadUsada = false;
+    this.cola = [];
+    this.escena = null;
+    this.fase = 'menu';
+  };
+
+  /* Un rato dedicado a algo siempre da para algo, aunque sea pequeño */
+  const RELLENO = {
+    trabajo: { t: 'No hay nada nuevo en el trabajo, pero el año pasa igual.', c: [
+      { t: 'Cumplir el horario sin más', fx: { creditos: 'sueldo*0.1', cordura: 3 }, out: 'Turnos, café y poco más.' },
+      { t: 'Aprender de los veteranos', fx: { intelecto: 5, carisma: 3 }, out: 'Te enseñan trucos que no vienen en ningún manual.' },
+      { t: 'Hacer horas de más por si acaso', fx: { creditos: 'sueldo*0.25', salud: -4 }, rendimiento: 8, out: 'Nadie lo pide. Alguien lo apunta.' },
+      { t: '◂ Dejarlo estar', volver: true }
+    ] },
+    formacion: { t: 'Nadie te va a enseñar nada esta vez. Te toca a ti.', c: [
+      { t: 'Repasar lo que ya sabes hasta clavarlo', fx: { intelecto: 5, destreza: 4 }, out: 'La repetición aburre y funciona.' },
+      { t: 'Leer por curiosidad, sin plan', fx: { intelecto: 6, cordura: 4 }, out: 'Cosas inútiles que algún día servirán.' },
+      { t: 'Entrenar el cuerpo por tu cuenta', fx: { fisico: 6, salud: 3 }, out: 'Sin gimnasio, sin excusas.' },
+      { t: '◂ Otro año', volver: true }
+    ] },
+    social: { t: 'Nadie te ha llamado. Puedes llamar tú.', c: [
+      { t: 'Ver a los tuyos sin motivo', fx: { cordura: 8 }, relTodas: 8, out: 'Una tarde tonta y necesaria.' },
+      { t: 'Salir a que te vea gente', fx: { carisma: 5, creditos: -600 }, out: 'Caras nuevas, ninguna importante todavía.' },
+      { t: 'Escribir a alguien con quien lo dejaste a medias', fx: { cordura: 6, carisma: 3 }, relTodas: 6, out: 'Contesta. Tarde, pero contesta.' },
+      { t: '◂ Estar solo', volver: true }
+    ] },
+    crimen: { t: 'El barrio está tranquilo. Demasiado.', c: [
+      { t: 'Escuchar en las cantinas', fx: { intelecto: 4, notoriedad: 3 }, out: 'Anotas nombres. Se usan más adelante.' },
+      { t: 'Trapicheo de poca monta', fx: { creditos: 4000, alineamiento: -5, notoriedad: 4 }, out: 'Poco riesgo, poco beneficio.' },
+      { t: '◂ Mantener el perfil bajo', volver: true }
+    ] },
+    nave: { t: 'Hoy el hangar solo pide mantenimiento.', c: [
+      { t: 'Revisar la nave de arriba abajo', req: function (st) { return !!st.nave; }, fx: { intelecto: 4 }, naveEstado: 15, out: 'Aprietas lo que estaba flojo.' },
+      { t: 'Trabajar de mecánico para otros', fx: { creditos: 4500, intelecto: 4 }, out: 'Manos negras y algo de dinero.' },
+      { t: '◂ Salir del hangar', volver: true }
+    ] },
+    accion: { t: 'No hay pelea que buscar. Puedes prepararte para la próxima.', c: [
+      { t: 'Entrenar tácticas de combate', fx: { destreza: 5, fisico: 4 }, out: 'Solo, contra un muñeco de prácticas.' },
+      { t: 'Estudiar cómo pelea la gente de aquí', fx: { intelecto: 5, destreza: 3 }, out: 'Cada mundo tiene sus vicios de guardia.' },
+      { t: '◂ Dejarlo', volver: true }
+    ] },
+    escuadron: { t: 'Semana tranquila en la unidad.', c: [
+      { t: 'Mantenimiento de equipo', fx: { intelecto: 4, destreza: 3 }, out: 'Todo limpio, todo revisado.' },
+      { t: 'Beber con los tuyos', fx: { cordura: 8 }, relTodas: 10, out: 'Historias repetidas que siguen haciendo gracia.' },
+      { t: '◂ Descansar', volver: true }
+    ] },
+    politica: { t: 'Ningún asunto grande sobre la mesa.', c: [
+      { t: 'Cultivar contactos', fx: { carisma: 5, reputacion: 4 }, out: 'Comidas largas y ninguna decisión.' },
+      { t: 'Leer expedientes atrasados', fx: { intelecto: 6 }, out: 'Encuentras una cifra que no cuadra.' },
+      { t: '◂ Dejarlo pasar', volver: true }
+    ] },
+    exploracion: { t: 'Los mapas de la zona ya están hechos. Casi todos.', c: [
+      { t: 'Revisar cartas viejas buscando huecos', fx: { intelecto: 6 }, out: 'Hay tres sistemas mal catalogados. Interesante.' },
+      { t: 'Salir a caminar sin rumbo', fx: { cordura: 8, fisico: 4 }, out: 'No encuentras nada. Vuelves mejor.' },
+      { t: '◂ Quedarte', volver: true }
+    ] },
+    mercado: { t: 'El mercado está flojo hoy.', c: [
+      { t: 'Regatear por deporte', fx: { carisma: 5 }, out: 'No compras nada. Aprendes precios.' },
+      { t: '◂ Salir', volver: true }
+    ] },
+    salud: { t: 'Nada que tratar. Puedes cuidarte igual.', c: [
+      { t: 'Dormir bien todo un año', fx: { salud: 6, cordura: 8 }, out: 'Suena tonto. Funciona.' },
+      { t: 'Comer decente por una vez', fx: { salud: 5, fisico: 3, creditos: -1500 }, out: 'El cuerpo lo agradece.' },
+      { t: '◂ Ya me cuidaré', volver: true }
+    ] },
+    fuerza: { t: 'Silencio. Ni visiones ni maestros.', c: [
+      { t: 'Sentarte a escuchar', fx: { fuerza: 5, cordura: 8 }, out: 'Nada habla. También es una respuesta.' },
+      { t: '◂ Levantarte', volver: true }
+    ] }
+  };
+
+  Game.prototype.rellenoActividad = function (id) {
+    const base = RELLENO[id] || RELLENO.social;
+    return { id: 'relleno_' + id, gen: true, esMenu: true, t: base.t, c: base.c };
   };
 
   /* ---------------- Extras de interfaz ---------------- */
@@ -1419,10 +1737,7 @@
       this.log('Tu nave se llama "' + d.ponerNombreNave + '".', 'bien');
       this.hito('Bautiza su nave: ' + d.ponerNombreNave);
     }
-    if (d.colorSable) {
-      const k = SW.COLORES_KYBER.filter(function (x) { return x.c === d.colorSable; })[0];
-      this.construirSable(k);
-    }
+    if (d.construirForma) this.construirSable(d.construirForma);
     clampStats(s);
   };
 

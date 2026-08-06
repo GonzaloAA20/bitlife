@@ -476,6 +476,206 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
   .avanzar { width: 100%; text-align: center; }
 }
 
+/* ============================================================
+   AMBIENTE POR MUNDO
+   El bioma del planeta tiñe el fondo, el acento y la niebla.
+   ============================================================ */
+:root {
+  --acento: #3ad6ff;
+  --cielo:  #0d2438;
+  --suelo:  #04070c;
+  --niebla: #1d7fa0;
+}
+
+body.en-juego::before {
+  background:
+    radial-gradient(1px 1px at 12% 22%, #cfe8f5 50%, transparent 51%),
+    radial-gradient(1px 1px at 68% 14%, #9fd4ff 50%, transparent 51%),
+    radial-gradient(1px 1px at 34% 71%, #ffffff 50%, transparent 51%),
+    radial-gradient(1px 1px at 82% 63%, #ffd9a0 50%, transparent 51%),
+    radial-gradient(1600px 800px at 50% -12%, var(--cielo) 0%, transparent 72%),
+    linear-gradient(var(--suelo), #05080e);
+  transition: background 1.2s ease;
+}
+
+.bioma-punto {
+  display: inline-block; width: 7px; height: 7px; margin-right: 6px;
+  background: var(--acento); border-radius: 50%;
+  box-shadow: 0 0 10px var(--acento);
+  animation: latido 3s ease-in-out infinite;
+}
+@keyframes latido { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+
+/* la consola respira el color del planeta */
+.consola {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--acento) 7%, transparent), transparent 180px),
+    var(--bg2);
+  transition: background .8s ease;
+}
+.año::after { background: linear-gradient(90deg, color-mix(in srgb, var(--acento) 55%, #4a3a16), transparent); }
+.año span { color: var(--acento); }
+
+/* ============================================================
+   HUD MÁS TRABAJADO
+   ============================================================ */
+.topbar {
+  position: relative;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--cielo) 55%, #0b1826), #060e18);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--acento) 25%, transparent);
+}
+.topbar::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--acento), transparent);
+  opacity: .5;
+}
+.tb-mundo b { color: var(--acento) !important; }
+
+.tb-acc { align-items: flex-start; }
+.tb-acc b { display: flex; gap: 4px; align-items: center; height: 14px; }
+.pip {
+  display: block; width: 9px; height: 9px; border: 1px solid var(--niebla);
+  transform: rotate(45deg); background: transparent; transition: all .2s;
+}
+.pip.on { background: var(--acento); border-color: var(--acento); box-shadow: 0 0 8px var(--acento); }
+
+.avanzar em { font-style: normal; opacity: .6; font-size: 11px; }
+
+/* esquinas de marco: el detalle que hace que parezca un aparato */
+.panel, .consola { position: relative; }
+.evento::after, .vitrina::after {
+  content: ""; position: absolute; inset: 6px; pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--acento) 18%, transparent);
+  clip-path: polygon(0 0, 14px 0, 14px 1px, calc(100% - 14px) 1px, calc(100% - 14px) 0, 100% 0,
+                     100% 14px, calc(100% - 1px) 14px, calc(100% - 1px) calc(100% - 14px), 100% calc(100% - 14px),
+                     100% 100%, calc(100% - 14px) 100%, calc(100% - 14px) calc(100% - 1px), 14px calc(100% - 1px),
+                     14px 100%, 0 100%, 0 calc(100% - 14px), 1px calc(100% - 14px), 1px 14px, 0 14px);
+}
+
+/* ficha del panel con cabecera de verdad */
+.ficha h4 {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--acento);
+}
+.ficha h4::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--acento) 40%, transparent), transparent); }
+
+/* relaciones legibles: nombre, qué es y a qué se dedica */
+.rel { padding: 5px 0 7px; }
+.rel b { display: block; }
+.rel-tipo {
+  display: inline-block; font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--acento); border: 1px solid color-mix(in srgb, var(--acento) 35%, transparent);
+  padding: 0 4px; margin-right: 5px;
+}
+.rel-quien { font-size: 10.5px; color: var(--txt-dim); font-style: italic; }
+.rel.canon b { color: var(--oro); }
+.rel.canon { border-left: 2px solid var(--oro); padding-left: 6px; }
+.tag.mini.canon { border-color: var(--oro); color: var(--oro); }
+
+/* dato de planeta en la consola */
+.l-dato { color: var(--acento); font-size: 12.5px; opacity: .85; font-style: italic; padding-left: 12px; }
+.canon-tag {
+  display: inline-block; font-size: 10px; letter-spacing: .22em; color: var(--oro);
+  border: 1px solid var(--oro); padding: 2px 8px; margin-bottom: 8px; text-transform: uppercase;
+  box-shadow: 0 0 14px rgba(216,184,74,.2);
+}
+
+/* ============================================================
+   VITRINA DE OBJETO
+   ============================================================ */
+.vitrina-overlay {
+  position: fixed; inset: 0; z-index: 700;
+  background: radial-gradient(circle at 50% 45%, rgba(4,10,16,.86), rgba(1,3,6,.97));
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: fadeIn .2s ease;
+}
+.vitrina {
+  position: relative; width: 100%; max-width: 380px; text-align: center;
+  background: linear-gradient(180deg, #0c1b2a, #070f19);
+  border: 1px solid var(--acento);
+  box-shadow: 0 0 60px color-mix(in srgb, var(--acento) 25%, transparent), var(--sombra);
+  padding: 20px 22px 18px;
+  animation: vitrinaEntra .35s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes vitrinaEntra {
+  from { transform: scale(.86) translateY(12px); opacity: 0 }
+  to   { transform: none; opacity: 1 }
+}
+.vit-cab {
+  font-size: 10px; letter-spacing: .3em; color: var(--acento);
+  text-transform: uppercase; margin-bottom: 14px;
+}
+.vit-arte {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  min-height: 150px; margin-bottom: 12px;
+  --halo: var(--acento);
+}
+.vit-halo {
+  position: absolute; width: 150px; height: 150px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--halo) 30%, transparent), transparent 68%);
+  animation: pulso 2.6s ease-in-out infinite;
+}
+@keyframes pulso { 0%,100% { transform: scale(1); opacity: .75 } 50% { transform: scale(1.14); opacity: 1 } }
+.vit-arte canvas { position: relative; z-index: 1; image-rendering: pixelated; filter: drop-shadow(0 0 12px color-mix(in srgb, var(--halo) 55%, transparent)); }
+.sprite { image-rendering: pixelated; }
+.vit-nombre { font-family: var(--disp); font-size: 21px; letter-spacing: .04em; color: var(--ambar); margin-bottom: 6px; }
+.vit-desc { font-size: 12.5px; color: var(--txt); margin: 0 0 12px; line-height: 1.5; }
+.vit-stats { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin-bottom: 14px; }
+.vit-stats span {
+  font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  border: 1px solid var(--linea); padding: 3px 8px; color: var(--verde);
+}
+
+/* ============================================================
+   CREADOR TÁCTIL
+   ============================================================ */
+.ap-grupo { margin-bottom: 12px; }
+.ap-lab { display: block; font-size: 10px; letter-spacing: .14em; color: var(--txt-dim); text-transform: uppercase; margin-bottom: 5px; }
+.muestras { display: flex; flex-wrap: wrap; gap: 5px; }
+.muestra {
+  width: 26px; height: 26px; border: 2px solid #16293a; cursor: pointer; padding: 0;
+  border-radius: 3px; transition: all .12s;
+}
+.muestra:hover { transform: scale(1.12); }
+.muestra.on { border-color: #fff; box-shadow: 0 0 12px rgba(255,255,255,.5); transform: scale(1.14); }
+.muestra.sin { background: #0a1620; color: var(--txt-dim); font-size: 13px; line-height: 22px; }
+.ap-fila { display: flex; gap: 5px; }
+.ap-btn {
+  flex: 1; height: 34px; font-size: 17px; cursor: pointer;
+  background: #08141f; border: 1px solid #16293a; color: var(--txt-dim); border-radius: 3px;
+}
+.ap-btn.on { border-color: var(--acento); color: var(--acento); box-shadow: 0 0 12px color-mix(in srgb, var(--acento) 30%, transparent); }
+.ap-carrusel { display: flex; align-items: stretch; gap: 5px; }
+.ap-flecha {
+  width: 34px; cursor: pointer; background: #08141f; border: 1px solid #16293a;
+  color: var(--acento); font-size: 14px; border-radius: 3px;
+}
+.ap-flecha:hover { border-color: var(--acento); }
+.ap-valor {
+  flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: 11.5px; color: var(--txt); background: #061019; border: 1px solid var(--linea);
+  padding: 6px 4px; border-radius: 3px; line-height: 1.25;
+}
+
+/* ============================================================
+   AJUSTES RESPONSIVE DEL REDISEÑO
+   ============================================================ */
+@media (max-width: 900px) {
+  .topbar > .tb-acc { display: flex; }
+  .pip { width: 8px; height: 8px; }
+}
+@media (max-width: 560px) {
+  .vitrina { padding: 16px; }
+  .vit-arte { min-height: 120px; }
+  .vit-arte canvas { max-width: 78vw; height: auto; }
+  .muestra { width: 30px; height: 30px; }
+  .crear-grid { gap: 14px; }
+}
+
+.cv-canon { display: flex; flex-wrap: wrap; gap: 5px; }
+.cv-heridas { color: var(--rojo); }
+
 </style>
 </head>
 <body>
@@ -1543,6 +1743,975 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
 
   /* la clínica entra en el menú de salud */
   SW.ACTIVIDADES.forEach(function (a) { if (a.id === 'salud') a.desc = 'Clínicas, heridas, gimnasio, terapia, implantes.'; });
+
+})(window);
+
+/* ===== src/pixelart.js ===== */
+/* ============================================================
+   HOLOVIDA :: pixel art
+   Sprites dibujados a mano en rejilla de caracteres. Cada letra
+   es un color de la paleta del sprite; el carácter '#' se
+   sustituye por un color dinámico (la hoja de un sable, el
+   casco de una nave) para que el mismo dibujo sirva para
+   muchas variantes.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+
+  /* paletas compartidas */
+  const METAL = { a: '#2a3038', b: '#4a545e', c: '#6e7b88', d: '#98a6b4', e: '#c8d4e0' };
+  const OSCURO = { a: '#14181d', b: '#242b33' };
+
+  /* ---------------- SPRITES ----------------
+     '.' = transparente · '#' = color dinámico
+  */
+  const S = {};
+
+  /* --- sable de luz encendido (24x24) --- */
+  S.sable = {
+    w: 24, h: 24,
+    pal: Object.assign({}, METAL, { g: '#ffffff', k: '#c8a050' }),
+    px: [
+      '..........####..........',
+      '..........####..........',
+      '.........g####g.........',
+      '.........g####g.........',
+      '.........g####g.........',
+      '.........g####g.........',
+      '.........g####g.........',
+      '.........g####g.........',
+      '.........g####g.........',
+      '.........g####g.........',
+      '.........g####g.........',
+      '.........g####g.........',
+      '.........g####g.........',
+      '.........g####g.........',
+      '.........ddddd..........',
+      '.........dceed..........',
+      '.........dcbcd..........',
+      '.........dkkkd..........',
+      '.........dcbcd..........',
+      '.........dcbcd..........',
+      '.........dkkkd..........',
+      '.........dcbcd..........',
+      '.........ddddd..........',
+      '..........ccc...........'
+    ]
+  };
+
+  /* --- sable oscuro: hoja plana con filo blanco --- */
+  S.sable_oscuro = {
+    w: 24, h: 24,
+    pal: Object.assign({}, METAL, { g: '#d8d0ff', n: '#1a1524', k: '#8a7fd8' }),
+    px: [
+      '..........g.g...........',
+      '.........gnnng..........',
+      '.........gnnng..........',
+      '.........gnnng..........',
+      '.........gnnng..........',
+      '.........gnnng..........',
+      '........gnnnng..........',
+      '........gnnnng..........',
+      '........gnnnng..........',
+      '........gnnnng..........',
+      '........gnnnnng.........',
+      '........gnnnnng.........',
+      '.......gnnnnnng.........',
+      '.......gnnnnnng.........',
+      '........ddddd...........',
+      '........dkkkd...........',
+      '........dcbcd...........',
+      '........dcbcd...........',
+      '........dkkkd...........',
+      '........dcbcd...........',
+      '........dcbcd...........',
+      '........dkkkd...........',
+      '........ddddd...........',
+      '.........ccc............'
+    ]
+  };
+
+  /* --- cristal kyber (16x16) --- */
+  S.kyber = {
+    w: 16, h: 16,
+    pal: { g: '#ffffff' },
+    px: [
+      '................',
+      '.......##.......',
+      '......g##g......',
+      '.....g####g.....',
+      '....g######g....',
+      '....########....',
+      '...g########g...',
+      '...##########...',
+      '...##########...',
+      '...g########g...',
+      '....########....',
+      '....g######g....',
+      '.....g####g.....',
+      '......g##g......',
+      '.......##.......',
+      '................'
+    ]
+  };
+
+  /* --- naves: cuatro siluetas distintas (28x20) --- */
+  S.nave_carguero = {
+    w: 28, h: 20,
+    pal: Object.assign({}, METAL, { r: '#c85a2a', g: '#7fd8ff' }),
+    px: [
+      '............................',
+      '.......bbbb.....bbbb........',
+      '......bccccb...bccccb.......',
+      '......bcddcb...bcddcb.......',
+      '.......bccb.....bccb........',
+      '.....bbbbbbbbbbbbbbbb.......',
+      '....bcccccccccccccccccb.....',
+      '...bcdddddddddddddddddcb....',
+      '..bcddd###########dddddcb...',
+      '..bcdd#############ddddcb...',
+      '..bcdd####ggg######ddddcb...',
+      '..bcdd####ggg######ddddcb...',
+      '..bcdd#############ddddcb...',
+      '..bcddd###########dddddcb...',
+      '...bcdddddddddddddddddcb....',
+      '....bcccccccccccccccccb.....',
+      '.....bbbbbbbbbbbbbbbb.......',
+      '......rrb.........brr.......',
+      '.......rr.........rr........',
+      '............................'
+    ]
+  };
+  S.nave_caza = {
+    w: 28, h: 20,
+    pal: Object.assign({}, METAL, { r: '#ff4d5e', g: '#7fd8ff' }),
+    px: [
+      '..b......................b..',
+      '..bb....................bb..',
+      '..bcb..................bcb..',
+      '..bccb................bccb..',
+      '..bcccb..............bcccb..',
+      '..bccccb....####....bccccb..',
+      '...bcccb...######...bcccb...',
+      '...bcccb..########..bcccb...',
+      '...bcccbb#########bbcccb....',
+      '....bcccb###ggg###bcccb.....',
+      '....bcccb###ggg###bcccb.....',
+      '...bcccbb#########bbcccb....',
+      '...bcccb..########..bcccb...',
+      '...bcccb...######...bcccb...',
+      '..bccccb....####....bccccb..',
+      '..bcccb....r####r...bcccb...',
+      '..bccb......rrrr.....bccb...',
+      '..bcb........rr.......bcb...',
+      '..bb..................bb....',
+      '..b....................b....'
+    ]
+  };
+  S.nave_lanzadera = {
+    w: 28, h: 20,
+    pal: Object.assign({}, METAL, { g: '#7fd8ff' }),
+    px: [
+      '.............##.............',
+      '............####............',
+      '............####............',
+      '...........b####b...........',
+      '...........b####b...........',
+      '..........bc####cb..........',
+      '..........bc####cb..........',
+      '.........bcc####ccb.........',
+      '.........bcc####ccb.........',
+      '........bccc####cccb........',
+      '.......bcccc####ccccb.......',
+      '......bccccc####cccccb......',
+      '.....bcccccc####ccccccb.....',
+      '....bccccccc####cccccccb....',
+      '...bcccccccc#gg#cccccccb....',
+      '..bccccccccc#gg#ccccccccb...',
+      '..bbbbbbbbbb####bbbbbbbbb...',
+      '............####............',
+      '...........b####b...........',
+      '............b..b............'
+    ]
+  };
+  S.nave_capital = {
+    w: 28, h: 20,
+    pal: Object.assign({}, METAL, { g: '#7fd8ff', r: '#ff9d3d' }),
+    px: [
+      '............................',
+      '.............bb.............',
+      '............b##b............',
+      '...........b####b...........',
+      '..........b######b..........',
+      '.........b########b.........',
+      '........b##########b........',
+      '.......b############b.......',
+      '......b##############b......',
+      '.....b###ggg####ggg###b.....',
+      '....b#################b.....',
+      '...b###################b....',
+      '..b#####################b...',
+      '.b#######################b..',
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbb.',
+      '..rrb...rrb....brr...brr....',
+      '...rr....rr.....rr....rr....',
+      '............................',
+      '............................',
+      '............................'
+    ]
+  };
+
+  /* --- bláster (24x14) --- */
+  S.blaster = {
+    w: 24, h: 14,
+    pal: Object.assign({}, METAL, OSCURO, { r: '#c85a2a', g: '#ff4d5e' }),
+    px: [
+      '........................',
+      '.......bbbbbb...........',
+      '......bccccccbbbb.......',
+      '.....bcddddddccccbb.....',
+      'g.g.bcdeeeeeddddddccb...',
+      '..bbcddddddddddddddccb..',
+      '.bcccccccccccccccccccb..',
+      '.bccbbbbbbbbbbbbbbbbb...',
+      '.bccb....bccb...........',
+      '.bccb...bcddcb..........',
+      '..bb....bcddcb..........',
+      '........bccccb..........',
+      '.........brrb...........',
+      '..........bb............'
+    ]
+  };
+
+  /* --- casco de beskar (18x18) --- */
+  S.casco = {
+    w: 18, h: 18,
+    pal: Object.assign({}, METAL, OSCURO),
+    px: [
+      '......eeeeee......',
+      '....eedddddee.....',
+      '...edddddddde.....',
+      '..eddddddddddde...',
+      '..edddddddddddde..',
+      '..eddddddddddddde.',
+      '..edddaaaaaddddde.',
+      '..eddaaaaaaadddde.',
+      '..edaaaaaaaaaddde.',
+      '..edaaaaaaaaaddde.',
+      '..edddaaaaaddddde.',
+      '..eddddddddddddde.',
+      '..eddddddddddddde.',
+      '...eddddddddddde..',
+      '....eddddddddde...',
+      '.....eddddddde....',
+      '......eeeeeee.....',
+      '..................'
+    ]
+  };
+
+  /* --- holocrón (18x18) --- */
+  S.holocron = {
+    w: 18, h: 18,
+    pal: { g: '#ffffff', k: '#c8a050' },
+    px: [
+      '..................',
+      '......kkkkkk......',
+      '....kk######kk....',
+      '...k##########k...',
+      '..k############k..',
+      '..k##gggggggg##k..',
+      '..k##g######g##k..',
+      '..k##g#gggg#g##k..',
+      '..k##g#g..g#g##k..',
+      '..k##g#g..g#g##k..',
+      '..k##g#gggg#g##k..',
+      '..k##g######g##k..',
+      '..k##gggggggg##k..',
+      '..k############k..',
+      '...k##########k...',
+      '....kk######kk....',
+      '......kkkkkk......',
+      '..................'
+    ]
+  };
+
+  /* --- droide astromecánico (16x18) --- */
+  S.droide = {
+    w: 16, h: 18,
+    pal: Object.assign({}, METAL, { g: '#3ad6ff', r: '#ff4d5e' }),
+    px: [
+      '.....dddd.......',
+      '....ddeedd......',
+      '...ddeggedd.....',
+      '...deggggcd.....',
+      '...dddddddd.....',
+      '..bdddddddddb...',
+      '..bd##rr##ddb...',
+      '..bd######ddb...',
+      '..bd##gg##ddb...',
+      '..bd######ddb...',
+      '..bd##rr##ddb...',
+      '..bd######ddb...',
+      '..bd######ddb...',
+      '..bdddddddddb...',
+      '..b.dddddd..b...',
+      '..b.dd..dd..b...',
+      '....dd..dd......',
+      '...ddd..ddd.....'
+    ]
+  };
+
+  /* --- armadura / peto (18x18) --- */
+  S.armadura = {
+    w: 18, h: 18,
+    pal: Object.assign({}, METAL, OSCURO),
+    px: [
+      '..................',
+      '...cc........cc...',
+      '..cddc......cddc..',
+      '.cdddcc####ccdddc.',
+      '.cddddc####cddddc.',
+      '.cddd##########dc.',
+      '..cd############c.',
+      '..cd####aa####dc..',
+      '..cd###aaaa###dc..',
+      '..cd####aa####dc..',
+      '..cd##########dc..',
+      '..cd##########dc..',
+      '...c##########c...',
+      '...c###ddd####c...',
+      '....c##ddd###c....',
+      '....cc#####cc.....',
+      '.....ccccccc......',
+      '..................'
+    ]
+  };
+
+  /* --- reliquia genérica (16x16) --- */
+  S.reliquia = {
+    w: 16, h: 16,
+    pal: { k: '#c8a050', a: '#5a4a2a', g: '#fff4d0' },
+    px: [
+      '................',
+      '....kkkkkkkk....',
+      '...kaaaaaaaak...',
+      '..kaggggggggak..',
+      '..kagaaaaaagak..',
+      '..kagaggggagak..',
+      '..kagagkkgagak..',
+      '..kagagkkgagak..',
+      '..kagaggggagak..',
+      '..kagaaaaaagak..',
+      '..kaggggggggak..',
+      '...kaaaaaaaak...',
+      '....kkkkkkkk....',
+      '.....kaaaak.....',
+      '......kkkk......',
+      '................'
+    ]
+  };
+
+  /* --- silueta de rival (18x20) --- */
+  S.rival = {
+    w: 18, h: 20,
+    pal: Object.assign({}, OSCURO, { g: '#ff4d5e', c: '#3a4450' }),
+    px: [
+      '......aaaaa.......',
+      '.....aaaaaaa......',
+      '....aaggaggaa.....',
+      '....aaaaaaaaa.....',
+      '.....aaaaaaa......',
+      '......aaaaa.......',
+      '...ccaaaaaaacc....',
+      '..caaaaaaaaaaac...',
+      '..caaaaaaaaaaac...',
+      '..caaaaaaaaaaac...',
+      '..caaaaaaaaaaac...',
+      '..cc.aaaaaaa.cc...',
+      '.....aaaaaaa......',
+      '.....aaa.aaa......',
+      '.....aaa.aaa......',
+      '.....aaa.aaa......',
+      '.....aaa.aaa......',
+      '....caaa.aaac.....',
+      '....cccc.cccc.....',
+      '..................'
+    ]
+  };
+
+  /* --- mascota / criatura (18x16) --- */
+  S.criatura = {
+    w: 18, h: 16,
+    pal: { a: '#6a4a30', b: '#8a6440', c: '#a8804a', g: '#ffd23a', d: '#3a2818' },
+    px: [
+      '..................',
+      '...bb........bb...',
+      '..bcb........bcb..',
+      '..bcbbbbbbbbbbcb..',
+      '.bccccccccccccccb.',
+      '.bcgcccccccccgccb.',
+      '.bccccccddccccccb.',
+      '.bcccccddddcccccb.',
+      '..bccccccccccccb..',
+      '..bcccccccccccb...',
+      '..bccccccccccb....',
+      '..bcb.bcb.bcb.....',
+      '..bab.bab.bab.....',
+      '..ddd.ddd.ddd.....',
+      '..................',
+      '..................'
+    ]
+  };
+
+  SW.SPRITES = S;
+
+  /* ============================================================
+     RENDER
+     ============================================================ */
+  /**
+   * Dibuja un sprite en un <canvas> y devuelve el elemento.
+   * @param {string} nombre  clave de SW.SPRITES
+   * @param {object} opts    { escala, dinamico: '#hex', fondo }
+   */
+  SW.pixel = function (nombre, opts) {
+    const o = opts || {};
+    const sp = S[nombre] || S.reliquia;
+    const esc = o.escala || 6;
+    const cv = document.createElement('canvas');
+    cv.width = sp.w * esc;
+    cv.height = sp.h * esc;
+    cv.className = 'sprite';
+    const cx = cv.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+
+    if (o.fondo) { cx.fillStyle = o.fondo; cx.fillRect(0, 0, cv.width, cv.height); }
+
+    const din = o.dinamico || '#c8d4e0';
+    for (let y = 0; y < sp.px.length; y++) {
+      const fila = sp.px[y];
+      for (let x = 0; x < fila.length; x++) {
+        const ch = fila[x];
+        if (ch === '.') continue;
+        const color = ch === '#' ? din : sp.pal[ch];
+        if (!color) continue;
+        cx.fillStyle = color;
+        cx.fillRect(x * esc, y * esc, esc, esc);
+      }
+    }
+    return cv;
+  };
+
+  /** Devuelve el sprite ya como data-URI, útil para incrustar en HTML */
+  SW.pixelURL = function (nombre, opts) {
+    try { return SW.pixel(nombre, opts).toDataURL('image/png'); }
+    catch (e) { return ''; }
+  };
+
+  /* ---------- elegir el sprite adecuado para una cosa ---------- */
+  SW.spriteDeNave = function (nave) {
+    if (!nave) return 'nave_carguero';
+    if (nave.cls === 'caza') return 'nave_caza';
+    if (nave.cls === 'lanzadera' || nave.cls === 'yate') return 'nave_lanzadera';
+    if (nave.cls === 'capital') return 'nave_capital';
+    return 'nave_carguero';
+  };
+
+  SW.spriteDeObjeto = function (obj) {
+    if (!obj) return 'reliquia';
+    const t = obj.t || obj.tipo;
+    if (t === 'arma' || t === 'arma_fuego') return 'blaster';
+    if (t === 'armadura') return obj.n && /casco|beskar/i.test(obj.n) ? 'casco' : 'armadura';
+    if (t === 'droide') return 'droide';
+    if (t === 'reliquia') return /holocr/i.test(obj.n || '') ? 'holocron' : 'reliquia';
+    if (t === 'vehículo') return 'nave_caza';
+    return 'reliquia';
+  };
+
+})(window);
+
+/* ===== src/data-equipo.js ===== */
+/* ============================================================
+   HOLOVIDA :: equipo
+   Los objetos dejan de ser una lista y pasan a importar: si no
+   tienes un bláster no puedes batirte en un duelo de pistolas,
+   y la armadura que llevas encima resta daño de verdad.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+
+  /* Categorías de uso. Un objeto puede tener varias. */
+  SW.CAT = {
+    fuego: 'arma_fuego',      // bláster, rifle: habilita duelos de pistolas
+    filo: 'arma_filo',        // vibrohoja, cuchillo
+    sable: 'sable',           // sable de luz
+    peto: 'armadura',
+    util: 'herramienta',
+    nave: 'nave'
+  };
+
+  /* Ficha de combate de cada objeto: qué habilita y cuánto suma.
+     Lo que no aparezca aquí es decorativo o mercancía. */
+  SW.FICHA_OBJETO = {
+    'bláster DL-44 modificado':            { cat: 'fuego', atk: 10, precision: 8 },
+    'rifle de francotirador Verpine':      { cat: 'fuego', atk: 14, precision: 14, torpe: true },
+    'rifle bláster DC-15A':                { cat: 'fuego', atk: 11, precision: 9 },
+    'pistola de aturdimiento reglamentaria': { cat: 'fuego', atk: 4, precision: 5, noLetal: true },
+    'lanzacohetes de hombro':              { cat: 'fuego', atk: 20, precision: -6, torpe: true },
+    'ballesta wookiee':                    { cat: 'fuego', atk: 13, precision: 6 },
+    'arco tusken':                         { cat: 'fuego', atk: 7, precision: 7 },
+    'lanzallamas de muñeca':               { cat: 'fuego', atk: 12, precision: 2 },
+    'vibrohoja de Iridonia':               { cat: 'filo', atk: 8 },
+    'cuchillo de vibro-obsidiana':         { cat: 'filo', atk: 10 },
+    'bastón eléctrico gamorreano':         { cat: 'filo', atk: 7 },
+    'látigo eléctrico de capataz':         { cat: 'filo', atk: 6 },
+    'armadura de beskar (una pieza)':      { cat: 'peto', def: 16 },
+    'placas de armadura clon repintadas':  { cat: 'peto', def: 9 },
+    'chaleco reflectante barato':          { cat: 'peto', def: 4 },
+    'casco con visor táctico':             { cat: 'peto', def: 5, precision: 6 },
+    'escudo de energía personal':          { cat: 'peto', def: 14 },
+    'capa térmica de Hoth':                { cat: 'peto', def: 2 },
+    'jetpack mandaloriano':                { cat: 'util', esquiva: 8 },
+    'spike de slicer militar':             { cat: 'util', intelecto: 6 },
+    'macrobinoculares con registro':       { cat: 'util', precision: 4 },
+    'kit de médico de campaña':            { cat: 'util', cura: 3 },
+    'droide médico 2-1B reparado':         { cat: 'util', cura: 5 }
+  };
+
+  SW.fichaObjeto = function (nombre) { return SW.FICHA_OBJETO[nombre] || null; };
+
+  /** ¿lleva encima algo de esa categoría? */
+  SW.tieneCat = function (s, cat) {
+    if (cat === 'sable') return !!s.sable;
+    for (let i = 0; i < s.objetos.length; i++) {
+      const f = SW.fichaObjeto(s.objetos[i]);
+      if (f && f.cat === cat) return true;
+    }
+    return false;
+  };
+  SW.tieneArmaFuego = function (s) { return SW.tieneCat(s, 'fuego'); };
+  SW.armaDeMano = function (s) { return !!s.sable || SW.tieneCat(s, 'filo') || SW.tieneCat(s, 'fuego'); };
+
+  /** El mejor objeto que tengas de una categoría */
+  SW.mejorDe = function (s, cat) {
+    let mejor = null, mejorV = -1;
+    for (let i = 0; i < s.objetos.length; i++) {
+      const f = SW.fichaObjeto(s.objetos[i]);
+      if (!f || f.cat !== cat) continue;
+      const v = (f.atk || 0) + (f.def || 0) + (f.precision || 0);
+      if (v > mejorV) { mejorV = v; mejor = { n: s.objetos[i], f: f }; }
+    }
+    return mejor;
+  };
+
+  /** Bonos totales que aporta el equipo que llevas */
+  SW.bonosEquipo = function (s) {
+    const b = { atk: 0, def: 0, precision: 0, esquiva: 0, cura: 0 };
+    const vistos = {};
+    for (let i = 0; i < s.objetos.length; i++) {
+      const n = s.objetos[i];
+      const f = SW.fichaObjeto(n);
+      if (!f) continue;
+      // solo cuenta el mejor de cada categoría de arma; las utilidades suman todas
+      if (f.cat === 'fuego' || f.cat === 'filo' || f.cat === 'peto') {
+        if (vistos[f.cat]) continue;
+        vistos[f.cat] = true;
+        const mejor = SW.mejorDe(s, f.cat);
+        if (mejor) {
+          b.atk += mejor.f.atk || 0;
+          b.def += mejor.f.def || 0;
+          b.precision += mejor.f.precision || 0;
+        }
+        continue;
+      }
+      b.atk += f.atk || 0;
+      b.def += f.def || 0;
+      b.precision += f.precision || 0;
+      b.esquiva += f.esquiva || 0;
+      b.cura += f.cura || 0;
+    }
+    if (s.sable) { b.atk += 16; b.def += 6; }
+    return b;
+  };
+
+  /* ============================================================
+     CONSEGUIR ARMAS: comprar, robar, ganar, fabricar, heredar
+     ============================================================ */
+  SW.GEN = SW.GEN || {};
+
+  SW.GEN.armeria = function (rng, s) {
+    const armas = Object.keys(SW.FICHA_OBJETO).filter(function (n) {
+      const f = SW.FICHA_OBJETO[n];
+      return (f.cat === 'fuego' || f.cat === 'filo' || f.cat === 'peto') && s.objetos.indexOf(n) < 0;
+    });
+    const stock = rng.pickN(armas, 4);
+    const c = stock.map(function (n) {
+      const base = (SW.OBJETOS.filter(function (o) { return o.n === n; })[0] || { p: 2000 }).p;
+      const precio = Math.round(base * (0.85 + rng.next() * 0.4));
+      const f = SW.FICHA_OBJETO[n];
+      const puede = s.stats.creditos >= precio;
+      const etq = f.cat === 'fuego' ? 'arma de fuego' : f.cat === 'filo' ? 'cuerpo a cuerpo' : 'protección';
+      return {
+        t: (puede ? 'Comprar ' : '✕ ') + n + ' — ' + SW.U.cr(precio),
+        sub: etq + (f.atk ? ' · +' + f.atk + ' ataque' : '') + (f.def ? ' · +' + f.def + ' defensa' : '') + (puede ? '' : ' · no te llega'),
+        bloqueada: !puede,
+        fx: puede ? { creditos: -precio } : {},
+        darItem: puede ? n : null
+      };
+    });
+
+    /* robar: barato en créditos, caro en todo lo demás */
+    const objetivo = rng.pick(stock);
+    c.push({
+      t: 'Robar ' + objetivo + ' del mostrador',
+      sub: 'gratis si sale bien',
+      r: [
+        { p: 0.45, t: 'Sales con ello bajo la chaqueta.', fx: { destreza: 8, notoriedad: 10, alineamiento: -10 }, darItem: objetivo },
+        { p: 0.35, t: 'El armero te ve y te echa a patadas.', fx: { reputacion: -10, notoriedad: 8 } },
+        { p: 0.20, t: 'El armero te ve y tiene su propio surtido cargado.', fx: { salud: -20, notoriedad: 14 } }
+      ]
+    });
+    if (s.habilidades.indexOf('armero') >= 0) {
+      c.push({ t: 'Fabricarte una tú mismo', sub: 'sabes hacerlo', fx: { creditos: -1200, intelecto: 6 }, darItem: rng.pick(stock) });
+    }
+    c.push({ t: '◂ Salir de la armería', volver: true });
+    return { id: 'menu_armeria', gen: true, esMenu: true, t: 'ARMERÍA de ' + s.mundo + ' — tienes ' + SW.U.cr(s.stats.creditos), c: c };
+  };
+
+})(window);
+
+/* ===== src/data-canon.js ===== */
+/* ============================================================
+   HOLOVIDA :: canon
+   Personajes conocidos (cada uno solo en las épocas en que
+   estuvo activo), datos reales de los mundos y las reglas de
+   los cristales kyber y del Sable Oscuro.
+   Los encuentros son raros a propósito: cuando pasa, se nota.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const push = function (arr, items) { for (let i = 0; i < items.length; i++) arr.push(items[i]); };
+
+  /* ============================================================
+     CRISTALES KYBER
+     El cristal elige, no tú. El negro no es un color de kyber:
+     el Sable Oscuro es una pieza única y se hereda o se gana.
+     ============================================================ */
+  SW.COLORES_KYBER = [
+    { c: 'azul', hex: '#3ad6ff', s: 'Guardián. El color del que se pone delante.', lado: 1, w: 30 },
+    { c: 'verde', hex: '#6aff8a', s: 'Cónsul. El color del que negocia antes de desenfundar.', lado: 1, w: 30 },
+    { c: 'amarillo', hex: '#ffd23a', s: 'Centinela. El color de los guardias del Templo.', lado: 1, w: 12 },
+    { c: 'púrpura', hex: '#c98aff', s: 'Rarísimo. Solo canta para quien camina por el filo.', lado: 0, w: 4, req: function (s) { return Math.abs(s.stats.alineamiento) < 45; } },
+    { c: 'blanco', hex: '#ffffff', s: 'Un cristal sangrado y luego purificado. Ya no pertenece a nadie.', lado: 1, w: 3, req: function (s) { return s.flags.cristal_purificado; } },
+    { c: 'rojo', hex: '#ff3a3a', s: 'Sangrado: se le arranca el color a base de odio. Duele para siempre.', lado: -1, w: 8, req: function (s) { return s.stats.alineamiento < -30; } }
+  ];
+
+  /* El Sable Oscuro: pieza única, forjada por Tarre Vizsla, el primer
+     mandaloriano de la Orden Jedi. Va unida al gobierno de Mandalore
+     y, según el Credo, solo cambia de manos ganándola en combate. */
+  SW.SABLE_OSCURO = {
+    c: 'negro', hex: '#2a2438', filo: '#d8d0ff',
+    s: 'El Sable Oscuro de Tarre Vizsla. Quien lo empuña reclama Mandalore.',
+    unico: true,
+    eras: ['alta_republica', 'republica_tardia', 'guerras_clon', 'imperio_temprano', 'rebelion', 'nueva_republica', 'primera_orden']
+  };
+
+  /* ============================================================
+     DATOS DE LOS MUNDOS
+     Una línea de contexto real al llegar. Si un mundo no está
+     aquí, se usa su descripción genérica.
+     ============================================================ */
+  SW.DATOS = {
+    'Coruscant': 'la ciudad cubre el planeta entero; nadie ha visto su superficie original',
+    'Corellia': 'de sus astilleros salen el Halcón Milenario y la mitad de la flota',
+    'Alderaan': 'sin armas desde hace generaciones; será famosa por cómo acabó',
+    'Chandrila': 'cuna de Mon Mothma y, más tarde, capital de la Nueva República',
+    'Kuat': 'los Astilleros de Deriva Kuat construyen los Destructores Estelares',
+    'Naboo': 'humanos arriba, gungans abajo, y una reina elegida por votación',
+    'Tatooine': 'dos soles, sin agua y bajo control del cartel de Jabba',
+    'Ryloth': 'una cara siempre al sol y otra siempre helada; se vive en la franja de en medio',
+    'Kashyyyk': 'los wookiees viven en las copas; el suelo pertenece a otras cosas',
+    'Nal Hutta': '"Joya Gloriosa" en huttés; fue un vergel antes de que lo exprimieran',
+    'Nar Shaddaa': 'la Luna del Contrabandista: ni un metro cuadrado sin edificar',
+    'Mon Cala': 'mon calamari y quarren comparten planeta y casi nunca opinión',
+    'Bespin': 'Ciudad Nube flota sobre un gigante gaseoso extrayendo tibanna',
+    'Hoth': 'sexto planeta de su sistema, sin población nativa inteligente y con wampas',
+    'Dagobah': 'tan denso en la Fuerza que oculta lo que hay dentro',
+    'Mustafar': 'ríos de lava y minas de obsidiana; se construirá un castillo aquí',
+    'Kamino': 'no aparece en los archivos jedi porque alguien borró la entrada',
+    'Geonosis': 'colmenas de casta rígida y las fábricas de droides de la Confederación',
+    'Mandalore': 'siglos de guerras civiles entre el Credo guerrero y los pacifistas',
+    'Jakku': 'un cementerio de flota de una batalla que cerró la Guerra Civil Galáctica',
+    'Lothal': 'trigo, torres imperiales y loth-lobos que aparecen cuando hacen falta',
+    'Sullust': 'la flota rebelde se reunió aquí antes de Endor',
+    'Dathomir': 'las Hermanas de la Noche usan magia; la Orden prefiere llamarlo superstición',
+    'Iridonia': 'los zabrak resuelven casi todo con duelos rituales',
+    'Shili': 'los togruta cazan en hierba más alta que ellos',
+    'Csilla': 'los chiss viven bajo el hielo y no dan explicaciones a nadie',
+    'Nevarro': 'volcánico, con una sede del Gremio de Cazarrecompensas',
+    'Ord Mantell': '"Ord" significa Depósito de Artillería de la vieja República',
+    'Takodana': 'el castillo de Maz Kanata lleva mil años abierto a todos los bandos',
+    'Jedha': 'una de las primeras lunas donde se veneró la Fuerza; sus minas dan kyber',
+    'Scarif': 'archivo militar imperial protegido por un escudo planetario',
+    'Endor': 'la luna boscosa, no el gigante gaseoso que le da nombre',
+    'Kessel': 'sus minas de especia dan nombre a la ruta más peligrosa de la galaxia',
+    'Malastare': 'circuito clásico de carreras de vainas y sede dug',
+    'Cantonica': 'Canto Bight vive del juego y de venderle armas a los dos bandos',
+    'Batuu': 'el Puesto Negro fue puerto de paso antes de que existieran las rutas modernas',
+    'Ilum': 'los iniciados vienen a por su cristal; el Imperio lo destripará entero',
+    'Exegol': 'no está en ninguna carta; hace falta un guía sith para llegar',
+    'Bothawui': 'los bothans venden información y nunca la regalan',
+    'Trandosha': 'los trandoshanos puntúan sus cazas ante una diosa llamada Scorekeeper',
+    'Dorin': 'atmósfera de helio: un kel dor sin máscara fuera de aquí se ahoga',
+    'Rodia': 'el clima obliga a vivir en domos; exporta cazadores',
+    'Ithor': 'nadie pisa el suelo: las ciudades flotan por respeto a la Madre Selva',
+    'Pantora': 'luna de Orto Plutonia, con asamblea propia y un chairman muy protocolario',
+    'Duro': 'la superficie quedó inhabitable; la población vive en órbita',
+    'Concord Dawn': 'de aquí salen los Protectores Mandalorianos',
+    'Felucia': 'hongos del tamaño de edificios y esporas que alteran la percepción',
+    'Umbara': 'el Mundo Sombrío: nunca llega luz directa de su sol',
+    'Yavin 4': 'templos massassi vacíos; alguien montará una base rebelde aquí',
+    'Anaxes': 'academia naval desde la vieja República; su doctrina es materia de examen',
+    'Zeltros': 'los zeltron hacen diplomacia a base de fiestas y feromonas',
+    'Korriban': 'el Valle de los Señores Oscuros: cada tumba tiene dueño y opinión',
+    'Muunilinst': 'el Clan Bancario Intergaláctico decide qué guerras se pueden pagar',
+    'Cato Neimoidia': 'ciudades colgadas de arcos rocosos, sostenidas por el Gremio de Comercio',
+    'Manaan': 'neutral por decreto; el kolto sale de aquí y de ningún otro sitio',
+    'Serenno': 'condados hereditarios y una de las fortunas más viejas de la galaxia',
+    'Onderon': 'ciudad amurallada porque la jungla de fuera no perdona',
+    'Dxun': 'luna de Onderon; su nombre aparece en muchas listas de bajas',
+    'Taris': 'los niveles altos brillan; los de abajo llevan siglos a oscuras',
+    'Christophsis': 'torres de cristal partidas por la guerra en su primer año',
+    'Mygeeto': 'planeta bancario y campo de batalla a la vez; nadie ve la contradicción',
+    'Bracca': 'aquí se despiezan las flotas que sobran después de cada guerra',
+    'Zeffo': 'una civilización se marchó sin explicar adónde y dejó las tumbas abiertas',
+    'Nur': 'bajo su océano hay una fortaleza del Inquisitorio',
+    'Coruscant Nivel 1313': 'tan abajo que la luz del sol es un rumor',
+    'Wobani': 'campo de trabajo imperial; salir de aquí es noticia',
+    'Kijimi': 'ciudad de montaña, gremio de ladrones y muy buen abrigo',
+    'Crait': 'costra de sal blanca sobre suelo rojo; los vulptex son de cristal',
+    'Pasaana': 'el Festival de los Ancestros se celebra cada cuarenta y dos años',
+    'Kef Bir': 'luna oceánica de Endor, con los restos de una estación de combate',
+    'Tython': 'aquí se ordenó por primera vez lo que hoy se llama la Orden Jedi',
+    'Ossus': 'sus bibliotecas ardieron hace milenios y todavía se rebusca entre las cenizas',
+    'Savareen': 'refinan coaxium y hacen un licor que solo aguantan los locales',
+    'Vandor': 'trenes de conveyex cargados de coaxium cruzando montaña',
+    'Ajan Kloss': 'jungla espesa: buen sitio para esconder una flota pequeña',
+    'Sluis Van': 'astilleros lentos, seguros y muy solicitados',
+    'Roche': 'los verpine fabrican las armas más precisas de la galaxia',
+    'Honoghr': 'los noghri deben una deuda de honor a quien "salvó" su mundo',
+    'Kintan': 'los nikto firmaron con los hutt hace tanto que ya nadie recuerda por qué',
+    'Gamorr': 'los clanes gamorreanos guerrean por temporadas, como quien siembra'
+  };
+
+  SW.datoMundo = function (n) {
+    return SW.DATOS[n] || null;
+  };
+
+  /* ============================================================
+     PERSONAJES CONOCIDOS
+     `eras` marca cuándo se les puede encontrar. `w` es el peso:
+     todos muy bajos, para que un encuentro sea un acontecimiento.
+     ============================================================ */
+  SW.CANON = [
+    /* --- Alta República --- */
+    { id: 'avar', n: 'Avar Kriss', tipo: 'jedi', eras: ['alta_republica'], desc: 'Maestra Jedi que oye la Fuerza como una canción', w: 3 },
+    { id: 'elzar', n: 'Elzar Mann', tipo: 'jedi', eras: ['alta_republica'], desc: 'Jedi brillante y poco ortodoxo', w: 3 },
+    { id: 'porter', n: 'Porter Engle', tipo: 'jedi', eras: ['alta_republica'], desc: 'el Cuchillo de la Orden, que ahora solo quiere cocinar', w: 2 },
+    { id: 'marchion', n: 'Marchion Ro', tipo: 'villano', eras: ['alta_republica'], desc: 'el Ojo de los Sin Nombre', w: 2 },
+
+    /* --- República Tardía --- */
+    { id: 'quigon', n: 'Qui-Gon Jinn', tipo: 'jedi', eras: ['republica_tardia'], desc: 'Maestro Jedi que discute con el Consejo por costumbre', w: 3 },
+    { id: 'shmi', n: 'Shmi Skywalker', tipo: 'civil', eras: ['republica_tardia'], desc: 'esclava en Mos Espa, con un hijo poco corriente', w: 2 },
+    { id: 'watto', n: 'Watto', tipo: 'criminal', eras: ['republica_tardia'], desc: 'chatarrero toydariano, inmune a los trucos mentales', w: 3 },
+    { id: 'jango', n: 'Jango Fett', tipo: 'cazador', eras: ['republica_tardia', 'guerras_clon'], desc: 'el cazarrecompensas del que salieron todos los clones', w: 2 },
+    { id: 'maul', n: 'Darth Maul', tipo: 'sith', eras: ['republica_tardia', 'guerras_clon', 'imperio_temprano'], desc: 'zabrak de Dathomir con un sable de doble hoja', w: 2 },
+
+    /* --- Guerras Clon --- */
+    { id: 'obiwan', n: 'Obi-Wan Kenobi', tipo: 'jedi', eras: ['guerras_clon'], desc: 'General Jedi, negociador y piloto a regañadientes', w: 4 },
+    { id: 'anakin', n: 'Anakin Skywalker', tipo: 'jedi', eras: ['guerras_clon'], desc: 'el Héroe Sin Miedo, con muy poca paciencia', w: 4 },
+    { id: 'ahsoka', n: 'Ahsoka Tano', tipo: 'jedi', eras: ['guerras_clon', 'imperio_temprano', 'rebelion', 'nueva_republica'], desc: 'togruta que dejó la Orden y siguió peleando', w: 4 },
+    { id: 'yoda', n: 'Yoda', tipo: 'jedi', eras: ['alta_republica', 'republica_tardia', 'guerras_clon', 'imperio_temprano', 'rebelion'], desc: 'Gran Maestro de la Orden, ochocientos años y contando', w: 2 },
+    { id: 'windu', n: 'Mace Windu', tipo: 'jedi', eras: ['republica_tardia', 'guerras_clon'], desc: 'del Consejo, con un sable púrpura y ninguna gana de charla', w: 3 },
+    { id: 'plo', n: 'Plo Koon', tipo: 'jedi', eras: ['republica_tardia', 'guerras_clon'], desc: 'kel dor del Consejo, el que rescata a los que nadie va a buscar', w: 3 },
+    { id: 'aayla', n: 'Aayla Secura', tipo: 'jedi', eras: ['guerras_clon'], desc: "General Jedi twi'lek", w: 3 },
+    { id: 'dooku', n: 'el Conde Dooku', tipo: 'sith', eras: ['guerras_clon'], desc: 'aristócrata de Serenno, ex jedi y líder separatista', w: 2 },
+    { id: 'grievous', n: 'el General Grievous', tipo: 'villano', eras: ['guerras_clon'], desc: 'kaleesh dentro de un cuerpo de droide, coleccionista de sables', w: 2 },
+    { id: 'ventress', n: 'Asajj Ventress', tipo: 'sith', eras: ['guerras_clon'], desc: 'dathomiriana con dos sables curvos y ningún maestro', w: 3 },
+    { id: 'rex', n: 'el Capitán Rex', tipo: 'clon', eras: ['guerras_clon'], desc: 'CT-7567, de la 501', w: 4 },
+    { id: 'cody', n: 'el Comandante Cody', tipo: 'clon', eras: ['guerras_clon'], desc: 'CC-2224, de la 212', w: 4 },
+    { id: 'padme', n: 'Padmé Amidala', tipo: 'politico', eras: ['republica_tardia', 'guerras_clon'], desc: 'senadora de Naboo, incómoda para todos los comités', w: 3 },
+    { id: 'hondo', n: 'Hondo Ohnaka', tipo: 'criminal', eras: ['guerras_clon', 'imperio_temprano', 'rebelion'], desc: 'pirata weequay de lealtad estrictamente comercial', w: 5 },
+    { id: 'cadbane', n: 'Cad Bane', tipo: 'cazador', eras: ['guerras_clon', 'imperio_temprano'], desc: 'duros con sombrero de ala ancha y muy mala idea', w: 3 },
+    { id: 'bokatan', n: 'Bo-Katan Kryze', tipo: 'mando', eras: ['guerras_clon', 'imperio_temprano', 'nueva_republica'], desc: 'de la casa Kryze, con opiniones firmes sobre quién debe gobernar Mandalore', w: 3 },
+
+    /* --- Imperio temprano / Rebelión --- */
+    { id: 'vader', n: 'Darth Vader', tipo: 'sith', eras: ['imperio_temprano', 'rebelion'], desc: 'el aprendiz del Emperador; se le oye antes de verle', w: 2 },
+    { id: 'palpatine', n: 'el Emperador Palpatine', tipo: 'sith', eras: ['republica_tardia', 'guerras_clon', 'imperio_temprano', 'rebelion'], desc: 'canciller, después Emperador, siempre lo mismo', w: 1 },
+    { id: 'inquisidor', n: 'el Gran Inquisidor', tipo: 'villano', eras: ['imperio_temprano'], desc: 'fue guardia del Templo; ahora caza a los suyos', w: 3 },
+    { id: 'kanan', n: 'Kanan Jarrus', tipo: 'jedi', eras: ['imperio_temprano'], desc: 'padawan superviviente que se hace pasar por contrabandista', w: 3 },
+    { id: 'hera', n: 'Hera Syndulla', tipo: 'piloto', eras: ['imperio_temprano', 'rebelion', 'nueva_republica'], desc: "piloto twi'lek del Espíritu", w: 4 },
+    { id: 'saw', n: 'Saw Gerrera', tipo: 'militar', eras: ['imperio_temprano', 'rebelion'], desc: 'extremista rebelde: demasiado radical hasta para la Alianza', w: 3 },
+    { id: 'tarkin', n: 'el Gran Moff Tarkin', tipo: 'militar', eras: ['imperio_temprano', 'rebelion'], desc: 'gobernar por el miedo es doctrina suya, con nombre propio', w: 2 },
+    { id: 'obiwan_viejo', n: 'Ben Kenobi', tipo: 'jedi', eras: ['imperio_temprano', 'rebelion'], desc: 'un ermitaño de Tatooine que mira demasiado al horizonte', w: 3 },
+    { id: 'luke', n: 'Luke Skywalker', tipo: 'jedi', eras: ['rebelion', 'nueva_republica'], desc: 'granjero de humedad y, más tarde, otra cosa', w: 3 },
+    { id: 'leia', n: 'Leia Organa', tipo: 'politico', eras: ['rebelion', 'nueva_republica', 'primera_orden'], desc: 'princesa, senadora y la persona más terca de la Alianza', w: 3 },
+    { id: 'han', n: 'Han Solo', tipo: 'criminal', eras: ['rebelion', 'nueva_republica'], desc: 'contrabandista corelliano que le debe dinero a un hutt', w: 4 },
+    { id: 'chewie', n: 'Chewbacca', tipo: 'criminal', eras: ['rebelion', 'nueva_republica', 'primera_orden'], desc: 'wookiee de Kashyyyk con una deuda de vida pendiente', w: 4 },
+    { id: 'lando', n: 'Lando Calrissian', tipo: 'criminal', eras: ['rebelion', 'nueva_republica', 'primera_orden'], desc: 'jugador, barón administrador y encantador profesional', w: 4 },
+    { id: 'boba', n: 'Boba Fett', tipo: 'cazador', eras: ['imperio_temprano', 'rebelion', 'nueva_republica'], desc: 'la armadura más reconocible del Gremio', w: 3 },
+    { id: 'jabba', n: 'Jabba el Hutt', tipo: 'criminal', eras: ['republica_tardia', 'guerras_clon', 'imperio_temprano', 'rebelion'], desc: 'el cartel de Tatooine, en persona y en su palacio', w: 3 },
+    { id: 'monmothma', n: 'Mon Mothma', tipo: 'politico', eras: ['imperio_temprano', 'rebelion', 'nueva_republica'], desc: 'senadora de Chandrila que fundó la Alianza en voz baja', w: 3 },
+    { id: 'ackbar', n: 'el Almirante Ackbar', tipo: 'militar', eras: ['rebelion', 'nueva_republica'], desc: 'mon calamari, el mejor táctico naval de la Alianza', w: 3 },
+    { id: 'wedge', n: 'Wedge Antilles', tipo: 'piloto', eras: ['rebelion', 'nueva_republica'], desc: 'el piloto que sobrevivió a las dos Estrellas de la Muerte', w: 4 },
+
+    /* --- Nueva República --- */
+    { id: 'mando', n: 'Din Djarin', tipo: 'mando', eras: ['nueva_republica'], desc: 'un mandaloriano que no se quita el casco', w: 3 },
+    { id: 'gideon', n: 'Moff Gideon', tipo: 'villano', eras: ['nueva_republica'], desc: 'remanente imperial con un sable que no le corresponde', w: 2 },
+    { id: 'thrawn', n: 'el Gran Almirante Thrawn', tipo: 'militar', eras: ['imperio_temprano', 'nueva_republica'], desc: 'chiss que estudia el arte de un pueblo antes de conquistarlo', w: 2 },
+    { id: 'karga', n: 'Greef Karga', tipo: 'criminal', eras: ['nueva_republica'], desc: 'agente del Gremio de Cazarrecompensas en Nevarro', w: 4 },
+
+    /* --- Primera Orden --- */
+    { id: 'rey', n: 'Rey', tipo: 'jedi', eras: ['primera_orden'], desc: 'chatarrera de Jakku que espera a una familia que no vuelve', w: 3 },
+    { id: 'kylo', n: 'Kylo Ren', tipo: 'sith', eras: ['primera_orden'], desc: 'Maestro de los Caballeros de Ren, con un sable de filo inestable', w: 3 },
+    { id: 'finn', n: 'Finn', tipo: 'militar', eras: ['primera_orden'], desc: 'FN-2187, un soldado que decidió no disparar', w: 4 },
+    { id: 'poe', n: 'Poe Dameron', tipo: 'piloto', eras: ['primera_orden'], desc: 'el mejor piloto de la Resistencia, y lo sabe', w: 4 },
+    { id: 'maz', n: 'Maz Kanata', tipo: 'civil', eras: ['rebelion', 'nueva_republica', 'primera_orden'], desc: 'mil años regentando un castillo y leyendo ojos ajenos', w: 3 },
+    { id: 'phasma', n: 'la Capitana Phasma', tipo: 'militar', eras: ['primera_orden'], desc: 'armadura cromada y cero tolerancia', w: 3 },
+    { id: 'hux', n: 'el General Hux', tipo: 'militar', eras: ['primera_orden'], desc: 'discursos largos y ambición corta', w: 3 }
+  ];
+
+  SW.canonDeEra = function (era) {
+    return SW.CANON.filter(function (c) { return c.eras.indexOf(era) >= 0; });
+  };
+
+  /* ============================================================
+     MAESTROS Y APRENDICES CON NOMBRE
+     Si la época lo permite hay opción de que te toque alguien
+     conocido; si no, un nombre generado del mismo estilo.
+     ============================================================ */
+  SW.MAESTROS_JEDI = {
+    alta_republica: ['Avar Kriss', 'Stellan Gios', 'Porter Engle', 'Indeera Stokes'],
+    republica_tardia: ['Qui-Gon Jinn', 'Mace Windu', 'Plo Koon', 'Yaddle', 'Adi Gallia'],
+    guerras_clon: ['Obi-Wan Kenobi', 'Plo Koon', 'Luminara Unduli', 'Kit Fisto', 'Shaak Ti', 'Ki-Adi-Mundi'],
+    nueva_republica: ['Luke Skywalker']
+  };
+  SW.MAESTROS_SITH = {
+    republica_tardia: ['Darth Sidious', 'Darth Maul'],
+    guerras_clon: ['Darth Tyranus', 'Darth Sidious'],
+    imperio_temprano: ['Darth Vader', 'Darth Sidious'],
+    rebelion: ['Darth Vader', 'Darth Sidious'],
+    primera_orden: ['Snoke', 'Kylo Ren']
+  };
+
+  /** Nombre de maestro: canónico si toca (30%), inventado si no */
+  SW.maestroDe = function (rng, era, lado) {
+    const tabla = lado === 'sith' ? SW.MAESTROS_SITH : SW.MAESTROS_JEDI;
+    const lista = tabla[era];
+    if (lista && lista.length && rng.chance(0.3)) return { n: rng.pick(lista), canon: true };
+    if (lado === 'sith') {
+      const titulos = ['Darth'];
+      const nombres = ['Vharun', 'Nekros', 'Ozhan', 'Malicar', 'Sever', 'Ruina', 'Ithrax', 'Vespera', 'Karrn', 'Dolor'];
+      return { n: rng.pick(titulos) + ' ' + rng.pick(nombres), canon: false };
+    }
+    return { n: SW.genNombreCompleto(rng, rng.pick(['humano', 'togruta', 'zabrak', 'nautolano', 'cerean'])), canon: false };
+  };
+
+  /* ============================================================
+     ENCUENTROS CON PERSONAJES CONOCIDOS
+     Un único generador: el encuentro cambia según quién sea la
+     otra persona y según tu alineamiento y tu camino.
+     ============================================================ */
+  SW.GEN = SW.GEN || {};
+  SW.GEN.canon = function (rng, s) {
+    const pool = SW.canonDeEra(s.era);
+    if (!pool.length) return null;
+    const p = rng.weighted(pool, function (c) { return c.w || 1; });
+    const lugar = rng.pick(SW.LUGARES);
+    const oscuro = s.stats.alineamiento < -30;
+    const luminoso = s.stats.alineamiento > 30;
+    const sensible = s.sensible && s.stats.fuerza > 25;
+    const esSith = s.trabajo === 'sith' || (oscuro && sensible);
+    const esJedi = s.trabajo === 'jedi';
+
+    const c = [];
+    const cab = '<span class="canon-tag">ENCUENTRO</span> En ' + lugar + ' te cruzas con <b>' + p.n + '</b>, ' + p.desc + '.';
+
+    /* ---- ramas según quién es ---- */
+    if (p.tipo === 'jedi') {
+      if (esSith) {
+        c.push({ t: 'Atacar sin avisar', combate: { dif: 88, duelo: true, canon: p.id }, fx: { alineamiento: -20, notoriedad: 25 }, conocer: p });
+        c.push({ t: 'Dejar que te lea y marcharte', fx: { fuerza: 10, cordura: -10, notoriedad: 10 }, out: p.n + ' te mira demasiado tiempo. Sabe lo que eres. No hace nada. Todavía.', conocer: p });
+        c.push({ t: 'Fingir ser un civil', fx: { carisma: 12, intelecto: 8 }, out: 'Cuela por poco. Te tiembla la mano hasta el hangar.', conocer: p });
+      } else if (sensible) {
+        c.push({ t: 'Pedirle que te enseñe algo', fx: { fuerza: 16, cordura: 10, alineamiento: 8 }, rel: { tipo: 'mentor', afecto: 45, canon: p.n, quien: p.desc }, out: p.n + ' te corrige la postura durante veinte minutos. Te dura toda la vida.', conocer: p });
+        c.push({ t: 'Pedirle consejo sobre tu camino', fx: { cordura: 16, fuerza: 8, alineamiento: 10 }, out: 'Te contesta con una pregunta. Tardarás años en entenderla.', conocer: p });
+        c.push({ t: 'Retarle a un duelo de práctica', combate: { dif: 78, duelo: true, canon: p.id, practica: true }, fx: { destreza: 8 }, conocer: p });
+        c.push({ t: 'No molestarle', fx: { cordura: 5 }, out: 'Se va. Piensas en ello mucho tiempo.' });
+      } else {
+        c.push({ t: 'Ofrecerle ayuda', fx: { alineamiento: 12, reputacion: 12, carisma: 8 }, rel: { tipo: 'aliado', afecto: 45, canon: p.n, quien: p.desc }, out: 'Acepta. Trabajáis juntos tres días. No vuelve a olvidarse de ti.', conocer: p });
+        c.push({ t: 'Pedirle dinero por la información que tienes', fx: { creditos: 9000, alineamiento: -8 }, out: 'Paga sin regatear. Te mira de una forma que no te gusta.', conocer: p });
+        c.push({ t: 'Delatarle a quien le busca', fx: { creditos: 30000, alineamiento: -30, notoriedad: 20 }, faccion: 'imperio+20', out: 'Cobras. En algún momento tendrás que explicárselo a alguien.', conocer: p });
+        c.push({ t: 'Solo mirar y no decir nada', fx: { cordura: 6 }, out: 'Cuentas la anécdota durante décadas. Nadie te cree.', conocer: p });
+      }
+    } else if (p.tipo === 'sith' || p.tipo === 'villano') {
+      c.push({ t: 'Enfrentarte', combate: { dif: p.id === 'palpatine' || p.id === 'vader' ? 95 : 82, duelo: true, canon: p.id }, fx: { alineamiento: luminoso ? 10 : 0 }, conocer: p });
+      if (sensible) {
+        c.push({ t: 'Escuchar lo que te ofrece', fx: { fuerza: 18, alineamiento: -22, cordura: -12, notoriedad: 12 }, flag: 'oferta_oscura', out: p.n + ' te habla del poder que la Orden te niega. Lo peor es que tiene parte de razón.', conocer: p });
+      }
+      c.push({ t: 'Arrodillarte y ofrecerle tus servicios', fx: { alineamiento: -25, notoriedad: 18, creditos: 20000 }, faccion: 'sith+25', rel: { tipo: 'amo', afecto: 20, canon: p.n, quien: p.desc }, out: 'Acepta. Ahora tienes un sitio en una estructura muy vertical.', conocer: p });
+      c.push({ t: 'Huir sin mirar atrás', fx: { cordura: -12, destreza: 8 }, mover: true, motivo: 'poniendo distancia con ' + p.n, conocer: p });
+    } else if (p.tipo === 'clon') {
+      c.push({ t: 'Compartir raciones y hablar de la guerra', fx: { cordura: 12, carisma: 8 }, rel: { tipo: 'camarada', afecto: 55, canon: p.n, quien: p.desc }, out: 'Habla despacio y escucha mejor. Te acuerdas de él mucho después.', conocer: p });
+      c.push({ t: 'Pedirle instrucción de combate', fx: { destreza: 12, fisico: 8 }, habilidad: 'luchador', out: 'Te corrige cosas que llevabas años haciendo mal.', conocer: p });
+      c.push({ t: 'Preguntarle por los chips', fx: { intelecto: 10, cordura: -8 }, flag: 'sospecha_chip', out: 'Se queda callado. "Los médicos dicen que es para la agresividad."', conocer: p });
+    } else if (p.tipo === 'cazador') {
+      c.push({ t: 'Contratarle', fx: { creditos: -35000, notoriedad: 10 }, rel: { tipo: 'contacto', afecto: 25, canon: p.n, quien: p.desc }, out: 'Caro y sin preguntas. Cumple.', conocer: p });
+      c.push({ t: 'Competir por el mismo contrato', combate: { dif: 76, botin: 40000, canon: p.id }, fx: { notoriedad: 15 }, conocer: p });
+      c.push({ t: 'Ofrecerle trabajar juntos', fx: { creditos: 18000, destreza: 8, notoriedad: 12 }, rel: { tipo: 'socio', afecto: 35, canon: p.n, quien: p.desc }, out: 'Acepta a medias y con un contrato de once páginas.', conocer: p });
+      c.push({ t: 'Salir del local con calma', fx: { cordura: 4 }, out: 'No te sigue. Esta vez.' });
+    } else if (p.tipo === 'criminal') {
+      c.push({ t: 'Hacer negocios', fx: { creditos: 24000, notoriedad: 12, alineamiento: -8 }, rel: { tipo: 'contacto', afecto: 35, canon: p.n, quien: p.desc }, out: 'Sale bien. Sorprendentemente bien.', conocer: p });
+      c.push({ t: 'Jugártela a las cartas', r: [
+        { p: 0.4, t: 'Ganas. ' + p.n + ' se ríe y paga.', fx: { creditos: 30000, carisma: 12, suerte: 8 } },
+        { p: 0.6, t: 'Pierdes, y encima disfrutando.', fx: { creditos: -15000, carisma: 8 } }
+      ], conocer: p });
+      c.push({ t: 'Intentar robarle', r: [
+        { p: 0.25, t: 'Increíblemente, funciona.', fx: { creditos: 45000, destreza: 12, notoriedad: 20 } },
+        { p: 0.75, t: 'No funciona. Nunca funciona.', fx: { salud: -22, creditos: -8000, notoriedad: 15 } }
+      ], conocer: p });
+      c.push({ t: 'Invitarle a una copa y escuchar', fx: { cordura: 10, carisma: 8, creditos: -400 }, out: 'Cuenta tres historias. Dos son mentira y la tercera da miedo.', conocer: p });
+    } else if (p.tipo === 'politico') {
+      c.push({ t: 'Ofrecerle apoyo', fx: { reputacion: 14, alineamiento: 10 }, rel: { tipo: 'aliado', afecto: 40, canon: p.n, quien: p.desc }, faccion: luminoso ? 'rebelion+15' : 'republica+15', conocer: p });
+      c.push({ t: 'Venderle información', fx: { creditos: 22000, intelecto: 6 }, conocer: p });
+      c.push({ t: 'Pedirle un favor para tu mundo', fx: { reputacion: 10, carisma: 10 }, out: 'Toma nota. Meses después llega un envío sin remitente.', conocer: p });
+      c.push({ t: 'Filtrar su agenda a la prensa', fx: { creditos: 12000, alineamiento: -18, notoriedad: 15 }, conocer: p });
+    } else if (p.tipo === 'piloto') {
+      c.push({ t: 'Retarle a una carrera', r: [
+        { p: 0.3, t: 'Le ganas. Por muy poco, pero le ganas.', fx: { destreza: 14, reputacion: 14 }, habilidad: 'piloto' },
+        { p: 0.7, t: 'Te deja atrás en la segunda curva.', fx: { destreza: 8, carisma: 5 } }
+      ], conocer: p });
+      c.push({ t: 'Pedirle que te enseñe a volar', fx: { destreza: 14, intelecto: 8 }, habilidad: 'piloto', rel: { tipo: 'mentor', afecto: 40, canon: p.n, quien: p.desc }, conocer: p });
+      c.push({ t: 'Ofrecerte como copiloto', fx: { destreza: 10, cordura: 8 }, rel: { tipo: 'camarada', afecto: 45, canon: p.n, quien: p.desc }, conocer: p });
+    } else if (p.tipo === 'mando') {
+      c.push({ t: 'Saludar según el Credo', fx: { reputacion: 10, carisma: 8 }, faccion: 'mandalorianos+18', rel: { tipo: 'aliado', afecto: 35, canon: p.n, quien: p.desc }, out: '"Este es el Camino." Y ya está: eso vale por un contrato.', conocer: p });
+      c.push({ t: 'Retarle por el honor', combate: { dif: 80, duelo: true, canon: p.id }, fx: { notoriedad: 12 }, conocer: p });
+      c.push({ t: 'Preguntarle por el beskar', fx: { intelecto: 8, creditos: -12000 }, item: 'placas de armadura clon repintadas', conocer: p });
+    } else if (p.tipo === 'militar') {
+      c.push({ t: 'Cuadrarte y obedecer', fx: { reputacion: 10, cordura: -6 }, faccion: 'imperio+12', conocer: p });
+      c.push({ t: 'Sabotear sus planes desde dentro', fx: { alineamiento: 15, notoriedad: 20, intelecto: 10 }, conocer: p });
+      c.push({ t: 'Ofrecerle tus servicios', fx: { creditos: 26000, alineamiento: -15 }, rel: { tipo: 'contacto', afecto: 25, canon: p.n, quien: p.desc }, conocer: p });
+      c.push({ t: 'Pasar desapercibido', fx: { cordura: 4, notoriedad: -5 }, conocer: p });
+    } else {
+      c.push({ t: 'Hablar con calma', fx: { cordura: 12, carisma: 8, intelecto: 6 }, rel: { tipo: 'contacto', afecto: 40, canon: p.n, quien: p.desc }, conocer: p });
+      c.push({ t: 'Pedirle ayuda', fx: { creditos: 8000, cordura: 8 }, conocer: p });
+      c.push({ t: 'Seguir tu camino', fx: {}, conocer: p });
+    }
+
+    return { id: 'gen_canon_' + p.id, gen: true, canon: p, t: cab, c: c };
+  };
 
 })(window);
 
@@ -3195,7 +4364,9 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       id: 'ac_duelo', min: 14, max: 200, w: 7, slots: { n: 'nombre', l: 'lugar' },
       t: '{n} te reta a un duelo formal en {l}. Hay público.',
       c: [
-        { t: 'Aceptar el duelo', combate: { dif: 65, duelo: true }, out: '' },
+        { t: 'Aceptar el duelo a blásters', sub: 'necesitas un arma de fuego', req: function (st) { return SW.tieneArmaFuego(st); }, combate: { dif: 65, duelo: true, pistolas: true }, out: '' },
+        { t: 'Aceptar el duelo con sable', req: function (st) { return !!st.sable; }, combate: { dif: 65, duelo: true, sable: true }, out: '' },
+        { t: 'Aceptar el duelo a puños', combate: { dif: 55, duelo: true }, out: 'Sin armas. Como la gente honrada o la que no tiene nada.' },
         { t: 'Aceptar pero cambiar las reglas', fx: { carisma: 8, notoriedad: 5 }, combate: { dif: 45, duelo: true }, out: 'Propones armas de aturdimiento. Aceptan a regañadientes.' },
         { t: 'Rechazar públicamente', fx: { reputacion: -10, cordura: 4 }, out: 'Se ríen. Sigues vivo.' },
         { t: 'Atacarle antes de que empiece', fx: { alineamiento: -15, notoriedad: 12, destreza: 6 }, combate: { dif: 40, duelo: true }, out: 'Nada elegante. Muy eficaz.' }
@@ -3246,7 +4417,8 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
      Cada uno construye eventos únicos combinando datos del mundo.
      Aquí es donde el espacio de decisiones se dispara.
      ============================================================ */
-  SW.GEN = {
+  SW.GEN = SW.GEN || {};
+  Object.assign(SW.GEN, {
 
     /* --- Contratos de los bajos fondos / gremio --- */
     contrato: function (rng, s) {
@@ -3393,10 +4565,10 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
           empleo: { id: c.id, sueldo: sueldo }
         };
       });
-      opciones.push({ t: 'Ninguna de estas', fx: { cordura: 3 }, out: 'Sigues buscando.' });
-      return { id: 'gen_empleo', gen: true, t: 'Ofertas disponibles este año:', c: opciones };
+      opciones.push({ t: '◂ Ninguna de estas', volver: true });
+      return { id: 'gen_empleo', gen: true, esMenu: true, t: 'Ofertas disponibles este año:', c: opciones };
     }
-  };
+  });
 
 })(window);
 
@@ -3746,7 +4918,7 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     });
     const lista = (apto.length ? apto : pool);
     if (!lista.length) {
-      return { id: 'gen_empleo', gen: true, t: 'No hay nada para ti en este puerto, en esta época.', c: [{ t: 'Seguir buscando', fx: { cordura: -3 } }] };
+      return { id: 'gen_empleo', gen: true, esMenu: true, t: 'No hay nada para ti en este puerto, en esta época.', c: [{ t: '◂ Volver', volver: true }] };
     }
     const opciones = rng.pickN(lista, Math.min(5, lista.length)).map(function (c) {
       const sueldo = Math.round(c.sueldoBase * (0.7 + rng.next() * 0.8));
@@ -3756,8 +4928,8 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
         empleo: { id: c.id, sueldo: sueldo }
       };
     });
-    opciones.push({ t: 'Ninguna de estas', fx: { cordura: 3 }, out: 'Sigues buscando.' });
-    return { id: 'gen_empleo', gen: true, t: 'Ofertas disponibles en ' + s.mundo + ':', c: opciones };
+    opciones.push({ t: '◂ Ninguna de estas', volver: true });
+    return { id: 'gen_empleo', gen: true, esMenu: true, t: 'Ofertas disponibles en ' + s.mundo + ':', c: opciones };
   };
 
   /* encargo de una facción concreta */
@@ -4409,6 +5581,204 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
 
 })(window);
 
+/* ===== src/data-fuerza.js ===== */
+/* ============================================================
+   HOLOVIDA :: el camino de la Fuerza
+   Ser jedi no es una carrera más: es un código con renuncias.
+   Ser sith tampoco: es la Regla de los Dos y un maestro que
+   solo espera que le falles.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const push = function (arr, items) { for (let i = 0; i < items.length; i++) arr.push(items[i]); };
+
+  const esJedi = function (s) { return s.trabajo === 'jedi'; };
+  const esSith = function (s) { return s.trabajo === 'sith'; };
+  const senda = function (s) { return esJedi(s) || esSith(s); };
+
+  /* El Código y sus consecuencias mecánicas */
+  SW.CODIGO_JEDI = [
+    'No hay emoción, hay paz.',
+    'No hay ignorancia, hay conocimiento.',
+    'No hay pasión, hay serenidad.',
+    'No hay caos, hay armonía.',
+    'No hay muerte, hay la Fuerza.'
+  ];
+  SW.CODIGO_SITH = [
+    'La paz es una mentira, solo hay pasión.',
+    'Mediante la pasión, obtengo fuerza.',
+    'Mediante la fuerza, obtengo poder.',
+    'Mediante el poder, obtengo la victoria.',
+    'Mediante la victoria, mis cadenas se rompen.'
+  ];
+
+  /* ============================================================
+     GUION DEL CAMINO JEDI
+     ============================================================ */
+  push(SW.GUION, [
+    {
+      id: 'jd_maestro', min: 12, max: 60, prio: 80, unaVez: true,
+      req: function (s) { return esJedi(s) && !s.maestro; },
+      t: 'El Consejo te asigna maestro. A partir de hoy le sigues a todas partes.',
+      c: [{ t: 'Presentarte ante quien te ha tocado', asignarMaestro: 'jedi' }]
+    },
+    {
+      id: 'sh_maestro', min: 14, max: 70, prio: 80, unaVez: true,
+      req: function (s) { return esSith(s) && !s.maestro; },
+      t: 'Nadie te presenta a nadie. Alguien te encuentra a ti, que es peor.',
+      c: [{ t: 'Arrodillarte', asignarMaestro: 'sith' }]
+    },
+    {
+      id: 'jd_apego', min: 16, max: 80, prio: 70, unaVez: true,
+      req: function (s) { return esJedi(s) && s.relaciones.some(function (r) { return r.tipo === 'pareja' || r.tipo === 'cónyuge'; }); },
+      t: 'La Orden prohíbe el apego. Tú tienes a alguien. Las dos cosas no caben en la misma vida sin pagar por ello.',
+      c: [
+        { t: 'Dejar a esa persona y quedarte en la Orden', fx: { cordura: -20, fuerza: 12, alineamiento: 8 }, romper: true, flag: 'renuncio_apego', out: 'Lo haces bien y sin escenas. Duele exactamente igual.' },
+        { t: 'Dejar la Orden y quedarte con esa persona', fx: { cordura: 18, fuerza: -14, reputacion: -10 }, despido: true, faccion: 'orden_jedi-30', flag: 'dejo_la_orden', out: 'Devuelves el sable al Consejo. Nadie te lo reprocha en voz alta.' },
+        { t: 'Mantenerlo en secreto', fx: { cordura: -10, carisma: 8, fuerza: 5 }, flag: 'apego_secreto', out: 'Funciona durante años. Los secretos siempre funcionan durante años.' },
+        { t: 'Confesarlo ante el Consejo', r: [
+          { p: 0.4, t: 'Te escuchan. Hay más precedentes de los que creías.', fx: { cordura: 12, reputacion: 6, fuerza: 6 } },
+          { p: 0.6, t: 'Te dan a elegir, y elegir no es gratis.', fx: { cordura: -14, fuerza: 8 }, romper: true }
+        ] }
+      ]
+    },
+    {
+      id: 'sh_regla_dos', min: 20, max: 90, prio: 75, unaVez: true,
+      req: function (s) { return esSith(s) && s.maestro && s.stats.fuerza > 60; },
+      t: 'La Regla de los Dos: un maestro y un aprendiz. Uno para encarnar el poder, otro para ansiarlo. Ya no cabéis los dos.',
+      c: [
+        { t: 'Matar a tu maestro', combate: { dif: 88, duelo: true, sable: true }, fx: { alineamiento: -25, fuerza: 20, cordura: -15 }, flag: 'mato_maestro', out: '' },
+        { t: 'Esperar. Todavía no estás preparado.', fx: { fuerza: 10, intelecto: 10, cordura: -6 }, out: 'Le sirves un año más. Los dos sabéis lo que estás haciendo.' },
+        { t: 'Traicionarle entregándole a los jedi', fx: { alineamiento: 15, notoriedad: 20, fuerza: -8 }, faccion: 'orden_jedi+20', flag: 'traiciono_sith', out: 'Cae. Los jedi no te dan las gracias: te miran y toman nota.' },
+        { t: 'Huir del lado oscuro para siempre', fx: { fuerza: -20, cordura: 20, alineamiento: 25 }, despido: true, flag: 'renegado_sith', out: 'No se sale de esto. Pero se puede correr mucho tiempo.' }
+      ]
+    }
+  ]);
+
+  /* ============================================================
+     EVENTOS DEL CAMINO
+     ============================================================ */
+  push(SW.EVENTOS, [
+    {
+      id: 'jd_codigo', min: 12, max: 90, w: 13, req: esJedi,
+      t: 'Un iniciado te pregunta qué significa de verdad la primera línea del Código: «No hay emoción, hay paz».',
+      c: [
+        { t: 'Que no debemos sentir', fx: { cordura: -8, fuerza: 5, carisma: -4 }, out: 'Le contestas lo que te enseñaron. No te lo crees ni tú.' },
+        { t: 'Que no debemos dejarnos gobernar por lo que sentimos', fx: { cordura: 14, fuerza: 10, carisma: 8 }, out: 'El crío se queda pensando. Tú también.' },
+        { t: 'Que llevas años preguntándotelo', fx: { cordura: 10, intelecto: 8, alineamiento: 5 }, out: 'La honestidad enseña más que la doctrina.' }
+      ]
+    },
+    {
+      id: 'jd_posesiones', min: 14, max: 90, w: 11, req: esJedi,
+      req2: true,
+      t: 'La Orden no permite posesiones personales. Tienes cosas que no deberías tener.',
+      c: [
+        { t: 'Entregarlo todo', fx: { cordura: 10, fuerza: 8, alineamiento: 10 }, vaciarObjetos: true, out: 'Te quedas con la túnica, el sable y nada más. Se respira raro de bien.' },
+        { t: 'Guardar solo una cosa', fx: { cordura: 6, fuerza: 4 }, out: 'Todos guardan una cosa. Los maestros lo saben y callan.' },
+        { t: 'Quedártelo todo y que se enteren si quieren', fx: { alineamiento: -10, reputacion: -8, fuerza: -5 }, faccion: 'orden_jedi-12', out: 'Un maestro te lo menciona una vez. Solo una.' }
+      ]
+    },
+    {
+      id: 'jd_mision_consejo', min: 14, max: 90, w: 15, req: esJedi, slots: { p: 'mundo', n: 'nombre' },
+      t: 'El Consejo te envía a {p}. La misión es observar e informar. Nada más.',
+      c: [
+        { t: 'Observar e informar, como te han pedido', fx: { fuerza: 8, cordura: 8, reputacion: 6 }, faccion: 'orden_jedi+12', mueveA: '{p}', motivo: 'enviado por el Consejo', out: 'Cumples al pie de la letra. El informe cambia una política. Nadie sabrá que fuiste tú.' },
+        { t: 'Intervenir cuando ves lo que está pasando', fx: { alineamiento: 15, fuerza: 6, reputacion: -8 }, faccion: 'orden_jedi-10', mueveA: '{p}', motivo: 'a una misión del Consejo', out: 'Salvas a mucha gente. El Consejo te recuerda que no era tu misión.' },
+        { t: 'Ir por libre y resolverlo a tu manera', fx: { fuerza: 10, alineamiento: -8, notoriedad: 10 }, faccion: 'orden_jedi-18', mueveA: '{p}', motivo: 'sin autorización del Consejo', out: 'Funciona. Ese es el problema: que funciona.' },
+        { t: 'Pedir que envíen a otro', fx: { cordura: 6, reputacion: -6 }, out: 'Aceptan sin preguntar. Eso te preocupa más que la misión.' }
+      ]
+    },
+    {
+      id: 'jd_padawan', min: 30, max: 120, w: 11, req: function (s) { return esJedi(s) && s.stats.fuerza > 55; },
+      t: 'Ya tienes rango para tomar un padawan. Hay un iniciado esperando.',
+      c: [
+        { t: 'Aceptarle', fx: { cordura: 12, carisma: 10, fuerza: 6 }, rel: { tipo: 'padawan', afecto: 55, quien: 'tu aprendiz' }, out: 'Le cortas la trenza tú mismo. Es tan torpe como lo eras tú.' },
+        { t: 'Rechazarlo: no estás preparado para enseñar', fx: { cordura: 8, fuerza: 4, reputacion: -6 }, out: 'El Consejo lo anota. Lo entienden mejor de lo que esperabas.' },
+        { t: 'Aceptarle y enseñarle también lo que la Orden calla', fx: { fuerza: 12, alineamiento: -10, intelecto: 8 }, rel: { tipo: 'padawan', afecto: 45, quien: 'tu aprendiz' }, flag: 'ensena_prohibido', out: 'Aprende rápido. Demasiado rápido.' }
+      ]
+    },
+    {
+      id: 'jd_tentacion_oscura', min: 16, max: 90, w: 12, req: function (s) { return senda(s) && s.stats.fuerza > 40; }, slots: { n: 'nombre' },
+      t: 'Alguien a quien quieres está en peligro y hay una forma de salvarle. Una forma que te enseñaron a no usar.',
+      c: [
+        { t: 'Usarla', fx: { fuerza: 18, alineamiento: -25, cordura: -15 }, flag: 'cruzo_la_linea', out: 'Funciona. Se salva. Y algo dentro de ti se queda encendido.' },
+        { t: 'Buscar otra manera aunque tardes más', r: [
+          { p: 0.55, t: 'Llegas a tiempo por los pelos.', fx: { alineamiento: 20, cordura: 12, fuerza: 8 } },
+          { p: 0.45, t: 'No llegas.', fx: { cordura: -22, alineamiento: 12, fuerza: 6 }, matarRel: true }
+        ] },
+        { t: 'Pedir ayuda en vez de resolverlo solo', fx: { carisma: 12, alineamiento: 12, cordura: 8 }, relTodas: 15, out: 'Vienen. Entre varios sale bien. La lección tarda años en calar.' }
+      ]
+    },
+    {
+      id: 'sh_maestro_prueba', min: 16, max: 90, w: 14, req: esSith,
+      t: 'Tu maestro te pone una prueba. Las pruebas de tu maestro nunca son lo que parecen.',
+      c: [
+        { t: 'Superarla con obediencia perfecta', fx: { fuerza: 12, alineamiento: -10, cordura: -6 }, out: 'Aprueba con un gesto. La obediencia perfecta le aburre y le tranquiliza.' },
+        { t: 'Superarla haciendo trampas', fx: { fuerza: 14, intelecto: 10, alineamiento: -12 }, flag: 'maestro_impresionado', out: '"Bien." Es la primera vez que te dice algo bueno.' },
+        { t: 'Fallarla a propósito para que te subestime', fx: { intelecto: 14, cordura: 8, fuerza: 4 }, flag: 'juega_largo', out: 'Te castiga. Tú cuentas los días.' },
+        { t: 'Negarte a hacerla', fx: { salud: -25, cordura: -10, alineamiento: 12 }, out: 'El castigo es físico y largo. No vuelves a negarte igual.' }
+      ]
+    },
+    {
+      id: 'sh_secreto', min: 16, max: 90, w: 12, req: esSith,
+      t: 'Los Sith llevan un milenio escondidos. Alguien empieza a sospechar de ti.',
+      c: [
+        { t: 'Eliminar el problema', fx: { alineamiento: -22, notoriedad: 8, cordura: -10 }, flag: 'sangre_en_manos', out: 'Nadie relaciona la desaparición contigo. Tu maestro sí, y asiente.' },
+        { t: 'Desaparecer y reaparecer con otro nombre', fx: { intelecto: 10, notoriedad: -12, cordura: -6 }, mover: true, motivo: 'borrando tu rastro', flag: 'identidad_falsa', out: 'Otro sistema, otro apellido, mismos ojos.' },
+        { t: 'Dejar que sospechen: te divierte', fx: { notoriedad: 20, fuerza: 8, alineamiento: -8 }, out: 'Jugar con eso es exactamente lo que tu maestro te dijo que no hicieras.' }
+      ]
+    },
+    {
+      id: 'fz_ilum', min: 10, max: 60, w: 10,
+      req: function (s) { return s.sensible && !s.kyber && s.stats.fuerza > 25 && SW.ordenActiva(s.era); },
+      t: 'Te llevan a las cuevas heladas. Te dejan solo, sin luz, y te dicen que no vuelvas sin tu cristal.',
+      c: [
+        { t: 'Escuchar hasta que algo cante', fx: { fuerza: 12, cordura: 12, salud: -8 }, kyber: true, out: '' },
+        { t: 'Buscar a la desesperada', fx: { fuerza: 6, cordura: -10, salud: -14 }, kyber: true, out: 'Sales con un cristal y una hipotermia leve.' },
+        { t: 'Salir con las manos vacías', fx: { cordura: -12, fuerza: -6, reputacion: -8 }, out: 'Algunos vuelven al año siguiente. Otros no vuelven.' }
+      ]
+    },
+    {
+      id: 'fz_sable_oscuro', min: 20, max: 120, w: 3,
+      req: function (s) { return !s.flags.sable_oscuro && (s.faccionRep.mandalorianos || 0) > 25 && SW.SABLE_OSCURO.eras.indexOf(s.era) >= 0; },
+      t: 'Corre la voz de que el <b>Sable Oscuro</b> ha cambiado de manos otra vez. Quien lo tiene ahora está a un salto de aquí, y el Credo es claro: solo se gana en combate.',
+      c: [
+        { t: 'Ir a por él', combate: { dif: 86, duelo: true, sableOscuro: true }, fx: { notoriedad: 15 }, out: '' },
+        { t: 'Intentar comprárselo', fx: { creditos: -60000, reputacion: -10 }, faccion: 'mandalorianos-20', out: 'Se ríe en tu cara. Ofrecer créditos por eso es un insulto que se recuerda.' },
+        { t: 'Dejarlo estar: ese sable trae guerras civiles', fx: { cordura: 10, intelecto: 6 }, out: 'Históricamente, es la decisión más sensata que ha tomado nadie con ese objeto.' }
+      ]
+    },
+    {
+      id: 'fz_holocron_leer', min: 16, max: 120, w: 10, req: function (s) { return s.sensible && s.objetos.some(function (o) { return /holocr/i.test(o); }); },
+      t: 'El holocrón que llevas encima lleva semanas zumbando bajito. Quiere que lo abras.',
+      c: [
+        { t: 'Abrirlo del todo', fx: { fuerza: 16, intelecto: 10, cordura: -8 }, poder: 'auto', out: 'Una maestra muerta hace siglos te da clase durante tres noches.' },
+        { t: 'Abrirlo solo un poco', fx: { fuerza: 8, cordura: 5 }, out: 'Aprendes una cosa pequeña y muy útil.' },
+        { t: 'Enterrarlo', fx: { alineamiento: 10, cordura: 10 }, out: 'Duermes mejor. Piensas en él cada cierto tiempo.' }
+      ]
+    }
+  ]);
+
+  /* ============================================================
+     LO QUE UN JEDI O UN SITH NO PUEDE HACER
+     Se comprueba en los propios eventos, pero también aquí:
+     estas funciones las usa el motor para filtrar.
+     ============================================================ */
+  SW.puedeAlistarse = function (s) {
+    if (s.trabajo === 'sith') return false;   // los Sith no se alistan: manipulan
+    if (s.trabajo === 'jedi') return false;   // los Jedi sirven a la Orden, no a un ejército
+    return true;
+  };
+  SW.puedeCasarse = function (s) {
+    return s.trabajo !== 'jedi' || !!s.flags.apego_secreto || !!s.flags.dejo_la_orden;
+  };
+  SW.puedeAcumular = function (s) {
+    return s.trabajo !== 'jedi';
+  };
+
+})(window);
+
 /* ===== src/engine.js ===== */
 /* ============================================================
    HOLOVIDA :: motor
@@ -4481,6 +5851,7 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       habilidades: [],
       idiomas: ['básico'],
       objetos: [],
+      conocidos: [],          // gente conocida del canon con la que te has cruzado
       estudios: [],
       relaciones: [],
       relacionesPasadas: [],
@@ -4498,6 +5869,8 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       legado: null,
       recientes: [],
       vistos: {},
+      acciones: 3,            // acciones por año
+      accionesMax: 3,
       historia: [],
       hitos: []
     };
@@ -4562,6 +5935,12 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     if (this.s.especie === 'clon') this.log('Designación ' + this.s.nombre + '. Lote de Kamino. Crecerás al doble de velocidad.', 'res');
   }
 
+  /** Cola de vitrinas: la interfaz las muestra una a una */
+  Game.prototype.popup = function (datos) {
+    this.popups = this.popups || [];
+    this.popups.push(datos);
+  };
+
   Game.prototype.log = function (txt, tipo) {
     this.s.historia.push({ edad: this.s.edad, txt: txt, tipo: tipo || 'ev' });
     this.logAño.push({ txt: txt, tipo: tipo || 'ev' });
@@ -4613,7 +5992,7 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       if (e.esp && e.esp.indexOf(s.especie) < 0) continue;
       if (e.espNo && e.espNo.indexOf(s.especie) >= 0) continue;
       if (e.unaVez && s.vistos[e.id]) continue;
-      if (s.recientes.indexOf(e.id) >= 0) continue;
+      if (s.recientes.indexOf(e.id) >= 0 && pool.length > 6) continue;
       if (e.req) { try { if (!e.req(s)) continue; } catch (err) { continue; } }
       out.push(e);
     }
@@ -4666,6 +6045,8 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     s.edad++;
     s.edadBio += s.ritmo;
     s.contadores.años++;
+    s.accionesMax = s.edadBio < 6 ? 1 : (s.edadBio < 12 ? 2 : 3);
+    s.acciones = s.accionesMax;
     this.actividadUsada = false;
 
     if (s.carcelAños > 0) {
@@ -4675,6 +6056,7 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       this.aplicarFx({ cordura: -6, destreza: 3, fisico: 2 }, {});
       this.log('Año en prisión. Quedan ' + s.carcelAños + '.', 'mal');
       if (s.carcelAños === 0) this.log('Sales en libertad.', 'bien');
+      s.acciones = 1;   // dentro se puede hacer poco
       this.fase = 'menu';
       return;
     }
@@ -4705,6 +6087,15 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       const ev = guion.sort(function (a, b) { return (b.prio || 0) - (a.prio || 0); })[0];
       const inst = this.prepararEvento(ev);
       if (inst) this.cola.push(inst);
+    }
+
+    // encuentro con alguien conocido: muy raro, y más si eres un don nadie
+    if (s.edadBio > 12 && SW.GEN.canon) {
+      const fama = (s.stats.reputacion + s.stats.notoriedad) / 200;
+      if (this.rng.chance(0.014 + fama * 0.045)) {
+        const ev = SW.GEN.canon(this.rng, s);
+        if (ev && s.conocidos.indexOf(ev.canon.n) < 0) this.cola.push(this.prepararGen(ev));
+      }
     }
 
     const n = s.edadBio < 6 ? 1 : this.rng.int(1, 2);
@@ -4865,12 +6256,18 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
         else v = parseFloat(v) || 0;
       }
       if (k === 'creditos' && v === -999999) v = -Math.max(0, s.stats.creditos);
+      // cuanto más alto está algo, menos aporta cada acierto
+      if (v > 0 && s.stats[k] != null && k !== 'creditos' && k !== 'alineamiento') {
+        v = v * Math.max(0.12, 1 - s.stats[k] / 118);
+      }
       if (k === 'fuerza' && v > 0 && !s.sensible) {
         v = v * 0.15;
         if (s.stats.fuerza + v > 15) v = Math.max(0, 15 - s.stats.fuerza);
       }
       if (k === 'salud' && v < 0) {
-        const mitig = 1 - Math.min(0.4, (s.stats.fisico / 320) + (s.stats.destreza / 500) + s.cibernetica.length * 0.05);
+        const eq = SW.bonosEquipo ? SW.bonosEquipo(s) : { def: 0 };
+        const mitig = 1 - Math.min(0.55, (s.stats.fisico / 320) + (s.stats.destreza / 500) +
+          s.cibernetica.length * 0.05 + (eq.def || 0) / 90);
         v = v * mitig;
         // los golpes fuertes dejan herida, y las heridas tardan años
         if (v <= -14) this.herir(this.rng.pick(SW.HERIDAS), Math.min(26, Math.abs(v) * 0.55));
@@ -4921,6 +6318,9 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     const texto = soloBase ? null : (d.out || (d.p != null && d.t ? d.t : null));
     if (texto) this.log(U.fill(texto, slots), d.tono || 'res');
 
+    if (d.volver) { this.devolverAccion(); return; }
+    if (d.darItem) this.darObjeto(d.darItem);
+    if (d.conocer) this.conocerCanon(d.conocer);
     if (d.flag) s.flags[U.fill(d.flag, slots)] = true;
     if (d.quitarFlag) delete s.flags[d.quitarFlag];
     if (d.contador) for (const k in d.contador) s.contadores[k] = (s.contadores[k] || 0) + d.contador[k];
@@ -4928,7 +6328,7 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     if (d.herida) this.herir(d.herida.n || 'herida', d.herida.sev || 12, d.herida.cronica);
     if (d.curarHeridas) { s.heridas = []; this.log('Te reconstruyen entero. Sales sin heridas abiertas.', 'bien'); }
 
-    if (d.rel) this.añadirRelacion(d.rel.tipo, d.rel.afecto, slots.n);
+    if (d.rel) this.añadirRelacion(d.rel.tipo, d.rel.afecto, d.rel.canon || slots.n, d.rel.quien, !!d.rel.canon);
     if (d.relTodas) s.relaciones.forEach(function (r) { r.afecto = U.clamp(r.afecto + d.relTodas, -100, 100); });
     if (d.relHijos) s.relaciones.forEach(function (r) { if (r.tipo === 'hijo') r.afecto = U.clamp(r.afecto + d.relHijos, -100, 100); });
     if (d.relPareja) s.relaciones.forEach(function (r) { if (r.tipo === 'pareja' || r.tipo === 'cónyuge') r.afecto = U.clamp(r.afecto + d.relPareja, -100, 100); });
@@ -4965,6 +6365,7 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     if (d.estudio) this.matricular(d.estudio);
     if (d.matricula) this.cola.unshift(this.prepararGen(this.menuMatricula()));
     if (d.tienda) this.cola.unshift(this.prepararGen(this.menuTienda()));
+    if (d.armeria) this.cola.unshift(this.prepararGen(SW.GEN.armeria(rng, s)));
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
     if (d.viajar) this.cola.unshift(this.prepararGen(this.menuViaje()));
     if (d.fuerzaMenu) this.cola.unshift(this.prepararGen(this.menuFuerza()));
@@ -4977,8 +6378,11 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     if (d.habilidad && s.habilidades.indexOf(d.habilidad) < 0) { s.habilidades.push(d.habilidad); this.log('Nueva habilidad: ' + d.habilidad + '.', 'bien'); }
     if (d.idioma && s.idiomas.indexOf(d.idioma) < 0) { s.idiomas.push(d.idioma); this.log('Aprendes ' + d.idioma + '.', 'bien'); }
     if (d.cibernetica) { s.cibernetica.push(typeof d.cibernetica === 'string' ? d.cibernetica : 'prótesis'); this.log('Implante instalado.', 'bien'); }
+    if (d.asignarMaestro) this.asignarMaestro(d.asignarMaestro);
+    if (d.vaciarObjetos) { s.objetos = []; this.log('Entregas todo lo que tenías.', 'res'); }
     if (d.despertar) this.despertar();
-    if (d.kyber) { s.kyber = rng.pick(SW.COLORES_KYBER); this.log('Cristal kyber ' + s.kyber.c + ' en tu poder.', 'bien'); this.hito('Obtiene un cristal kyber ' + s.kyber.c); }
+    if (d.kyber) this.darKyber();
+    if (d.sableOscuro) this.darSableOscuro();
     if (d.sableNuevo) this.construirSable(null);
     if (d.sablePierde) { s.sable = null; this.log('Ya no tienes sable.', 'mal'); }
     if (d.naveCompra) this.darNave(rng.pick(SW.NAVES));
@@ -5026,14 +6430,62 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     return n;
   };
 
-  Game.prototype.añadirRelacion = function (tipo, afecto, nombre) {
+  /* Oficios y señas que hacen memorable a la gente que conoces */
+  const OFICIOS = [
+    'mecánica de hangar', 'piloto de carga', 'médico de urgencias', 'contrabandista',
+    'cocinero de puerto', 'chatarrero', 'guardia de aduanas', 'músico de cantina',
+    'minero de especia', 'archivera', 'domador de bestias', 'falsificador',
+    'capataz de muelle', 'ingeniera de droides', 'cazarrecompensas retirado',
+    'granjera de humedad', 'traficante de información', 'monje de los Whills'
+  ];
+
+  Game.prototype.añadirRelacion = function (tipo, afecto, nombre, quien, esCanon) {
     const s = this.s, rng = this.rng;
-    const n = this.nombreLibre(nombre || SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'togruta', 'duros'])));
+    // si ya conoces a esa persona, se refuerza el vínculo en vez de duplicarla
+    if (nombre) {
+      const ya = s.relaciones.filter(function (r) { return r.nombre === nombre; })[0];
+      if (ya) {
+        ya.afecto = U.clamp(ya.afecto + Math.round((afecto || 20) / 2), -100, 100);
+        this.log('Vuelves a ver a ' + ya.nombre + '. La cosa se estrecha.', 'rel');
+        return ya.nombre;
+      }
+    }
+    const n = esCanon ? nombre : this.nombreLibre(nombre || SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'togruta', 'duros'])));
     const esp = rng.pick(SW.ESPECIES);
-    s.relaciones.push({ nombre: n, tipo: tipo, afecto: U.clamp(afecto || 20, -100, 100), especie: esp.n, desde: s.edad });
-    this.log('Nueva relación: ' + n + ' (' + tipo + ').', 'rel');
+    const desc = quien || (esCanon ? '' : rng.pick(OFICIOS));
+    s.relaciones.push({
+      nombre: n, tipo: tipo, afecto: U.clamp(afecto || 20, -100, 100),
+      especie: esCanon ? '' : esp.n, quien: desc, canon: !!esCanon, desde: s.edad
+    });
+    this.log('Nueva relación: <b>' + n + '</b> — ' + tipo + (desc ? ', ' + desc : '') + '.', 'rel');
     if (tipo === 'cónyuge' || tipo === 'pareja') this.hito(U.titleCase(tipo) + ': ' + n);
+    this.podarRelaciones();
     return n;
+  };
+
+  /** Se pierde el contacto con la gente que ni te importa ni te odia */
+  Game.prototype.podarRelaciones = function () {
+    const s = this.s;
+    if (s.relaciones.length <= 12) return;
+    const prioridad = { 'cónyuge': 5, 'pareja': 5, 'hijo': 5, 'hermano': 4, 'hermano de lote': 4, 'mentor': 3, 'aprendiz': 3, 'rival': 3, 'amigo': 2 };
+    const orden = s.relaciones.slice().sort(function (a, b) {
+      const pa = (prioridad[a.tipo] || 1) * 100 + Math.abs(a.afecto);
+      const pb = (prioridad[b.tipo] || 1) * 100 + Math.abs(b.afecto);
+      return pa - pb;
+    });
+    const fuera = orden[0];
+    if ((prioridad[fuera.tipo] || 1) >= 3) return;
+    s.relaciones = s.relaciones.filter(function (r) { return r !== fuera; });
+    s.relacionesPasadas.push(fuera);
+    this.log('Pierdes el contacto con ' + fuera.nombre + '.', 'rel');
+  };
+
+  /** Registrar que te has cruzado con alguien conocido */
+  Game.prototype.conocerCanon = function (p) {
+    const s = this.s;
+    if (s.conocidos.indexOf(p.n) >= 0) return;
+    s.conocidos.push(p.n);
+    this.hito('Se cruza con ' + p.n);
   };
   Game.prototype.nuevaRelacion = function () {
     const rng = this.rng;
@@ -5073,6 +6525,11 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
   };
   Game.prototype.casarse = function () {
     const s = this.s;
+    if (SW.puedeCasarse && !SW.puedeCasarse(s)) {
+      this.log('La Orden prohíbe el apego. No hay boda: hay una conversación difícil.', 'mal');
+      this.aplicarFx({ cordura: -8 }, {});
+      return;
+    }
     const yaCasado = s.relaciones.filter(function (r) { return r.tipo === 'cónyuge'; })[0];
     let p = s.relaciones.filter(function (r) { return r.tipo === 'pareja'; })[0];
     if (yaCasado) {
@@ -5098,9 +6555,33 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
   Game.prototype.darObjeto = function (nombre) {
     const s = this.s, rng = this.rng;
     let o = nombre ? SW.OBJETOS.filter(function (x) { return x.n === nombre; })[0] : null;
+    if (!o && nombre && SW.fichaObjeto(nombre)) o = { n: nombre, t: 'arma', p: 2000 };
     if (!o) o = rng.pick(SW.OBJETOS);
+    if (s.objetos.indexOf(o.n) >= 0 && rng.chance(0.5)) {
+      this.log('Otro ' + o.n + '. Vendes el viejo.', 'cr');
+      s.stats.creditos += Math.round((o.p || 500) * 0.4);
+      return;
+    }
     s.objetos.push(o.n);
-    this.log('Obtienes: ' + o.n + '.', 'bien');
+    const ficha = SW.fichaObjeto(o.n);
+    this.log('Obtienes: <b>' + o.n + '</b>.', 'bien');
+    this.popup({
+      tipo: 'objeto',
+      titulo: 'OBJETO OBTENIDO',
+      nombre: o.n,
+      sprite: SW.spriteDeObjeto(o),
+      desc: ficha
+        ? (ficha.cat === 'fuego' ? 'Arma de fuego. Ahora puedes batirte en duelos de pistolas.'
+          : ficha.cat === 'filo' ? 'Arma blanca. Sirve de cerca.'
+          : ficha.cat === 'peto' ? 'Protección: resta daño en combate.'
+          : 'Herramienta útil.')
+        : (o.t === 'reliquia' ? 'Una pieza antigua. Alguien pagaría por ella.' : 'Guardado en tu petate.'),
+      stats: ficha ? [
+        ficha.atk ? '+' + ficha.atk + ' ataque' : null,
+        ficha.def ? '+' + ficha.def + ' defensa' : null,
+        ficha.precision ? '+' + ficha.precision + ' precisión' : null
+      ].filter(Boolean) : []
+    });
   };
   Game.prototype.darMascota = function (tipo) {
     const s = this.s, rng = this.rng;
@@ -5118,8 +6599,16 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     const s = this.s;
     s.nave = nave;
     s.naveEstado = 85;
-    this.log('Ahora tienes: ' + nave.n + '.', 'bien');
+    this.log('Ahora tienes: <b>' + nave.n + '</b>.', 'bien');
     this.hito('Consigue una nave: ' + nave.n);
+    this.popup({
+      tipo: 'nave',
+      titulo: 'NAVE ADQUIRIDA',
+      nombre: nave.n,
+      sprite: SW.spriteDeNave(nave),
+      desc: 'Clase ' + nave.cls + '. Ya puedes hacer rutas de carga y meterte en combates espaciales.',
+      stats: ['velocidad ' + nave.vel, 'carga ' + nave.carga, 'armamento ' + nave.arm]
+    });
   };
 
   /* ---------------- Facciones y bandos ---------------- */
@@ -5170,6 +6659,15 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
 
   Game.prototype.menuBando = function () {
     const s = this.s;
+    if (SW.puedeAlistarse && !SW.puedeAlistarse(s)) {
+      return {
+        id: 'menu_bando', gen: true, esMenu: true,
+        t: s.trabajo === 'jedi'
+          ? 'Eres de la Orden. Los jedi no se alistan en ejércitos: sirven a la República a través del Consejo, y solo si el Consejo lo ordena.'
+          : 'Un sith no se alista. Un sith coloca a otros donde le conviene y espera.',
+        c: [{ t: '◂ Entendido', volver: true }]
+      };
+    }
     const bandos = SW.bandosDeEra(s.era, s);
     const c = bandos.map(function (b) {
       return { t: b.n, sub: b.desc, bando: b.id, fx: b.fx || {}, out: b.out || '' };
@@ -5251,13 +6749,65 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     this.log('Aprendes: ' + p.n + '. ' + p.desc, 'bien');
     this.hito('Aprende ' + p.n);
   };
-  Game.prototype.construirSable = function (color) {
+  /** El cristal escoge: el color depende de quién eres, no de lo que quieras */
+  Game.prototype.darKyber = function () {
     const s = this.s, rng = this.rng;
-    const k = color || s.kyber || rng.pick(SW.COLORES_KYBER);
-    s.sable = { color: k.c, hex: k.hex, forma: s.forma || rng.pick(SW.FORMAS_SABLE) };
-    s.forma = s.sable.forma;
-    this.log('Construyes tu sable de luz: hoja ' + k.c + ', forma ' + s.sable.forma + '.', 'bien');
+    const pool = SW.COLORES_KYBER.filter(function (k) {
+      if (k.req) { try { return k.req(s); } catch (e) { return false; } }
+      return true;
+    });
+    const k = rng.weighted(pool, function (x) { return x.w || 1; });
+    s.kyber = k;
+    this.log('El cristal responde en tu mano. Es <b>' + k.c + '</b>. ' + k.s, 'bien');
+    this.hito('Obtiene un cristal kyber ' + k.c);
+    this.popup({
+      tipo: 'kyber', titulo: 'CRISTAL KYBER', nombre: 'cristal ' + k.c,
+      sprite: 'kyber', color: k.hex, desc: k.s,
+      stats: ['el cristal elige, no tú']
+    });
+  };
+
+  /** El Sable Oscuro no se construye: se hereda o se gana en combate */
+  Game.prototype.darSableOscuro = function () {
+    const s = this.s;
+    const D = SW.SABLE_OSCURO;
+    s.sable = { color: D.c, hex: D.filo, forma: s.forma || 'Makashi', oscuro: true };
+    s.flags.sable_oscuro = true;
+    s.faccionRep.mandalorianos = U.clamp((s.faccionRep.mandalorianos || 0) + 30, -100, 100);
+    this.log('El <b>Sable Oscuro</b> pasa a tus manos. ' + D.s, 'bien');
+    this.hito('Empuña el Sable Oscuro');
+    this.popup({
+      tipo: 'sable', titulo: 'SABLE OSCURO', nombre: 'el Sable Oscuro de Tarre Vizsla',
+      sprite: 'sable_oscuro', color: D.filo, desc: D.s,
+      stats: ['pieza única', 'reclama Mandalore', 'solo cambia de manos en combate']
+    });
+  };
+
+  Game.prototype.asignarMaestro = function (lado) {
+    const s = this.s, rng = this.rng;
+    const m = SW.maestroDe(rng, s.era, lado);
+    s.maestro = m.n;
+    const quien = lado === 'sith' ? 'tu maestro sith' : 'tu maestro jedi';
+    this.añadirRelacion(lado === 'sith' ? 'maestro sith' : 'maestro jedi',
+      lado === 'sith' ? 15 : 55, m.n, quien, m.canon);
+    this.log('Tu maestro será <b>' + m.n + '</b>' + (m.canon ? ' — sí, ese.' : '.'), 'bien');
+    this.hito('Maestro: ' + m.n);
+    if (m.canon) s.conocidos.push(m.n);
+  };
+
+  Game.prototype.construirSable = function (forma) {
+    const s = this.s, rng = this.rng;
+    if (!s.kyber) { this.log('Sin cristal no hay sable.', 'mal'); return; }
+    const k = s.kyber;
+    s.forma = forma || s.forma || rng.pick(SW.FORMAS_SABLE);
+    s.sable = { color: k.c, hex: k.hex, forma: s.forma };
+    this.log('Construyes tu sable de luz: hoja <b>' + k.c + '</b>, forma ' + s.sable.forma + '.', 'bien');
     this.hito('Construye un sable de luz ' + k.c);
+    this.popup({
+      tipo: 'sable', titulo: 'SABLE DE LUZ', nombre: 'sable de hoja ' + k.c,
+      sprite: 'sable', color: k.hex, desc: k.s + ' Forma de combate: ' + s.sable.forma + '.',
+      stats: ['+16 ataque', '+6 defensa', 'permite duelos de sable']
+    });
   };
 
   /* ---------------- Movimiento ---------------- */
@@ -5272,8 +6822,10 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       s.mundosVistos.push(d);
       s.contadores.mundosVisitados = s.mundosVistos.length;
     }
-    this.log('✈ ' + anterior + ' → <b>' + d + '</b> (' + m.r + ', ' + m.bio + ')' +
-      (motivo ? ' — ' + motivo : '') + '. ' + U.titleCase(m.vibe) + '.', 'viaje');
+    const dato = SW.datoMundo ? SW.datoMundo(d) : null;
+    this.log('✈ ' + anterior + ' → <b>' + d + '</b> <span class="dim">(' + m.r + ' · ' + m.bio + ')</span>' +
+      (motivo ? ' — ' + motivo : '') + '.', 'viaje');
+    this.log('<span class="dato">◈ ' + (dato || U.titleCase(m.vibe)) + '</span>', 'dato');
     this.hito('Se traslada a ' + d);
   };
 
@@ -5310,13 +6862,37 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
 
   Game.prototype.poderCombate = function () {
     const s = this.s;
-    return s.stats.destreza * 0.55 + s.stats.fisico * 0.35 + (s.sensible ? s.stats.fuerza * 0.3 : 0) +
-      (s.sable ? 14 : 0) + (s.habilidades.indexOf('luchador') >= 0 ? 9 : 0) +
-      (s.habilidades.indexOf('tirador') >= 0 ? 7 : 0) + s.cibernetica.length * 4;
+    const eq = SW.bonosEquipo(s);
+    let p = s.stats.destreza * 0.55 + s.stats.fisico * 0.35 +
+      (s.sensible ? s.stats.fuerza * 0.3 : 0) +
+      (s.habilidades.indexOf('luchador') >= 0 ? 9 : 0) +
+      (s.habilidades.indexOf('tirador') >= 0 ? 7 : 0) +
+      s.cibernetica.length * 4 +
+      eq.atk * 0.8 + eq.precision * 0.4;
+    // pelear con las manos desnudas contra alguien armado se nota
+    if (!SW.armaDeMano(s)) p -= 14;
+    return p;
+  };
+
+  /** Reducción de daño por armadura y prótesis */
+  Game.prototype.defensa = function () {
+    const eq = SW.bonosEquipo(this.s);
+    return eq.def;
   };
 
   Game.prototype.iniciarCombate = function (cfg) {
     const s = this.s;
+    cfg = cfg || {};
+    if (cfg.pistolas && !SW.tieneArmaFuego(s)) {
+      this.log('Un duelo de blásters sin bláster no es un duelo: es un suicidio. Te retiras entre risas.', 'mal');
+      this.aplicarFx({ reputacion: -8, cordura: -5 }, {});
+      return;
+    }
+    if (cfg.sable && !s.sable) {
+      this.log('No tienes sable. No hay duelo posible.', 'mal');
+      return;
+    }
+    if (!SW.armaDeMano(s)) this.log('Peleas con lo puesto: sin arma, todo cuesta más.', 'mal');
     this.escena = {
       tipo: 'combate',
       cfg: cfg || {},
@@ -5456,8 +7032,8 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
   /* --- minijuego de reflejos dentro del combate --- */
   Game.prototype.eventoMinijuego = function () {
     const s = this.s;
-    const armado = !!s.sable || s.habilidades.indexOf('tirador') >= 0;
-    const modo = this.escena && this.escena.cfg.duelo && !s.sable ? 'desenfundar' : (s.sable ? 'filo' : 'desenfundar');
+    // con sable se para el filo; con bláster se desenfunda; sin nada, reflejos a pelo
+    const modo = s.sable ? 'filo' : (SW.tieneArmaFuego(s) ? 'desenfundar' : 'filo');
     return {
       id: 'escena_minijuego', gen: true,
       t: '<span class="scene-tag">TE LA JUEGAS</span>' +
@@ -5492,6 +7068,12 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     const e = this.escena, s = this.s;
     if (!e) return;
     if (victoria) {
+      if (e.cfg.sableOscuro) this.darSableOscuro();
+      if (e.cfg.canon) {
+        this.log('Has ganado un combate del que se va a hablar.', 'bien');
+        this.aplicarFx({ reputacion: 15, notoriedad: 15 }, {});
+        this.hito('Vence a alguien de leyenda');
+      }
       const botin = e.cfg.botin || 0;
       if (botin) { s.stats.creditos += botin; this.log('Victoria. Cobras ' + U.cr(botin) + '.', 'cr'); }
       else this.log('Victoria.', 'bien');
@@ -5626,9 +7208,10 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
         comprar: puede ? o.n : null
       };
     });
+    c.push({ t: 'Ir a la armería', sub: 'armas y protección', armeria: true });
     c.push({ t: 'Vender algo tuyo', vender: true });
-    c.push({ t: 'Salir del mercado', fx: {}, out: 'Sales sin gastar. Raro.' });
-    return { id: 'menu_tienda', gen: true, t: 'MERCADO de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
+    c.push({ t: '◂ Salir del mercado sin comprar', volver: true });
+    return { id: 'menu_tienda', gen: true, esMenu: true, t: 'MERCADO de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
   };
 
   Game.prototype.menuHangar = function () {
@@ -5651,8 +7234,8 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       c.push({ t: 'Mejorar armamento — ' + U.cr(30000), req: function (st) { return st.stats.creditos >= 30000; }, fx: { creditos: -30000 }, mejora: 'arm' });
       c.push({ t: 'Vender tu ' + s.nave.n, venderNave: true });
     }
-    c.push({ t: 'Salir del hangar', fx: {} });
-    return { id: 'menu_hangar', gen: true, t: 'HANGAR de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
+    c.push({ t: '◂ Salir del hangar', volver: true });
+    return { id: 'menu_hangar', gen: true, esMenu: true, t: 'HANGAR de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
   };
 
   Game.prototype.menuViaje = function () {
@@ -5679,8 +7262,8 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       sub: 'gratis, pero un año duro y sin elegir destino',
       fx: { fisico: 4, cordura: -5, creditos: 600 }, mover: true, motivo: 'trabajando el pasaje'
     });
-    c.push({ t: 'Quedarte en ' + s.mundo, fx: { cordura: 2 } });
-    return { id: 'menu_viaje', gen: true, t: 'PUERTO ESTELAR de ' + s.mundo + ' (' + reg + ') — tienes ' + U.cr(s.stats.creditos), c: c };
+    c.push({ t: '◂ Quedarte en ' + s.mundo, volver: true });
+    return { id: 'menu_viaje', gen: true, esMenu: true, t: 'PUERTO ESTELAR de ' + s.mundo + ' (' + reg + ') — tienes ' + U.cr(s.stats.creditos), c: c };
   };
 
   Game.prototype.menuFuerza = function () {
@@ -5693,9 +7276,10 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       { t: 'Estudiar textos prohibidos', sub: 'Rápido y caro', fx: { fuerza: 13, alineamiento: -12, cordura: -8 }, poder: 'auto_oscuro' },
       { t: 'Estudiar textos de la Orden', sub: 'Lento y sólido', fx: { fuerza: 9, alineamiento: 10, cordura: 5 }, poder: 'auto_luz' },
       { t: 'Practicar una forma de sable', req: function (st) { return !!st.sable; }, fx: { destreza: 8, fuerza: 5 }, habilidad: 'duelista' },
-      { t: 'Ayunar y desconectar', fx: { fuerza: -5, cordura: 15, salud: 5 } }
+      { t: 'Ayunar y desconectar', fx: { fuerza: -5, cordura: 15, salud: 5 } },
+      { t: '◂ Hoy no', volver: true }
     ];
-    return { id: 'menu_fuerza', gen: true, t: 'LA FUERZA — nivel ' + s.stats.fuerza + ' · alineamiento ' + SW.etiquetaAlineamiento(s.stats.alineamiento), c: c };
+    return { id: 'menu_fuerza', gen: true, esMenu: true, t: 'LA FUERZA — nivel ' + s.stats.fuerza + ' · alineamiento ' + SW.etiquetaAlineamiento(s.stats.alineamiento), c: c };
   };
 
   Game.prototype.menuClinica = function () {
@@ -5717,8 +7301,8 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       c.push({ t: 'No tienes heridas abiertas', sub: 'el médico te mira con envidia', fx: { cordura: 3 } });
     }
     c.push({ t: 'Tanque de bacta completo — ' + U.cr(30000), req: function (st) { return st.stats.creditos >= 30000; }, fx: { creditos: -30000, salud: 20 }, curarHeridas: true });
-    c.push({ t: 'Salir de la clínica', fx: {} });
-    return { id: 'menu_clinica', gen: true, t: 'CLÍNICA de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
+    c.push({ t: '◂ Salir de la clínica', volver: true });
+    return { id: 'menu_clinica', gen: true, esMenu: true, t: 'CLÍNICA de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
   };
 
   Game.prototype.menuMatricula = function () {
@@ -5736,8 +7320,8 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
         estudio: puede ? e.id : null
       };
     });
-    c.push({ t: 'Ninguno', fx: {} });
-    return { id: 'menu_matricula', gen: true, t: 'PROGRAMAS DE FORMACIÓN disponibles', c: c };
+    c.push({ t: '◂ Ninguno por ahora', volver: true });
+    return { id: 'menu_matricula', gen: true, esMenu: true, t: 'PROGRAMAS DE FORMACIÓN disponibles', c: c };
   };
 
   Game.prototype.menuNombreNave = function () {
@@ -5747,17 +7331,35 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     const nombres = [];
     for (let i = 0; i < 5; i++) nombres.push(rng.pick(adj) + ' ' + rng.pick(comp));
     return {
-      id: 'menu_nave_nombre', gen: true,
+      id: 'menu_nave_nombre', gen: true, esMenu: true,
       t: 'Hay que bautizarla. En el Borde dicen que una nave sin nombre no vuelve.',
       c: nombres.map(function (n) { return { t: '"' + n + '"', ponerNombreNave: n }; })
     };
   };
 
   Game.prototype.menuSable = function () {
+    const s = this.s;
+    const k = s.kyber;
+    const notas = {
+      'Shii-Cho': 'La Forma I. Básica, tosca y fiable cuando todo falla.',
+      'Makashi': 'La Forma II. Duelo puro, elegante, pensada contra otro sable.',
+      'Soresu': 'La Forma III. Defensa cerrada; nadie gana rápido contra ella.',
+      'Ataru': 'La Forma IV. Acrobática y agotadora.',
+      'Shien/Djem So': 'La Forma V. Devolver el golpe con más fuerza de la que vino.',
+      'Niman': 'La Forma VI. Equilibrada, la del diplomático.',
+      'Juyo/Vaapad': 'La Forma VII. Al filo del lado oscuro; pocos la controlan.'
+    };
+    const c = SW.FORMAS_SABLE.filter(function (f) {
+      if (f === 'Juyo/Vaapad') return s.stats.fuerza > 55;
+      return true;
+    }).map(function (f) {
+      return { t: f, sub: notas[f] || '', construirForma: f };
+    });
     return {
-      id: 'menu_sable', gen: true,
-      t: 'El cristal responde. ¿Qué color canta dentro de ti?',
-      c: SW.COLORES_KYBER.map(function (k) { return { t: 'Hoja ' + k.c, sub: k.s, colorSable: k.c }; })
+      id: 'menu_sable', gen: true, esMenu: true,
+      t: 'Tu cristal es <b>' + (k ? k.c : '—') + '</b>: eso ya está decidido, el cristal eligió por ti. ' +
+         'Lo que sí eliges es cómo peleas.',
+      c: c.concat([{ t: '◂ Todavía no', volver: true }])
     };
   };
 
@@ -5773,22 +7375,108 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
 
   Game.prototype.hacerActividad = function (id) {
     const s = this.s, rng = this.rng;
+    if (s.acciones <= 0) { this.log('Ya no te queda tiempo este año.', 'res'); return; }
+    s.acciones--;
+    this.actividadEnCurso = id;
     const pool = SW.ACTOS[id] || [];
     const posibles = this.eventosPosibles(pool);
     if (!posibles.length) {
-      // nunca dejes al jugador sin nada: tira de generador
-      const gens = { crimen: 'contrato', nave: 'ruta', accion: 'accion', viaje: null };
+      // nunca dejes al jugador sin nada que decidir
+      const gens = { crimen: 'contrato', nave: 'ruta', accion: 'accion', escuadron: 'mision', politica: 'encargo', exploracion: 'encargo' };
       const g = gens[id];
-      if (g && SW.GEN[g]) { this.cola.push(this.prepararGen(SW.GEN[g](rng, s))); }
-      else if (id === 'viaje') { this.cola.push(this.prepararGen(this.menuViaje())); }
-      else { this.log('Este año no surge nada por esa vía.', 'res'); }
+      if (g && SW.GEN[g]) this.cola.push(this.prepararGen(SW.GEN[g](rng, s)));
+      else if (id === 'viaje') this.cola.push(this.prepararGen(this.menuViaje()));
+      else if (id === 'mercado') this.cola.push(this.prepararGen(this.menuTienda()));
+      else if (id === 'salud') this.cola.push(this.prepararGen(this.menuClinica()));
+      else if (id === 'fuerza') this.cola.push(this.prepararGen(this.menuFuerza()));
+      else this.cola.push(this.prepararGen(this.rellenoActividad(id)));
     } else {
       const ev = this.elegirEvento(posibles);
       const inst = this.prepararEvento(ev);
       if (inst) this.cola.push(inst);
     }
-    this.actividadUsada = true;
+    this.actividadUsada = s.acciones <= 0;
     this.fase = 'evento';
+  };
+
+  /** El jugador ha salido de un menú sin decidir nada: se le devuelve la acción */
+  Game.prototype.devolverAccion = function () {
+    const s = this.s;
+    if (s.acciones < s.accionesMax) s.acciones++;
+    this.actividadUsada = false;
+    this.cola = [];
+    this.escena = null;
+    this.fase = 'menu';
+  };
+
+  /* Un rato dedicado a algo siempre da para algo, aunque sea pequeño */
+  const RELLENO = {
+    trabajo: { t: 'No hay nada nuevo en el trabajo, pero el año pasa igual.', c: [
+      { t: 'Cumplir el horario sin más', fx: { creditos: 'sueldo*0.1', cordura: 3 }, out: 'Turnos, café y poco más.' },
+      { t: 'Aprender de los veteranos', fx: { intelecto: 5, carisma: 3 }, out: 'Te enseñan trucos que no vienen en ningún manual.' },
+      { t: 'Hacer horas de más por si acaso', fx: { creditos: 'sueldo*0.25', salud: -4 }, rendimiento: 8, out: 'Nadie lo pide. Alguien lo apunta.' },
+      { t: '◂ Dejarlo estar', volver: true }
+    ] },
+    formacion: { t: 'Nadie te va a enseñar nada esta vez. Te toca a ti.', c: [
+      { t: 'Repasar lo que ya sabes hasta clavarlo', fx: { intelecto: 5, destreza: 4 }, out: 'La repetición aburre y funciona.' },
+      { t: 'Leer por curiosidad, sin plan', fx: { intelecto: 6, cordura: 4 }, out: 'Cosas inútiles que algún día servirán.' },
+      { t: 'Entrenar el cuerpo por tu cuenta', fx: { fisico: 6, salud: 3 }, out: 'Sin gimnasio, sin excusas.' },
+      { t: '◂ Otro año', volver: true }
+    ] },
+    social: { t: 'Nadie te ha llamado. Puedes llamar tú.', c: [
+      { t: 'Ver a los tuyos sin motivo', fx: { cordura: 8 }, relTodas: 8, out: 'Una tarde tonta y necesaria.' },
+      { t: 'Salir a que te vea gente', fx: { carisma: 5, creditos: -600 }, out: 'Caras nuevas, ninguna importante todavía.' },
+      { t: 'Escribir a alguien con quien lo dejaste a medias', fx: { cordura: 6, carisma: 3 }, relTodas: 6, out: 'Contesta. Tarde, pero contesta.' },
+      { t: '◂ Estar solo', volver: true }
+    ] },
+    crimen: { t: 'El barrio está tranquilo. Demasiado.', c: [
+      { t: 'Escuchar en las cantinas', fx: { intelecto: 4, notoriedad: 3 }, out: 'Anotas nombres. Se usan más adelante.' },
+      { t: 'Trapicheo de poca monta', fx: { creditos: 4000, alineamiento: -5, notoriedad: 4 }, out: 'Poco riesgo, poco beneficio.' },
+      { t: '◂ Mantener el perfil bajo', volver: true }
+    ] },
+    nave: { t: 'Hoy el hangar solo pide mantenimiento.', c: [
+      { t: 'Revisar la nave de arriba abajo', req: function (st) { return !!st.nave; }, fx: { intelecto: 4 }, naveEstado: 15, out: 'Aprietas lo que estaba flojo.' },
+      { t: 'Trabajar de mecánico para otros', fx: { creditos: 4500, intelecto: 4 }, out: 'Manos negras y algo de dinero.' },
+      { t: '◂ Salir del hangar', volver: true }
+    ] },
+    accion: { t: 'No hay pelea que buscar. Puedes prepararte para la próxima.', c: [
+      { t: 'Entrenar tácticas de combate', fx: { destreza: 5, fisico: 4 }, out: 'Solo, contra un muñeco de prácticas.' },
+      { t: 'Estudiar cómo pelea la gente de aquí', fx: { intelecto: 5, destreza: 3 }, out: 'Cada mundo tiene sus vicios de guardia.' },
+      { t: '◂ Dejarlo', volver: true }
+    ] },
+    escuadron: { t: 'Semana tranquila en la unidad.', c: [
+      { t: 'Mantenimiento de equipo', fx: { intelecto: 4, destreza: 3 }, out: 'Todo limpio, todo revisado.' },
+      { t: 'Beber con los tuyos', fx: { cordura: 8 }, relTodas: 10, out: 'Historias repetidas que siguen haciendo gracia.' },
+      { t: '◂ Descansar', volver: true }
+    ] },
+    politica: { t: 'Ningún asunto grande sobre la mesa.', c: [
+      { t: 'Cultivar contactos', fx: { carisma: 5, reputacion: 4 }, out: 'Comidas largas y ninguna decisión.' },
+      { t: 'Leer expedientes atrasados', fx: { intelecto: 6 }, out: 'Encuentras una cifra que no cuadra.' },
+      { t: '◂ Dejarlo pasar', volver: true }
+    ] },
+    exploracion: { t: 'Los mapas de la zona ya están hechos. Casi todos.', c: [
+      { t: 'Revisar cartas viejas buscando huecos', fx: { intelecto: 6 }, out: 'Hay tres sistemas mal catalogados. Interesante.' },
+      { t: 'Salir a caminar sin rumbo', fx: { cordura: 8, fisico: 4 }, out: 'No encuentras nada. Vuelves mejor.' },
+      { t: '◂ Quedarte', volver: true }
+    ] },
+    mercado: { t: 'El mercado está flojo hoy.', c: [
+      { t: 'Regatear por deporte', fx: { carisma: 5 }, out: 'No compras nada. Aprendes precios.' },
+      { t: '◂ Salir', volver: true }
+    ] },
+    salud: { t: 'Nada que tratar. Puedes cuidarte igual.', c: [
+      { t: 'Dormir bien todo un año', fx: { salud: 6, cordura: 8 }, out: 'Suena tonto. Funciona.' },
+      { t: 'Comer decente por una vez', fx: { salud: 5, fisico: 3, creditos: -1500 }, out: 'El cuerpo lo agradece.' },
+      { t: '◂ Ya me cuidaré', volver: true }
+    ] },
+    fuerza: { t: 'Silencio. Ni visiones ni maestros.', c: [
+      { t: 'Sentarte a escuchar', fx: { fuerza: 5, cordura: 8 }, out: 'Nada habla. También es una respuesta.' },
+      { t: '◂ Levantarte', volver: true }
+    ] }
+  };
+
+  Game.prototype.rellenoActividad = function (id) {
+    const base = RELLENO[id] || RELLENO.social;
+    return { id: 'relleno_' + id, gen: true, esMenu: true, t: base.t, c: base.c };
   };
 
   /* ---------------- Extras de interfaz ---------------- */
@@ -5831,10 +7519,7 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       this.log('Tu nave se llama "' + d.ponerNombreNave + '".', 'bien');
       this.hito('Bautiza su nave: ' + d.ponerNombreNave);
     }
-    if (d.colorSable) {
-      const k = SW.COLORES_KYBER.filter(function (x) { return x.c === d.colorSable; })[0];
-      this.construirSable(k);
-    }
+    if (d.construirForma) this.construirSable(d.construirForma);
     clampStats(s);
   };
 
@@ -5934,6 +7619,9 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       he: (s.heridas || []).map(function (h) { return h.n + ' (−' + h.sev + ')'; }),
       ba: s.bando ? (SW.faccion(s.bando) || {}).n : null,
       hb: s.habilidades,
+      cn: s.conocidos || [],
+      ob: (s.objetos || []).slice(0, 12),
+      ma: s.maestro || null,
       tr: s.trabajo ? (SW.carrera(s.trabajo) ? SW.carrera(s.trabajo).n : s.trabajo) : null,
       rg: s.rango,
       ti: s.titulos,
@@ -5975,6 +7663,8 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     if (s.heridas && s.heridas.length) L.push('║ Heridas: ' + s.heridas.map(function (h) { return h.n; }).join(', '));
     L.push('║ Alineamiento: ' + SW.etiquetaAlineamiento(s.stats.alineamiento));
     if (s.sable) L.push('║ Sable: hoja ' + s.sable.color + ' (' + s.sable.forma + ')');
+    if (s.maestro) L.push('║ Maestro: ' + s.maestro);
+    if (s.conocidos && s.conocidos.length) L.push('║ Se cruzó con: ' + s.conocidos.join(', '));
     if (s.nave) L.push('║ Nave: ' + (s.naveNombre || s.nave.n));
     L.push('║ Mundos visitados: ' + s.contadores.mundosVisitados);
     L.push('╠══ MOMENTOS ══════════════════');
@@ -6010,6 +7700,7 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     h += '<p class="cv-sub">' + U.esc(d.er) + ' · nacid@ en ' + U.esc(d.m) + '</p>';
     h += '<p class="cv-estado ' + (d.mu ? 'muerto' : 'vivo') + '">' + (d.mu ? '☠ Murió a los ' + d.ed + ' — ' + U.esc(d.cm) : '● ' + d.ed + ' años, sigue en pie') + '</p>';
     if (d.tr) h += '<p class="cv-sub">' + U.esc(d.rg || '') + ' — ' + U.esc(d.tr) + '</p>';
+    if (d.ma) h += '<p class="cv-sub">Maestro: <b>' + U.esc(d.ma) + '</b></p>';
     h += '</div></div>';
 
     if (d.ti && d.ti.length) {
@@ -6039,6 +7730,15 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
 
     if (d.hb && d.hb.length) {
       h += '<div class="cv-seccion"><h3>Oficios</h3><p>' + d.hb.map(U.esc).join(' · ') + '</p></div>';
+    }
+
+    if (d.ob && d.ob.length) {
+      h += '<div class="cv-seccion"><h3>Lo que llevaba encima</h3><p>' + d.ob.map(U.esc).join(' · ') + '</p></div>';
+    }
+
+    if (d.cn && d.cn.length) {
+      h += '<div class="cv-seccion"><h3>Se cruzó con</h3><p class="cv-canon">' +
+        d.cn.map(function (n) { return '<span class="tag oro">' + U.esc(n) + '</span>'; }).join('') + '</p></div>';
     }
 
     if (d.po && d.po.length) {
@@ -6092,6 +7792,7 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       });
     }
     contar(SW.EVENTOS);
+    contar(SW.GUION || []);
     for (const k in SW.ACTOS) contar(SW.ACTOS[k]);
 
     // generadores procedurales
@@ -6103,7 +7804,9 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       { e: SW.CARRERAS.length * 4, o: 5 },                          // empleo
       { e: 9 * 7 * pools.mundo, o: 4 },                             // misión militar
       { e: 8 * pools.faccion * pools.mundo, o: 4 },                 // encargo de facción
-      { e: 4 * 40 * 40 * pools.lugar, o: 3 }                        // dilema moral
+      { e: 4 * 40 * 40 * pools.lugar, o: 3 },                       // dilema moral
+      { e: (SW.CANON ? SW.CANON.length : 0) * pools.lugar, o: 4 },   // encuentros canónicos
+      { e: 12 * 4, o: 6 }                                            // armería
     ];
     let genEsc = 0, genNodos = 0;
     gen.forEach(function (g) { genEsc += g.e; genNodos += g.e * g.o; });
@@ -6119,7 +7822,8 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       especies: SW.ESPECIES.length,
       mundos: SW.MUNDOS.length,
       carreras: SW.CARRERAS.length,
-      poderes: SW.PODERES.length
+      poderes: SW.PODERES.length,
+      canon: SW.CANON ? SW.CANON.length : 0
     };
   };
 
@@ -6138,6 +7842,42 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
   const $ = function (sel) { return document.querySelector(sel); };
 
   const UI = { juego: null, creador: null, app: null, mini: null };
+
+  /* ============================================================
+     AMBIENTE POR MUNDO
+     Cada bioma tiñe la interfaz. No es decorado: te dice de un
+     vistazo dónde estás sin leer nada.
+     ============================================================ */
+  const AMBIENTES = [
+    { re: /desierto|árido|arena|dunas|sal/i,        id: 'desierto',  acento: '#ffb03a', cielo: '#3a2410', suelo: '#1a1006', niebla: '#c88a3a' },
+    { re: /hielo|glaciar|tundra|helad/i,             id: 'hielo',     acento: '#a8e8ff', cielo: '#0e2a3a', suelo: '#071620', niebla: '#7fc4e8' },
+    { re: /océano|oceán|lagos|acuát|agua|mar/i,      id: 'oceano',    acento: '#3ad6ff', cielo: '#052436', suelo: '#03131e', niebla: '#2a9ac8' },
+    { re: /volcán|volcan|lava|basalto|ceniza/i,      id: 'volcanico', acento: '#ff5a3a', cielo: '#3a0e08', suelo: '#1a0604', niebla: '#c83a1a' },
+    { re: /jungla|selva|bosque|hongo|pradera|verde/i,acento: '#6aff8a', id: 'selva',    cielo: '#0a2a18', suelo: '#04120a', niebla: '#3aa85a' },
+    { re: /ciudad|urban|subciudad|industrial|fábrica|estación|anillo|orbital/i, id: 'ciudad', acento: '#c98aff', cielo: '#1a1030', suelo: '#0a0618', niebla: '#8a5ad8' },
+    { re: /pantano|tumbas|ruinas|penumbra|sombr|niebla/i, id: 'sombra', acento: '#8affc0', cielo: '#0e2018', suelo: '#050e0a', niebla: '#4a8a6a' },
+    { re: /cristal|kyber|gas|nube/i,                  id: 'cristal',   acento: '#ffd6f5', cielo: '#2a1030', suelo: '#12061a', niebla: '#c86ad8' }
+  ];
+
+  UI.ambienteDe = function (mundoNombre) {
+    const m = SW.mundo(mundoNombre);
+    const texto = (m.bio || '') + ' ' + (m.vibe || '');
+    for (let i = 0; i < AMBIENTES.length; i++) {
+      if (AMBIENTES[i].re.test(texto)) return AMBIENTES[i];
+    }
+    return { id: 'neutro', acento: '#3ad6ff', cielo: '#0d2438', suelo: '#04070c', niebla: '#1d7fa0' };
+  };
+
+  UI.aplicarAmbiente = function (mundoNombre) {
+    const a = UI.ambienteDe(mundoNombre);
+    const r = document.documentElement;
+    r.style.setProperty('--acento', a.acento);
+    r.style.setProperty('--cielo', a.cielo);
+    r.style.setProperty('--suelo', a.suelo);
+    r.style.setProperty('--niebla', a.niebla);
+    r.setAttribute('data-bioma', a.id);
+    return a;
+  };
 
   UI.init = function () {
     UI.app = $('#app');
@@ -6253,17 +7993,43 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     h += '<div class="holo-marco">' + SW.retrato(c.apariencia, 190) + '</div>';
     h += '<button class="btn mini bloque" data-a="rand-cara">⟳ generar aspecto</button>';
     h += '<div class="ap-controles">';
-    ['piel', 'ojos', 'pelo', 'marca', 'tocado', 'ropa'].forEach(function (k) {
-      h += '<label>' + U.titleCase(k) + '<select data-ap="' + k + '">' +
-        SW.APARIENCIA[k].map(function (o) {
-          const etq = SW.NOMBRE_COLOR[o] || o;
-          const est = o.charAt(0) === '#' ? ' style="background:' + o + ';color:#04070c"' : '';
-          return '<option value="' + U.esc(o) + '"' + est + (c.apariencia[k] === o ? ' selected' : '') + '>' + U.esc(etq) + '</option>';
-        }).join('') + '</select></label>';
+
+    /* colores: muestras que se tocan, no desplegables */
+    [['piel', 'Piel'], ['ojos', 'Ojos'], ['pelo', 'Pelo']].forEach(function (par) {
+      const k = par[0];
+      h += '<div class="ap-grupo"><label class="ap-lab">' + par[1] +
+        ' <span class="dim">' + U.esc(SW.NOMBRE_COLOR[c.apariencia[k]] || c.apariencia[k]) + '</span></label>' +
+        '<div class="muestras">';
+      SW.APARIENCIA[k].forEach(function (o) {
+        const activo = c.apariencia[k] === o;
+        if (o === 'ninguno') {
+          h += '<button class="muestra sin' + (activo ? ' on' : '') + '" data-apv="' + k + '|' + U.esc(o) + '" title="sin pelo">∅</button>';
+        } else {
+          h += '<button class="muestra' + (activo ? ' on' : '') + '" style="background:' + o + '" data-apv="' + k + '|' + U.esc(o) + '" title="' + U.esc(SW.NOMBRE_COLOR[o] || o) + '"></button>';
+        }
+      });
+      h += '</div></div>';
     });
-    h += '<label>Cráneo<select data-ap="forma">' + [0, 1, 2, 3].map(function (i) {
-      return '<option value="' + i + '"' + (c.apariencia.forma === i ? ' selected' : '') + '>tipo ' + (i + 1) + '</option>';
-    }).join('') + '</select></label>';
+
+    /* cráneo: cuatro siluetas en botones grandes */
+    h += '<div class="ap-grupo"><label class="ap-lab">Cráneo</label><div class="ap-fila">';
+    [0, 1, 2, 3].forEach(function (i) {
+      h += '<button class="ap-btn' + (c.apariencia.forma === i ? ' on' : '') + '" data-apv="forma|' + i + '">' +
+        ['◍', '◆', '▣', '⬟'][i] + '</button>';
+    });
+    h += '</div></div>';
+
+    /* el resto, en carrusel de flechas: en móvil es mucho más cómodo */
+    [['marca', 'Marcas'], ['tocado', 'Tocado'], ['ropa', 'Ropa']].forEach(function (par) {
+      const k = par[0];
+      h += '<div class="ap-grupo"><label class="ap-lab">' + par[1] + '</label>' +
+        '<div class="ap-carrusel">' +
+        '<button class="ap-flecha" data-apciclo="' + k + '|-1">◂</button>' +
+        '<span class="ap-valor">' + U.esc(c.apariencia[k]) + '</span>' +
+        '<button class="ap-flecha" data-apciclo="' + k + '|1">▸</button>' +
+        '</div></div>';
+    });
+
     h += '</div></div>';
 
     h += '<div class="col-datos">';
@@ -6312,9 +8078,22 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
   UI.bindCrear = function () {
     const c = UI.creador;
     UI.app.onclick = function (e) {
-      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo]');
+      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo],[data-apv],[data-apciclo]');
       if (!b || b.disabled) return;
       UI.leerCampos();
+      if (b.dataset.apv) {
+        const par = b.dataset.apv.split('|');
+        c.apariencia[par[0]] = par[0] === 'forma' ? parseInt(par[1], 10) : par[1];
+        UI.renderCrear(); return;
+      }
+      if (b.dataset.apciclo) {
+        const par = b.dataset.apciclo.split('|');
+        const lista = SW.APARIENCIA[par[0]];
+        const i = lista.indexOf(c.apariencia[par[0]]);
+        const n = (i + parseInt(par[1], 10) + lista.length) % lista.length;
+        c.apariencia[par[0]] = lista[n];
+        UI.renderCrear(); return;
+      }
       if (b.dataset.esp) {
         c.especie = b.dataset.esp;
         UI.coherenciaCreador();
@@ -6398,6 +8177,7 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
     if (s.muerto && !g.cola.length) { UI.pantallaFin(); return; }
 
     const m = SW.mundo(s.mundo);
+    const amb = UI.aplicarAmbiente(s.mundo);
     let h = '<div class="hud">';
 
     /* --- barra superior: siempre visible --- */
@@ -6405,8 +8185,9 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       '<button class="btn mini solo-movil" data-a="ficha">☰</button>' +
       '<div class="tb-id"><b>' + U.esc(s.nombre) + '</b><span>' + U.esc(s.especieN) + '</span></div>' +
       '<div class="tb-edad"><b>' + s.edad + '</b><span>' + (s.ritmo > 1 ? 'años · aspecto ' + s.edadBio : 'años') + '</span></div>' +
-      '<div class="tb-mundo"><b>✦ ' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + ' · ' + U.esc(s.eraN) + '</span></div>' +
+      '<div class="tb-mundo"><b><i class="bioma-punto"></i>' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + ' · ' + U.esc(s.eraN) + '</span></div>' +
       '<div class="tb-cr"><b>' + U.cr(s.stats.creditos) + '</b><span>créditos</span></div>' +
+      '<div class="tb-acc"><b>' + UI.pips(s) + '</b><span>acciones</span></div>' +
       '<div class="tb-mini">' + UI.miniBarras(s) + '</div>' +
       '<button class="btn mini" data-a="menu">≡</button>' +
       '</header>';
@@ -6424,21 +8205,30 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       h += '<button class="btn grande" data-a="fin">▸ VER RESUMEN DE VIDA</button>';
     } else {
       h += '<div class="acts">';
+      const sinTiempo = s.acciones <= 0;
       g.menuActividades().forEach(function (a) {
-        h += '<button class="act' + (g.actividadUsada ? ' off' : '') + '" data-act="' + a.id + '" title="' + U.esc(a.desc) + '">' +
+        h += '<button class="act' + (sinTiempo ? ' off' : '') + '" data-act="' + a.id + '" title="' + U.esc(a.desc) + '">' +
           '<i>' + a.ico + '</i><span>' + U.esc(a.n) + '</span></button>';
       });
       h += '</div>';
-      h += '<button class="btn grande avanzar" data-a="avanzar">▸ AÑO ' + (s.edad + 1) + '</button>';
+      h += '<button class="btn grande avanzar" data-a="avanzar">▸ AÑO ' + (s.edad + 1) +
+        (s.acciones > 0 ? ' <em>(te quedan ' + s.acciones + ')</em>' : '') + '</button>';
     }
     h += '</footer></div>';
 
     UI.app.innerHTML = h;
     if (g.cola.length) UI.mostrarEvento();
+    UI.mostrarPopup();
     const cons = $('#consola');
     if (cons) cons.scrollTop = cons.scrollHeight;
     UI.bindJuego();
     UI.guardarPartida();
+  };
+
+  UI.pips = function (s) {
+    let h = '';
+    for (let i = 0; i < s.accionesMax; i++) h += '<i class="pip' + (i < s.acciones ? ' on' : '') + '"></i>';
+    return h;
   };
 
   /** micro-barras de la topbar, para no depender del panel */
@@ -6506,10 +8296,19 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
         }).join('') + '</p></div>';
     }
 
+    if (s.conocidos && s.conocidos.length) {
+      h += '<div class="ficha"><h4>Te has cruzado con</h4><p class="mini-lista">' +
+        s.conocidos.map(function (n) { return '<span class="tag mini canon">' + U.esc(n) + '</span>'; }).join('') +
+        '</p></div>';
+    }
+
     if (s.relaciones.length) {
       h += '<div class="ficha rels"><h4>Gente (' + s.relaciones.length + ')</h4>';
-      s.relaciones.slice(-10).forEach(function (r) {
-        h += '<div class="rel"><b>' + U.esc(r.nombre) + '</b><span>' + U.esc(r.tipo) + '</span>' +
+      s.relaciones.slice(-12).forEach(function (r) {
+        h += '<div class="rel' + (r.canon ? ' canon' : '') + '">' +
+          '<b>' + U.esc(r.nombre) + '</b>' +
+          '<span class="rel-tipo">' + U.esc(r.tipo) + '</span>' +
+          (r.quien ? '<span class="rel-quien">(' + U.esc(r.quien) + ')</span>' : '') +
           '<i class="' + (r.afecto >= 0 ? 'pos' : 'neg') + '" style="width:' + Math.abs(r.afecto) / 2 + '%"></i></div>';
       });
       h += '</div>';
@@ -6529,6 +8328,44 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       h += '<p class="l l-' + l.tipo + '">' + l.txt + '</p>';
     });
     return h;
+  };
+
+  /* ============================================================
+     VITRINA: cuando consigues algo, se ve
+     ============================================================ */
+  UI.mostrarPopup = function () {
+    const g = UI.juego;
+    if (!g || !g.popups || !g.popups.length) return;
+    const p = g.popups[0];
+
+    const cont = document.createElement('div');
+    cont.className = 'vitrina-overlay';
+    cont.innerHTML =
+      '<div class="vitrina">' +
+      '<div class="vit-cab">' + U.esc(p.titulo) + '</div>' +
+      '<div class="vit-arte"><div class="vit-halo"></div></div>' +
+      '<div class="vit-nombre">' + U.esc(p.nombre) + '</div>' +
+      '<p class="vit-desc">' + U.esc(p.desc) + '</p>' +
+      (p.stats && p.stats.length
+        ? '<div class="vit-stats">' + p.stats.map(function (x) { return '<span>' + U.esc(x) + '</span>'; }).join('') + '</div>'
+        : '') +
+      '<button class="btn grande bloque" data-vit>CONTINUAR</button>' +
+      '</div>';
+    document.body.appendChild(cont);
+
+    try {
+      const arte = cont.querySelector('.vit-arte');
+      const cv = SW.pixel(p.sprite, { escala: 7, dinamico: p.color || '#c8d4e0' });
+      arte.appendChild(cv);
+      if (p.color) arte.style.setProperty('--halo', p.color);
+    } catch (e) {}
+
+    cont.addEventListener('click', function (e) {
+      if (!e.target.closest('[data-vit]') && e.target !== cont) return;
+      cont.remove();
+      g.popups.shift();
+      UI.mostrarPopup();
+    });
   };
 
   /* ---------------- Eventos ---------------- */
@@ -6563,7 +8400,7 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
       if (!b || b.disabled) return;
       if (b.dataset.op != null) { UI.elegirOpcion(parseInt(b.dataset.op, 10)); return; }
       if (b.dataset.act) {
-        if (UI.juego.actividadUsada) { UI.flash('Ya has usado tu actividad de este año.'); return; }
+        if (UI.juego.s.acciones <= 0) { UI.flash('Ya no te queda tiempo este año. Avanza de año.'); return; }
         UI.juego.hacerActividad(b.dataset.act);
         UI.renderJuego(); return;
       }

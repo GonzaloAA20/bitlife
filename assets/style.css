@@ -466,3 +466,203 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
   .logo h1 { font-size: 46px; }
   .avanzar { width: 100%; text-align: center; }
 }
+
+/* ============================================================
+   AMBIENTE POR MUNDO
+   El bioma del planeta tiñe el fondo, el acento y la niebla.
+   ============================================================ */
+:root {
+  --acento: #3ad6ff;
+  --cielo:  #0d2438;
+  --suelo:  #04070c;
+  --niebla: #1d7fa0;
+}
+
+body.en-juego::before {
+  background:
+    radial-gradient(1px 1px at 12% 22%, #cfe8f5 50%, transparent 51%),
+    radial-gradient(1px 1px at 68% 14%, #9fd4ff 50%, transparent 51%),
+    radial-gradient(1px 1px at 34% 71%, #ffffff 50%, transparent 51%),
+    radial-gradient(1px 1px at 82% 63%, #ffd9a0 50%, transparent 51%),
+    radial-gradient(1600px 800px at 50% -12%, var(--cielo) 0%, transparent 72%),
+    linear-gradient(var(--suelo), #05080e);
+  transition: background 1.2s ease;
+}
+
+.bioma-punto {
+  display: inline-block; width: 7px; height: 7px; margin-right: 6px;
+  background: var(--acento); border-radius: 50%;
+  box-shadow: 0 0 10px var(--acento);
+  animation: latido 3s ease-in-out infinite;
+}
+@keyframes latido { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+
+/* la consola respira el color del planeta */
+.consola {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--acento) 7%, transparent), transparent 180px),
+    var(--bg2);
+  transition: background .8s ease;
+}
+.año::after { background: linear-gradient(90deg, color-mix(in srgb, var(--acento) 55%, #4a3a16), transparent); }
+.año span { color: var(--acento); }
+
+/* ============================================================
+   HUD MÁS TRABAJADO
+   ============================================================ */
+.topbar {
+  position: relative;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--cielo) 55%, #0b1826), #060e18);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--acento) 25%, transparent);
+}
+.topbar::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--acento), transparent);
+  opacity: .5;
+}
+.tb-mundo b { color: var(--acento) !important; }
+
+.tb-acc { align-items: flex-start; }
+.tb-acc b { display: flex; gap: 4px; align-items: center; height: 14px; }
+.pip {
+  display: block; width: 9px; height: 9px; border: 1px solid var(--niebla);
+  transform: rotate(45deg); background: transparent; transition: all .2s;
+}
+.pip.on { background: var(--acento); border-color: var(--acento); box-shadow: 0 0 8px var(--acento); }
+
+.avanzar em { font-style: normal; opacity: .6; font-size: 11px; }
+
+/* esquinas de marco: el detalle que hace que parezca un aparato */
+.panel, .consola { position: relative; }
+.evento::after, .vitrina::after {
+  content: ""; position: absolute; inset: 6px; pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--acento) 18%, transparent);
+  clip-path: polygon(0 0, 14px 0, 14px 1px, calc(100% - 14px) 1px, calc(100% - 14px) 0, 100% 0,
+                     100% 14px, calc(100% - 1px) 14px, calc(100% - 1px) calc(100% - 14px), 100% calc(100% - 14px),
+                     100% 100%, calc(100% - 14px) 100%, calc(100% - 14px) calc(100% - 1px), 14px calc(100% - 1px),
+                     14px 100%, 0 100%, 0 calc(100% - 14px), 1px calc(100% - 14px), 1px 14px, 0 14px);
+}
+
+/* ficha del panel con cabecera de verdad */
+.ficha h4 {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--acento);
+}
+.ficha h4::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--acento) 40%, transparent), transparent); }
+
+/* relaciones legibles: nombre, qué es y a qué se dedica */
+.rel { padding: 5px 0 7px; }
+.rel b { display: block; }
+.rel-tipo {
+  display: inline-block; font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--acento); border: 1px solid color-mix(in srgb, var(--acento) 35%, transparent);
+  padding: 0 4px; margin-right: 5px;
+}
+.rel-quien { font-size: 10.5px; color: var(--txt-dim); font-style: italic; }
+.rel.canon b { color: var(--oro); }
+.rel.canon { border-left: 2px solid var(--oro); padding-left: 6px; }
+.tag.mini.canon { border-color: var(--oro); color: var(--oro); }
+
+/* dato de planeta en la consola */
+.l-dato { color: var(--acento); font-size: 12.5px; opacity: .85; font-style: italic; padding-left: 12px; }
+.canon-tag {
+  display: inline-block; font-size: 10px; letter-spacing: .22em; color: var(--oro);
+  border: 1px solid var(--oro); padding: 2px 8px; margin-bottom: 8px; text-transform: uppercase;
+  box-shadow: 0 0 14px rgba(216,184,74,.2);
+}
+
+/* ============================================================
+   VITRINA DE OBJETO
+   ============================================================ */
+.vitrina-overlay {
+  position: fixed; inset: 0; z-index: 700;
+  background: radial-gradient(circle at 50% 45%, rgba(4,10,16,.86), rgba(1,3,6,.97));
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: fadeIn .2s ease;
+}
+.vitrina {
+  position: relative; width: 100%; max-width: 380px; text-align: center;
+  background: linear-gradient(180deg, #0c1b2a, #070f19);
+  border: 1px solid var(--acento);
+  box-shadow: 0 0 60px color-mix(in srgb, var(--acento) 25%, transparent), var(--sombra);
+  padding: 20px 22px 18px;
+  animation: vitrinaEntra .35s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes vitrinaEntra {
+  from { transform: scale(.86) translateY(12px); opacity: 0 }
+  to   { transform: none; opacity: 1 }
+}
+.vit-cab {
+  font-size: 10px; letter-spacing: .3em; color: var(--acento);
+  text-transform: uppercase; margin-bottom: 14px;
+}
+.vit-arte {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  min-height: 150px; margin-bottom: 12px;
+  --halo: var(--acento);
+}
+.vit-halo {
+  position: absolute; width: 150px; height: 150px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--halo) 30%, transparent), transparent 68%);
+  animation: pulso 2.6s ease-in-out infinite;
+}
+@keyframes pulso { 0%,100% { transform: scale(1); opacity: .75 } 50% { transform: scale(1.14); opacity: 1 } }
+.vit-arte canvas { position: relative; z-index: 1; image-rendering: pixelated; filter: drop-shadow(0 0 12px color-mix(in srgb, var(--halo) 55%, transparent)); }
+.sprite { image-rendering: pixelated; }
+.vit-nombre { font-family: var(--disp); font-size: 21px; letter-spacing: .04em; color: var(--ambar); margin-bottom: 6px; }
+.vit-desc { font-size: 12.5px; color: var(--txt); margin: 0 0 12px; line-height: 1.5; }
+.vit-stats { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin-bottom: 14px; }
+.vit-stats span {
+  font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  border: 1px solid var(--linea); padding: 3px 8px; color: var(--verde);
+}
+
+/* ============================================================
+   CREADOR TÁCTIL
+   ============================================================ */
+.ap-grupo { margin-bottom: 12px; }
+.ap-lab { display: block; font-size: 10px; letter-spacing: .14em; color: var(--txt-dim); text-transform: uppercase; margin-bottom: 5px; }
+.muestras { display: flex; flex-wrap: wrap; gap: 5px; }
+.muestra {
+  width: 26px; height: 26px; border: 2px solid #16293a; cursor: pointer; padding: 0;
+  border-radius: 3px; transition: all .12s;
+}
+.muestra:hover { transform: scale(1.12); }
+.muestra.on { border-color: #fff; box-shadow: 0 0 12px rgba(255,255,255,.5); transform: scale(1.14); }
+.muestra.sin { background: #0a1620; color: var(--txt-dim); font-size: 13px; line-height: 22px; }
+.ap-fila { display: flex; gap: 5px; }
+.ap-btn {
+  flex: 1; height: 34px; font-size: 17px; cursor: pointer;
+  background: #08141f; border: 1px solid #16293a; color: var(--txt-dim); border-radius: 3px;
+}
+.ap-btn.on { border-color: var(--acento); color: var(--acento); box-shadow: 0 0 12px color-mix(in srgb, var(--acento) 30%, transparent); }
+.ap-carrusel { display: flex; align-items: stretch; gap: 5px; }
+.ap-flecha {
+  width: 34px; cursor: pointer; background: #08141f; border: 1px solid #16293a;
+  color: var(--acento); font-size: 14px; border-radius: 3px;
+}
+.ap-flecha:hover { border-color: var(--acento); }
+.ap-valor {
+  flex: 1; display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: 11.5px; color: var(--txt); background: #061019; border: 1px solid var(--linea);
+  padding: 6px 4px; border-radius: 3px; line-height: 1.25;
+}
+
+/* ============================================================
+   AJUSTES RESPONSIVE DEL REDISEÑO
+   ============================================================ */
+@media (max-width: 900px) {
+  .topbar > .tb-acc { display: flex; }
+  .pip { width: 8px; height: 8px; }
+}
+@media (max-width: 560px) {
+  .vitrina { padding: 16px; }
+  .vit-arte { min-height: 120px; }
+  .vit-arte canvas { max-width: 78vw; height: auto; }
+  .muestra { width: 30px; height: 30px; }
+  .crear-grid { gap: 14px; }
+}
+
+.cv-canon { display: flex; flex-wrap: wrap; gap: 5px; }
+.cv-heridas { color: var(--rojo); }

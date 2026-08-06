@@ -343,7 +343,7 @@
     });
     const lista = (apto.length ? apto : pool);
     if (!lista.length) {
-      return { id: 'gen_empleo', gen: true, t: 'No hay nada para ti en este puerto, en esta época.', c: [{ t: 'Seguir buscando', fx: { cordura: -3 } }] };
+      return { id: 'gen_empleo', gen: true, esMenu: true, t: 'No hay nada para ti en este puerto, en esta época.', c: [{ t: '◂ Volver', volver: true }] };
     }
     const opciones = rng.pickN(lista, Math.min(5, lista.length)).map(function (c) {
       const sueldo = Math.round(c.sueldoBase * (0.7 + rng.next() * 0.8));
@@ -353,8 +353,8 @@
         empleo: { id: c.id, sueldo: sueldo }
       };
     });
-    opciones.push({ t: 'Ninguna de estas', fx: { cordura: 3 }, out: 'Sigues buscando.' });
-    return { id: 'gen_empleo', gen: true, t: 'Ofertas disponibles en ' + s.mundo + ':', c: opciones };
+    opciones.push({ t: '◂ Ninguna de estas', volver: true });
+    return { id: 'gen_empleo', gen: true, esMenu: true, t: 'Ofertas disponibles en ' + s.mundo + ':', c: opciones };
   };
 
   /* encargo de una facción concreta */
