@@ -100,7 +100,9 @@
   SW.enlaceResumen = function (s) {
     const data = SW.construirResumen(s);
     const packed = U.pack(data);
-    const base = location.origin + location.pathname;
+    // usa la URL real desde la que se sirve la página (funciona en http, https y file)
+    let base = String(location.href || '').split('#')[0];
+    if (!/^(https?|file):/.test(base)) base = '';   // about:srcdoc y similares: solo el fragmento
     return base + '#v=' + packed;
   };
 
