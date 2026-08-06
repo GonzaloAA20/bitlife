@@ -81,7 +81,12 @@
       mu: s.muerto,
       cm: s.causaMuerte,
       st: [s.stats.salud, s.stats.fuerza, s.stats.destreza, s.stats.intelecto, s.stats.carisma,
-           s.stats.suerte, s.stats.cordura, s.stats.reputacion, s.stats.notoriedad, s.stats.alineamiento, s.stats.creditos],
+           s.stats.suerte, s.stats.cordura, s.stats.reputacion, s.stats.notoriedad, s.stats.alineamiento,
+           s.stats.creditos, s.stats.fisico],
+      se: !!s.sensible,
+      he: (s.heridas || []).map(function (h) { return h.n + ' (−' + h.sev + ')'; }),
+      ba: s.bando ? (SW.faccion(s.bando) || {}).n : null,
+      hb: s.habilidades,
       tr: s.trabajo ? (SW.carrera(s.trabajo) ? SW.carrera(s.trabajo).n : s.trabajo) : null,
       rg: s.rango,
       ti: s.titulos,
@@ -117,8 +122,10 @@
     if (s.titulos.length) L.push('║ ' + s.titulos.join(' · '));
     L.push('╠══════════════════════════════');
     L.push('║ Créditos: ' + U.cr(s.stats.creditos));
-    L.push('║ Fuerza ' + s.stats.fuerza + ' · Destreza ' + s.stats.destreza + ' · Intelecto ' + s.stats.intelecto);
+    L.push('║ Físico ' + s.stats.fisico + ' · Destreza ' + s.stats.destreza + ' · Intelecto ' + s.stats.intelecto);
     L.push('║ Carisma ' + s.stats.carisma + ' · Cordura ' + s.stats.cordura + ' · Salud ' + s.stats.salud);
+    if (s.sensible) L.push('║ La Fuerza: ' + s.stats.fuerza);
+    if (s.heridas && s.heridas.length) L.push('║ Heridas: ' + s.heridas.map(function (h) { return h.n; }).join(', '));
     L.push('║ Alineamiento: ' + SW.etiquetaAlineamiento(s.stats.alineamiento));
     if (s.sable) L.push('║ Sable: hoja ' + s.sable.color + ' (' + s.sable.forma + ')');
     if (s.nave) L.push('║ Nave: ' + (s.naveNombre || s.nave.n));
@@ -144,9 +151,10 @@
     const o = opciones || {};
     const st = d.st;
     const stats = [
-      ['Salud', st[0]], ['Fuerza', st[1]], ['Destreza', st[2]], ['Intelecto', st[3]],
-      ['Carisma', st[4]], ['Suerte', st[5]], ['Cordura', st[6]], ['Reputación', st[7]], ['Notoriedad', st[8]]
+      ['Salud', st[0]], ['Físico', st[11] == null ? 40 : st[11]], ['Destreza', st[2]], ['Intelecto', st[3]],
+      ['Carisma', st[4]], ['Cordura', st[6]], ['Suerte', st[5]], ['Reputación', st[7]], ['Notoriedad', st[8]]
     ];
+    if (d.se !== false) stats.push(['✦ La Fuerza', st[1]]);
     let h = '<div class="card-vida">';
     h += '<div class="cv-head">';
     h += '<div class="cv-retrato">' + SW.retrato(d.ap, 130) + '</div>';
@@ -170,12 +178,21 @@
     h += '<div class="cv-linea">';
     h += '<span class="tag">' + U.cr(st[10]) + '</span>';
     h += '<span class="tag">' + SW.etiquetaAlineamiento(st[9]) + '</span>';
+    if (d.ba) h += '<span class="tag">' + U.esc(d.ba) + '</span>';
     if (d.sa) h += '<span class="tag" style="border-color:' + (SW.COLORES_KYBER.filter(function (k) { return k.c === d.sa[0]; })[0] || {}).hex + '">Sable ' + U.esc(d.sa[0]) + ' · ' + U.esc(d.sa[1]) + '</span>';
     if (d.na) h += '<span class="tag">' + U.esc(d.na) + '</span>';
     if (d.ct && d.ct.mundosVisitados) h += '<span class="tag">' + d.ct.mundosVisitados + ' mundos</span>';
     if (d.ct && d.ct.derribos) h += '<span class="tag">' + d.ct.derribos + ' derribos</span>';
     if (d.ct && d.ct.cazas) h += '<span class="tag">' + d.ct.cazas + ' contratos</span>';
     h += '</div>';
+
+    if (d.he && d.he.length) {
+      h += '<div class="cv-seccion"><h3>Heridas sin cerrar</h3><p class="cv-heridas">' + d.he.map(U.esc).join(' · ') + '</p></div>';
+    }
+
+    if (d.hb && d.hb.length) {
+      h += '<div class="cv-seccion"><h3>Oficios</h3><p>' + d.hb.map(U.esc).join(' · ') + '</p></div>';
+    }
 
     if (d.po && d.po.length) {
       h += '<div class="cv-seccion"><h3>Poderes</h3><p>' + d.po.map(function (p) {
@@ -231,19 +248,18 @@
     for (const k in SW.ACTOS) contar(SW.ACTOS[k]);
 
     // generadores procedurales
-    const gen = {
-      contrato: 8 * pools.faccion * pools.mundo * pools.lugar,      // tipo × cliente × mundo × lugar
-      ruta: 10 * pools.mundo * pools.mundo * 8,                     // carga × origen × destino × distancia
-      accion: 12 * pools.lugar,                                     // enemigo × lugar
-      dogfight: 6 * 41,                                             // enemigo × dificultad
-      empleo: SW.CARRERAS.length * 4
-    };
+    const gen = [
+      { e: 8 * pools.faccion * pools.mundo * pools.lugar, o: 4 },   // contrato
+      { e: 10 * pools.mundo * pools.mundo * 8, o: 4 },              // ruta
+      { e: 12 * pools.lugar, o: 4 },                                // acción
+      { e: 6 * 41, o: 4 },                                          // dogfight
+      { e: SW.CARRERAS.length * 4, o: 5 },                          // empleo
+      { e: 9 * 7 * pools.mundo, o: 4 },                             // misión militar
+      { e: 8 * pools.faccion * pools.mundo, o: 4 },                 // encargo de facción
+      { e: 4 * 40 * 40 * pools.lugar, o: 3 }                        // dilema moral
+    ];
     let genEsc = 0, genNodos = 0;
-    genEsc += gen.contrato; genNodos += gen.contrato * 4;
-    genEsc += gen.ruta; genNodos += gen.ruta * 4;
-    genEsc += gen.accion; genNodos += gen.accion * 4;
-    genEsc += gen.dogfight; genNodos += gen.dogfight * 4;
-    genEsc += gen.empleo; genNodos += gen.empleo * 5;
+    gen.forEach(function (g) { genEsc += g.e; genNodos += g.e * g.o; });
 
     return {
       plantillas: plantillas,

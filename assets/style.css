@@ -60,7 +60,10 @@ body::after {
 #app { position: relative; z-index: 1; }
 
 .pantalla { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 22px 14px; }
-.pantalla.juego { align-items: stretch; padding: 0; }
+
+/* en partida la página no scrollea: scrollean las zonas de dentro */
+body.en-juego { overflow: hidden; height: 100dvh; }
+body.en-juego #app { height: 100dvh; }
 
 /* ---------- marco CRT ---------- */
 .crt-frame {
@@ -173,7 +176,7 @@ select:focus, input:focus { outline: none; border-color: var(--cian); box-shadow
 /* ============================================================
    JUEGO
    ============================================================ */
-.hud { display: flex; flex-direction: column; min-height: 100vh; width: 100%; position: relative; }
+.hud { display: flex; flex-direction: column; height: 100dvh; width: 100%; position: relative; overflow: hidden; }
 
 .topbar {
   display: flex; align-items: center; gap: 16px;
@@ -189,12 +192,11 @@ select:focus, input:focus { outline: none; border-color: var(--cian); box-shadow
 .tb-cr b { color: var(--verde); }
 .topbar .btn { margin-left: 6px; }
 
-.cuerpo { display: grid; grid-template-columns: 270px 1fr; flex: 1; min-height: 0; }
-@media (max-width: 860px) { .cuerpo { grid-template-columns: 1fr; } .panel { order: 2; } }
+.cuerpo { display: grid; grid-template-columns: 286px 1fr; flex: 1; min-height: 0; overflow: hidden; }
 
 .panel {
   background: var(--panel); border-right: 1px solid var(--linea);
-  padding: 12px; overflow-y: auto; max-height: calc(100vh - 150px);
+  padding: 12px; overflow-y: auto; overscroll-behavior: contain; min-height: 0;
 }
 .holo-mini { display: flex; justify-content: center; margin-bottom: 10px; border: 1px solid #123044; padding: 5px; background: #030a10; }
 
@@ -228,7 +230,7 @@ select:focus, input:focus { outline: none; border-color: var(--cian); box-shadow
 
 /* ---------- consola ---------- */
 .consola {
-  padding: 16px 20px; overflow-y: auto; max-height: calc(100vh - 150px);
+  padding: 16px 20px; overflow-y: auto; overscroll-behavior: contain; min-height: 0;
   background:
     linear-gradient(180deg, rgba(58,214,255,.03), transparent 120px),
     var(--bg2);
@@ -381,13 +383,86 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
 ::-webkit-scrollbar-thumb { background: #16354a; border: 1px solid #0a1a26; }
 ::-webkit-scrollbar-thumb:hover { background: var(--cian-tenue); }
 
+/* ============================================================
+   COMPONENTES NUEVOS
+   ============================================================ */
+
+/* micro-barras siempre visibles arriba */
+/* especificidad a la altura de `.topbar > div`, que si no gana esta pelea */
+.topbar > .tb-mini { display: flex; flex-direction: row; gap: 9px; align-items: center; }
+.mb { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 34px; }
+.mb i { font-style: normal; font-size: 8px; letter-spacing: .1em; color: var(--txt-dim); }
+.mb b { display: block; width: 34px; height: 5px; background: #0a1620; border: 1px solid #14283a; position: relative; }
+.mb b::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--w); background: var(--c); box-shadow: 0 0 6px var(--c); }
+.mb u { text-decoration: none; font-size: 9px; color: var(--txt); }
+
+/* caja de la Fuerza, separada de las estadísticas físicas */
+.fuerza-box {
+  display: grid; grid-template-columns: 74px 1fr 30px; align-items: center; gap: 6px;
+  margin: 8px 0; padding: 7px 0; border-top: 1px solid var(--linea); border-bottom: 1px solid var(--linea);
+  font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #4a6070;
+}
+.fuerza-box.on { color: var(--morado); }
+.fuerza-box em { grid-column: 2 / span 2; font-size: 10px; color: #3d5566; font-style: italic; text-transform: none; }
+.fuerza-box .barra i { background: linear-gradient(90deg, #6a4aa0, #e8d8ff); box-shadow: 0 0 10px rgba(201,138,255,.55); }
+.fuerza-box b { text-align: right; color: var(--txt); font-size: 11px; }
+
+.heridas h4 { color: var(--rojo); }
+.mini-lista { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
+.tag.mini { font-size: 9px; padding: 2px 6px; text-transform: none; letter-spacing: .02em; }
+.tag.mini.fz { border-color: #6a4aa0; color: var(--morado); }
+
+/* barras de vida dentro de las escenas de combate */
+.hp { display: grid; grid-template-columns: 62px 1fr auto; gap: 8px; align-items: center; font-size: 11px; color: var(--txt-dim); margin: 3px 0; }
+.hp code { color: var(--cian); font-size: 12px; letter-spacing: -1px; }
+.tell { margin: 10px 0 0; padding: 8px 10px; border-left: 3px solid var(--ambar); background: rgba(255,176,58,.07); font-size: 13px; color: #ffdca6; font-style: italic; }
+.dim { color: var(--txt-dim); }
+
+/* opciones bloqueadas por falta de dinero */
+.op.bloq { opacity: .38; cursor: not-allowed; border-left-color: #3a2028; }
+.op.bloq:hover { transform: none; background: #08141f; box-shadow: none; }
+.chip.bloq { opacity: .3; cursor: not-allowed; }
+.aviso { color: var(--ambar); }
+
+/* ---------- minijuegos ---------- */
+.mini { margin: 4px 0 16px; }
+.mini-pie { font-size: 11px; color: var(--txt-dim); margin: 8px 0 0; text-align: center; }
+
+.draw-zona {
+  width: 100%; height: 110px; cursor: pointer; font-family: var(--disp);
+  font-size: 30px; letter-spacing: .2em; color: var(--txt-dim);
+  background: #0a1620; border: 2px solid #1d3d52; transition: none;
+}
+.draw-zona.ya { background: #3a0d12; border-color: var(--rojo); color: #fff; box-shadow: 0 0 40px rgba(255,77,94,.5); }
+
+.filo-pista {
+  position: relative; height: 40px; background: #0a1620; border: 1px solid #1d3d52; overflow: hidden;
+}
+.filo-zona { position: absolute; top: 0; bottom: 0; background: linear-gradient(180deg, rgba(58,214,255,.35), rgba(58,214,255,.12)); border-left: 1px solid var(--cian); border-right: 1px solid var(--cian); }
+.filo-marca { position: absolute; top: -4px; bottom: -4px; width: 3px; background: #fff; box-shadow: 0 0 14px #fff; transform: translateX(-50%); }
+#filo-golpe { margin-top: 10px; text-align: center; }
+
+.solo-movil { display: none; }
+
+@media (max-width: 900px) {
+  .cuerpo { grid-template-columns: 1fr; }
+  .solo-movil { display: block; }
+  .panel {
+    position: fixed; top: 52px; bottom: 0; left: 0; width: 290px; z-index: 300;
+    transform: translateX(-102%); transition: transform .18s ease;
+    box-shadow: 12px 0 30px rgba(0,0,0,.6);
+  }
+  body.panel-abierto .panel { transform: none; }
+  .topbar > .tb-mini { display: none; }
+}
+
 @media (max-width: 560px) {
-  .topbar { gap: 10px; padding: 8px 10px; }
+  .topbar { gap: 8px; padding: 8px 10px; }
   .topbar b { font-size: 12px; }
   .tb-edad b { font-size: 16px; }
-  .consola, .panel { max-height: none; }
-  .cuerpo { display: block; }
-  .panel { border-right: none; border-top: 1px solid var(--linea); }
-  .act { min-width: 60px; padding: 5px 7px; }
+  .tb-mundo span, .tb-id span { display: none; }
+  .act { min-width: 58px; padding: 5px 7px; }
+  .act span { font-size: 8.5px; }
   .logo h1 { font-size: 46px; }
+  .avanzar { width: 100%; text-align: center; }
 }

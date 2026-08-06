@@ -1,26 +1,44 @@
 /* ============================================================
    HOLOVIDA :: motor
-   Estado, ciclo anual, resolución de decisiones, combate, muerte.
+   Estado, maduración por edad, heridas, ciclo anual,
+   resolución de decisiones, combate táctico y muerte.
    ============================================================ */
 (function (global) {
   'use strict';
   const SW = (global.SW = global.SW || {});
   const U = SW.U;
 
-  const STATS_0_100 = ['salud', 'fuerza', 'destreza', 'intelecto', 'carisma', 'suerte', 'cordura', 'reputacion', 'notoriedad'];
+  const STATS_0_100 = ['salud', 'fisico', 'fuerza', 'destreza', 'intelecto', 'carisma', 'suerte', 'cordura', 'reputacion', 'notoriedad'];
+
+  /* Techo al que llega el crecimiento natural. Por encima de ahí
+     solo se sube tomando decisiones. */
+  const TECHO_NATURAL = 55;
+
+  /* Curva de maduración: cuánto sube cada estadística por año de vida
+     biológica. Valores pequeños a propósito: la vida la construyes tú. */
+  function crecimientoPorEdad(bio) {
+    if (bio <= 5)  return { fisico: 4.0, destreza: 3.6, intelecto: 4.6, carisma: 2.6, cordura: 1.6 };
+    if (bio <= 12) return { fisico: 3.4, destreza: 3.2, intelecto: 4.0, carisma: 2.8, cordura: 1.8 };
+    if (bio <= 17) return { fisico: 3.0, destreza: 2.8, intelecto: 2.8, carisma: 2.8, cordura: 1.4 };
+    if (bio <= 25) return { fisico: 1.6, destreza: 1.2, intelecto: 1.8, carisma: 1.8, cordura: 1.2 };
+    if (bio <= 40) return { fisico: 0.5, destreza: 0.4, intelecto: 1.0, carisma: 1.0, cordura: 1.0 };
+    if (bio <= 58) return { fisico: -0.7, destreza: -0.5, intelecto: 0.6, carisma: 0.6, cordura: 0.8 };
+    if (bio <= 72) return { fisico: -1.6, destreza: -1.3, intelecto: 0.2, carisma: 0.2, cordura: 0.4 };
+    return { fisico: -2.6, destreza: -2.2, intelecto: -0.6, carisma: -0.4, cordura: 0.0 };
+  }
 
   /* ---------------- Estado ---------------- */
   function nuevoEstado(cfg, rng) {
     const esp = cfg.especie;
     const era = cfg.era;
     const s = {
-      version: 1,
+      version: 2,
       semilla: rng.seedStr,
       nombre: cfg.nombre,
       pronombre: cfg.pronombre || 'elle',
       especie: esp.id,
       especieN: esp.n,
-      // las especies muy longevas se comprimen: una partida cubre ~120 años como mucho
+      ritmo: esp.ritmo || 1,                       // años biológicos por año jugado
       vidaMax: Math.min(esp.vida, 118),
       vidaEspecie: esp.vida,
       era: era.id,
@@ -31,13 +49,21 @@
       rasgoN: cfg.rasgo.n,
       apariencia: cfg.apariencia,
       edad: 0,
+      edadBio: 0,
       muerto: false,
       causaMuerte: '',
+
+      /* al nacer eres una cría: todo bajo. lo demás se gana. */
       stats: {
-        salud: 70, fuerza: 2, destreza: 30, intelecto: 30, carisma: 30,
-        suerte: 40, cordura: 60, reputacion: 20, notoriedad: 0,
-        alineamiento: 0, creditos: 500
+        salud: 82, fisico: 5, fuerza: 0, destreza: 5, intelecto: 5, carisma: 8,
+        suerte: 40, cordura: 52, reputacion: 5, notoriedad: 0,
+        alineamiento: 0, creditos: 300
       },
+      /* potencial innato de especie/era/origen: se expresa al crecer */
+      dotes: {},
+      dotesDadas: {},
+
+      heridas: [],
       flags: {},
       poderes: [],
       habilidades: [],
@@ -47,7 +73,8 @@
       relaciones: [],
       relacionesPasadas: [],
       faccionRep: {},
-      contadores: { mundosVisitados: 1, cazas: 0, derribos: 0, rutas: 0, duelos: 0, crimenes: 0, años: 0 },
+      bando: null,
+      contadores: { mundosVisitados: 1, cazas: 0, derribos: 0, rutas: 0, duelos: 0, crimenes: 0, años: 0, batallas: 0 },
       mundosVistos: [cfg.mundo],
       trabajo: null, rango: null, sueldo: 0, rendimiento: 50, añosEnTrabajo: 0,
       nave: null, naveNombre: null, naveEstado: 100,
@@ -57,30 +84,38 @@
       carcelAños: 0,
       titulos: [],
       legado: null,
-      historia: [],   // { edad, txt, tipo }
-      hitos: []       // momentos destacados para el resumen
+      recientes: [],
+      vistos: {},
+      historia: [],
+      hitos: []
     };
 
-    // modificadores de especie / era / rasgo
-    aplicarMods(s, esp.mods);
-    aplicarMods(s, era.mods);
-    aplicarMods(s, cfg.rasgo.mods);
-    if (esp.id === 'droide') s.stats.fuerza = 0;
+    // el dinero de la familia es inmediato; el resto es potencial
+    const fuentes = [esp.mods, era.mods, cfg.rasgo.mods];
+    fuentes.forEach(function (m) {
+      if (!m) return;
+      for (const k in m) {
+        if (k === 'creditos') { s.stats.creditos += m[k]; continue; }
+        if (s.stats[k] == null) continue;
+        s.dotes[k] = (s.dotes[k] || 0) + m[k];
+      }
+    });
 
-    // ¿nace sensible a la Fuerza? si no, sus poderes crecerán muy poco
-    s.sensible = esp.id !== 'droide' && (s.stats.fuerza >= 12 || cfg.rasgo.id === 'sensible');
-    if (!s.sensible && s.stats.fuerza > 8) s.stats.fuerza = 8;
+    // talento natural: cada persona tiene su propio techo, no todos iguales
+    s.techos = {};
+    ['fisico', 'destreza', 'intelecto', 'carisma', 'cordura'].forEach(function (k) {
+      s.techos[k] = TECHO_NATURAL + rng.int(-12, 12);
+    });
+
+    // sensibilidad a la Fuerza: se decide al nacer
+    s.sensible = esp.id !== 'droide' && ((s.dotes.fuerza || 0) >= 8 || cfg.rasgo.id === 'sensible' || esp.sensible === true);
+    if (esp.id === 'droide') { s.dotes.fuerza = 0; s.stats.fuerza = 0; }
+    if (s.sensible) s.stats.fuerza = 4;
+
+    if (esp.id === 'clon') SW.prepararClon(s, rng);
 
     clampStats(s);
     return s;
-  }
-
-  function aplicarMods(s, mods) {
-    if (!mods) return;
-    for (const k in mods) {
-      if (s.stats[k] == null) continue;
-      s.stats[k] += mods[k];
-    }
   }
 
   function clampStats(s) {
@@ -88,20 +123,31 @@
       const k = STATS_0_100[i];
       s.stats[k] = U.clamp(Math.round(s.stats[k]), 0, 100);
     }
+    s.stats.salud = Math.min(s.stats.salud, saludMax(s));
     s.stats.alineamiento = U.clamp(Math.round(s.stats.alineamiento), -100, 100);
-    s.stats.creditos = Math.round(s.stats.creditos);
+    s.stats.creditos = Math.round(U.clamp(s.stats.creditos, -200000, 1e12));
+  }
+
+  /** techo de salud según las heridas abiertas */
+  function saludMax(s) {
+    let pen = 0;
+    for (let i = 0; i < s.heridas.length; i++) pen += s.heridas[i].sev;
+    return U.clamp(100 - pen, 8, 100);
   }
 
   /* ---------------- Juego ---------------- */
   function Game(cfg) {
     this.rng = new SW.RNG(cfg.semilla);
     this.s = nuevoEstado(cfg, this.rng);
-    this.cola = [];          // eventos pendientes
-    this.logAño = [];        // textos de este año
+    this.cola = [];
+    this.logAño = [];
     this.actividadUsada = false;
-    this.fase = 'año';       // 'año' | 'evento' | 'menu' | 'fin'
-    this.log('Nace ' + this.s.nombre + ' en ' + this.s.mundo + '. Era: ' + this.s.eraN + '.', 'nac');
+    this.fase = 'año';
+    this.escena = null;
+    const m = SW.mundo(this.s.mundo);
+    this.log('Nace ' + this.s.nombre + ' en ' + this.s.mundo + ' (' + m.r + '). Era: ' + this.s.eraN + '.', 'nac');
     this.hito('Nacimiento en ' + this.s.mundo);
+    if (this.s.especie === 'clon') this.log('Designación ' + this.s.nombre + '. Lote de Kamino. Crecerás al doble de velocidad.', 'res');
   }
 
   Game.prototype.log = function (txt, tipo) {
@@ -114,24 +160,32 @@
 
   /* ---------------- Slots ---------------- */
   Game.prototype.rellenarSlots = function (ev) {
-    const rng = this.rng, s = this.s;
+    const rng = this.rng;
     const slots = {};
     const def = ev.slots || {};
     for (const k in def) {
       switch (def[k]) {
         case 'mundo': slots[k] = rng.pick(SW.MUNDO_NOMBRES); break;
+        case 'mundoCerca': slots[k] = this.mundoCercano(); break;
         case 'criatura': slots[k] = rng.pick(SW.CRIATURAS); break;
         case 'lugar': slots[k] = rng.pick(SW.LUGARES); break;
         case 'objeto': slots[k] = rng.pick(SW.OBJETOS).n; break;
         case 'nombre': slots[k] = SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'rodiano', 'duros'])); break;
-        case 'faccion': { const f = rng.pick(SW.FACCIONES); slots[k] = f.n; slots['_faccion'] = f.id; break; }
+        case 'faccion': { const f = rng.pick(SW.faccionesDeEra(this.s.era)); slots[k] = f.n; slots['_faccion'] = f.id; break; }
         case 'rumor': slots[k] = rng.pick(SW.RUMORES); break;
         case 'nave': slots[k] = rng.pick(SW.NAVES).n; break;
         default: slots[k] = def[k];
       }
     }
-    slots._objetoPrecio = null;
     return slots;
+  };
+
+  /** un mundo de la misma región: los viajes cortos tienen sentido */
+  Game.prototype.mundoCercano = function () {
+    const s = this.s, rng = this.rng;
+    const reg = SW.mundo(s.mundo).r;
+    const cerca = SW.MUNDOS.filter(function (m) { return m.r === reg && m.n !== s.mundo; });
+    return (cerca.length ? rng.pick(cerca) : rng.pick(SW.MUNDOS)).n;
   };
 
   /* ---------------- Selección de eventos ---------------- */
@@ -140,24 +194,42 @@
     const out = [];
     for (let i = 0; i < pool.length; i++) {
       const e = pool[i];
-      if (e.min != null && s.edad < e.min) continue;
-      if (e.max != null && s.edad > e.max) continue;
+      if (e.min != null && s.edadBio < e.min) continue;
+      if (e.max != null && s.edadBio > e.max) continue;
+      if (e.era && e.era.indexOf(s.era) < 0) continue;
+      if (e.eraNo && e.eraNo.indexOf(s.era) >= 0) continue;
+      if (e.esp && e.esp.indexOf(s.especie) < 0) continue;
+      if (e.espNo && e.espNo.indexOf(s.especie) >= 0) continue;
+      if (e.unaVez && s.vistos[e.id]) continue;
+      if (s.recientes.indexOf(e.id) >= 0) continue;
       if (e.req) { try { if (!e.req(s)) continue; } catch (err) { continue; } }
-      if (e.unaVez && s.flags['ev_' + e.id]) continue;
       out.push(e);
     }
     return out;
   };
 
+  /** peso efectivo: lo ya visto pesa mucho menos */
+  Game.prototype.peso = function (ev) {
+    const base = ev.w == null ? 1 : ev.w;
+    const visto = this.s.vistos[ev.id] || 0;
+    return base / (1 + visto * 1.4);
+  };
+
+  Game.prototype.elegirEvento = function (posibles) {
+    const self = this;
+    return this.rng.weighted(posibles, function (e) { return self.peso(e); });
+  };
+
+  Game.prototype.marcarVisto = function (id) {
+    const s = this.s;
+    s.vistos[id] = (s.vistos[id] || 0) + 1;
+    s.recientes.push(id);
+    if (s.recientes.length > 14) s.recientes.shift();
+  };
+
   Game.prototype.prepararEvento = function (ev) {
     const slots = ev.gen ? {} : this.rellenarSlots(ev);
-    const inst = {
-      ref: ev,
-      id: ev.id,
-      slots: slots,
-      texto: U.fill(ev.t, slots),
-      opciones: []
-    };
+    const inst = { ref: ev, id: ev.id, slots: slots, texto: U.fill(ev.t, slots), opciones: [] };
     const s = this.s;
     for (let i = 0; i < ev.c.length; i++) {
       const o = ev.c[i];
@@ -170,6 +242,7 @@
       });
     }
     if (!inst.opciones.length) return null;
+    this.marcarVisto(ev.id);
     return inst;
   };
 
@@ -179,28 +252,29 @@
     if (s.muerto) return;
     this.logAño = [];
     s.edad++;
+    s.edadBio += s.ritmo;
     s.contadores.años++;
     this.actividadUsada = false;
 
-    // cárcel
     if (s.carcelAños > 0) {
       s.carcelAños--;
-      this.aplicarFx({ cordura: -6, salud: -3, destreza: 3 }, {});
+      this.madurar();
+      this.curarse();
+      this.aplicarFx({ cordura: -6, destreza: 3, fisico: 2 }, {});
       this.log('Año en prisión. Quedan ' + s.carcelAños + '.', 'mal');
       if (s.carcelAños === 0) this.log('Sales en libertad.', 'bien');
-      this.finDeAño(true);
+      this.fase = 'menu';
       return;
     }
 
-    // ingresos / trabajo
     if (s.trabajo) {
       s.añosEnTrabajo++;
       const bruto = Math.round(s.sueldo * (0.85 + s.rendimiento / 200));
       s.stats.creditos += bruto;
       this.log('Trabajas de ' + s.rango + '. Ingresas ' + U.cr(bruto) + '.', 'cr');
       this.chequearAscenso();
-    } else if (s.edad > 18) {
-      const gasto = 900 + s.edad * 14;
+    } else if (s.edadBio > 18) {
+      const gasto = 900 + s.edadBio * 14;
       s.stats.creditos -= gasto;
       if (s.stats.creditos < -20000) {
         this.log('Vives de prestado. Los cobradores ya saben tu nombre.', 'mal');
@@ -208,52 +282,127 @@
       }
     }
 
-    // envejecer
+    this.madurar();
+    this.curarse();
     this.envejecer();
     if (s.muerto) return;
 
-    // eventos automáticos del año
-    const n = s.edad < 6 ? 1 : this.rng.int(1, 2);
+    // eventos guionizados: los momentos que SÍ o SÍ deben ocurrir
+    const guion = this.eventosPosibles(SW.GUION || []);
+    if (guion.length) {
+      const ev = guion.sort(function (a, b) { return (b.prio || 0) - (a.prio || 0); })[0];
+      const inst = this.prepararEvento(ev);
+      if (inst) this.cola.push(inst);
+    }
+
+    const n = s.edadBio < 6 ? 1 : this.rng.int(1, 2);
     const posibles = this.eventosPosibles(SW.EVENTOS);
-    const elegidos = [];
+    const usados = [];
     for (let i = 0; i < n && posibles.length; i++) {
-      const ev = this.rng.weighted(posibles);
-      if (elegidos.indexOf(ev) >= 0) continue;
-      elegidos.push(ev);
+      const restantes = posibles.filter(function (e) { return usados.indexOf(e.id) < 0; });
+      if (!restantes.length) break;
+      const ev = this.elegirEvento(restantes);
+      usados.push(ev.id);
       const inst = this.prepararEvento(ev);
       if (inst) this.cola.push(inst);
     }
     this.fase = this.cola.length ? 'evento' : 'menu';
   };
 
-  Game.prototype.envejecer = function () {
+  /* ---------------- Maduración ---------------- */
+  Game.prototype.madurar = function () {
     const s = this.s;
-    const rng = this.rng;
-    const ratio = s.edad / s.vidaMax;
+    const bio = s.edadBio;
 
-    // recuperación natural: el cuerpo cura mientras seas joven
-    if (ratio < 0.72 && s.stats.salud < 92) {
-      let cura = rng.int(3, 7) * (1 - ratio * 0.7);
-      if (s.stats.cordura > 60) cura += 1;
-      if (s.flags.adicto) cura -= 3;
-      if (s.carcelAños > 0) cura -= 2;
-      s.stats.salud += Math.max(0, Math.round(cura));
+    // 1) el potencial innato se va expresando durante el crecimiento
+    const finCrecimiento = 18;
+    if (bio <= finCrecimiento + s.ritmo) {
+      for (const k in s.dotes) {
+        const total = s.dotes[k];
+        const dado = s.dotesDadas[k] || 0;
+        if (Math.abs(dado) >= Math.abs(total)) continue;
+        let paso = (total / finCrecimiento) * s.ritmo;
+        if (Math.abs(dado + paso) > Math.abs(total)) paso = total - dado;
+        s.stats[k] += paso;
+        s.dotesDadas[k] = dado + paso;
+      }
     }
 
-    if (ratio > 0.62) {
-      const dec = Math.round((ratio - 0.62) * 26 + rng.int(0, 2));
-      s.stats.salud -= dec;
-    } else if (s.edad > 30 && rng.chance(0.2)) {
-      s.stats.salud -= 1;
+    // 2) crecimiento natural por edad, con techo que también madura:
+    //    un crío de 10 años no puede tener 55 de intelecto solo por existir
+    const g = crecimientoPorEdad(bio);
+    for (const k in g) {
+      const propio = (s.techos && s.techos[k]) || TECHO_NATURAL;
+      const techo = U.clamp(16 + bio * 1.9, 16, propio);
+      let v = g[k] * s.ritmo;
+      if (v > 0 && s.stats[k] >= techo) continue;              // arriba solo se llega decidiendo
+      if (v > 0 && s.stats[k] + v > techo) v = techo - s.stats[k];
+      if (v < 0 && s.cibernetica.length) v *= 0.5;             // las prótesis frenan el declive
+      s.stats[k] += v;
     }
-    if (s.edad < 18) s.stats.salud = Math.min(100, s.stats.salud + 2);
-    // cordura y alineamiento presionan la salud
-    if (s.stats.cordura < 20) s.stats.salud -= 2;
+
+    // 3) la Fuerza solo crece sola en quien es sensible, y despacio
+    if (s.sensible && s.stats.fuerza < 42 && bio > 3) s.stats.fuerza += 0.9 * s.ritmo;
+
+    clampStats(s);
+  };
+
+  /* ---------------- Heridas y curación ---------------- */
+  Game.prototype.herir = function (nombre, sev, cronica) {
+    const s = this.s;
+    s.heridas.push({ n: nombre, sev: Math.round(sev), cronica: !!cronica });
+    this.log('⚕ ' + nombre + ' (−' + Math.round(sev) + ' de salud máxima mientras no cure)', 'mal');
+    clampStats(s);
+  };
+
+  Game.prototype.curarse = function () {
+    const s = this.s, rng = this.rng;
+    const ratio = s.edadBio / s.vidaMax;
+
+    // las heridas cierran despacio; el cuerpo joven ayuda
+    let ritmoCura = 1 + Math.round(s.stats.fisico / 40);
+    if (s.habilidades.indexOf('medico') >= 0) ritmoCura += 1;
+    if (s.flags.adicto) ritmoCura -= 1;
+    if (ratio > 0.7) ritmoCura -= 1;
+    ritmoCura = Math.max(0, ritmoCura);
+
+    const quedan = [];
+    for (let i = 0; i < s.heridas.length; i++) {
+      const h = s.heridas[i];
+      if (h.cronica) { quedan.push(h); continue; }
+      h.sev -= ritmoCura;
+      if (h.sev > 0) quedan.push(h);
+      else this.log('Cura del todo: ' + h.n + '.', 'bien');
+    }
+    s.heridas = quedan;
+
+    // la salud se regenera sola, lentamente, hacia el techo que dejen las heridas
+    const max = saludMax(s);
+    if (s.stats.salud < max) {
+      let reg = 2 + s.stats.fisico / 30;
+      if (s.stats.cordura > 60) reg += 1;
+      if (ratio > 0.7) reg *= 0.5;
+      if (s.heridas.some(function (h) { return h.sev > 15; })) reg *= 0.4;
+      if (s.flags.adicto) reg -= 2;
+      s.stats.salud = Math.min(max, s.stats.salud + Math.max(0, reg));
+    }
+    clampStats(s);
+  };
+
+  Game.prototype.envejecer = function () {
+    const s = this.s, rng = this.rng;
+    const ratio = s.edadBio / s.vidaMax;
+    if (ratio > 0.66) {
+      s.stats.salud -= Math.round((ratio - 0.66) * 26 * s.ritmo + rng.int(0, 2));
+    }
+    if (s.stats.cordura < 18) s.stats.salud -= 2;
     clampStats(s);
 
     if (s.stats.salud <= 0) { this.morir('El cuerpo dijo basta.'); return; }
-    if (ratio > 0.9 && rng.chance((ratio - 0.9) * 2.2)) {
-      this.morir('Vejez. Sin dramatismo.');
+    if (ratio > 0.92 && rng.chance((ratio - 0.92) * 2.6)) {
+      this.morir(s.ritmo > 1
+        ? 'Envejecimiento acelerado. Tenías ' + s.edad + ' años y el cuerpo de ' + s.edadBio + '.'
+        : 'Vejez. Sin dramatismo.');
     }
   };
 
@@ -264,16 +413,13 @@
     s.causaMuerte = causa;
     this.log('☠ ' + causa, 'muerte');
     this.hito('Muere a los ' + s.edad + ': ' + causa);
-    // títulos finales
     for (let i = 0; i < SW.TITULOS.length; i++) {
       const t = SW.TITULOS[i];
       try { if (t.req(s) && s.titulos.indexOf(t.n) < 0) s.titulos.push(t.n); } catch (e) {}
     }
+    this.escena = null;
+    this.cola = [];
     this.fase = 'fin';
-  };
-
-  Game.prototype.finDeAño = function (skip) {
-    this.fase = this.s.muerto ? 'fin' : 'menu';
   };
 
   /* ---------------- Ascensos ---------------- */
@@ -284,7 +430,7 @@
     const idx = c.rangos.indexOf(s.rango);
     if (idx < 0 || idx >= c.rangos.length - 1) return;
     const stat = s.stats[c.stat] || 0;
-    const p = U.clamp((stat / 180) + (s.rendimiento - 50) / 300 + s.añosEnTrabajo / 40, 0.02, 0.55);
+    const p = U.clamp((stat / 190) + (s.rendimiento - 50) / 300 + s.añosEnTrabajo / 45, 0.02, 0.5);
     if (this.rng.chance(p)) {
       s.rango = c.rangos[idx + 1];
       s.sueldo = Math.round(s.sueldo * (1.45 + this.rng.next() * 0.35));
@@ -295,8 +441,8 @@
     }
   };
 
-  /* ---------------- Aplicar efectos ---------------- */
-  Game.prototype.aplicarFx = function (fx, slots, ctx) {
+  /* ---------------- Efectos ---------------- */
+  Game.prototype.aplicarFx = function (fx, slots) {
     if (!fx) return;
     const s = this.s;
     for (const k in fx) {
@@ -307,34 +453,32 @@
         else v = parseFloat(v) || 0;
       }
       if (k === 'creditos' && v === -999999) v = -Math.max(0, s.stats.creditos);
-      // los no sensibles apenas progresan en la Fuerza (hasta que despierten)
       if (k === 'fuerza' && v > 0 && !s.sensible) {
-        v = v * 0.2;
-        if (s.stats.fuerza + v > 20) v = Math.max(0, 20 - s.stats.fuerza);
+        v = v * 0.15;
+        if (s.stats.fuerza + v > 15) v = Math.max(0, 15 - s.stats.fuerza);
       }
-      // las heridas duelen menos si estás en forma o llevas armadura/prótesis
       if (k === 'salud' && v < 0) {
-        const mitig = 1 - Math.min(0.35, (s.stats.destreza / 400) + s.cibernetica.length * 0.05);
+        const mitig = 1 - Math.min(0.4, (s.stats.fisico / 320) + (s.stats.destreza / 500) + s.cibernetica.length * 0.05);
         v = v * mitig;
+        // los golpes fuertes dejan herida, y las heridas tardan años
+        if (v <= -14) this.herir(this.rng.pick(SW.HERIDAS), Math.min(26, Math.abs(v) * 0.55));
       }
       s.stats[k] += v;
     }
-    if (s.stats.creditos < -200000) s.stats.creditos = -200000;
     clampStats(s);
   };
 
-  /** despertar tardío a la Fuerza (evento raro) */
   Game.prototype.despertar = function () {
     const s = this.s;
     if (s.sensible || s.especie === 'droide') return;
     s.sensible = true;
-    s.stats.fuerza = Math.max(s.stats.fuerza, 25);
+    s.stats.fuerza = Math.max(s.stats.fuerza, 24);
     this.log('Algo se abre dentro de ti. Nunca habías sentido esto.', 'bien');
     this.hito('Despierta a la Fuerza');
     clampStats(s);
   };
 
-  /* ---------------- Resolver una elección ---------------- */
+  /* ---------------- Resolver elección ---------------- */
   Game.prototype.elegir = function (inst, opcionIdx) {
     const s = this.s, rng = this.rng;
     const op = inst.opciones[opcionIdx];
@@ -343,39 +487,34 @@
     const slots = inst.slots || {};
     this.log('› ' + op.txt, 'eleccion');
 
-    // coste previo
     if (d.coste) {
       let c = d.coste;
-      if (typeof c === 'string' && c.indexOf('objeto/') === 0) c = 2000;
+      if (typeof c === 'string') c = 2000;
       s.stats.creditos -= c;
     }
 
-    // resultado aleatorio o directo
     let res = d;
     if (d.r && d.r.length) {
       res = rng.weighted(d.r, function (o) { return o.p == null ? 1 : o.p; });
-      // los efectos de la opción base también se aplican
       this.aplicarNodo(d, slots, inst, true);
     }
     this.aplicarNodo(res, slots, inst, false);
   };
 
-  /** aplica un nodo (opción o resultado). soloFx=true evita repetir texto/acciones */
   Game.prototype.aplicarNodo = function (d, slots, inst, soloBase) {
     const s = this.s, rng = this.rng;
 
     if (d.fx) this.aplicarFx(d.fx, slots);
-    if (!soloBase && d.t && d.r == null && d.out == null && d.combate == null && d.dogfight == null) {
-      // nodo de resultado con texto en .t
-    }
-    const texto = soloBase ? null : (d.out || (d !== inst && d.t && d.p != null ? d.t : null));
-    if (texto) this.log(U.fill(texto, slots), 'res');
 
-    // ---- acciones especiales ----
+    const texto = soloBase ? null : (d.out || (d.p != null && d.t ? d.t : null));
+    if (texto) this.log(U.fill(texto, slots), d.tono || 'res');
+
     if (d.flag) s.flags[U.fill(d.flag, slots)] = true;
     if (d.quitarFlag) delete s.flags[d.quitarFlag];
-
     if (d.contador) for (const k in d.contador) s.contadores[k] = (s.contadores[k] || 0) + d.contador[k];
+
+    if (d.herida) this.herir(d.herida.n || 'herida', d.herida.sev || 12, d.herida.cronica);
+    if (d.curarHeridas) { s.heridas = []; this.log('Te reconstruyen entero. Sales sin heridas abiertas.', 'bien'); }
 
     if (d.rel) this.añadirRelacion(d.rel.tipo, d.rel.afecto, slots.n);
     if (d.relTodas) s.relaciones.forEach(function (r) { r.afecto = U.clamp(r.afecto + d.relTodas, -100, 100); });
@@ -391,12 +530,17 @@
     if (d.hijo) this.tenerHijo(slots.n);
     if (d.nuevaRel) this.nuevaRelacion();
     if (d.cortarRel) this.cortarRelacion();
+    if (d.matarRel) this.matarRelacion(d.matarRel);
 
     if (d.item) this.darObjeto(slots.o);
     if (d.mascota) this.darMascota(slots.c);
     if (d.droide) this.darDroide();
 
     if (d.faccion) this.repFaccion(d.faccion, slots);
+    if (d.faccion2) this.repFaccion(d.faccion2, slots);
+    if (d.apodo) this.ponerApodo(d.apodo === 'elegir');
+    if (d.bando) this.fijarBando(d.bando, slots);
+    if (d.elegirBando) this.cola.unshift(this.prepararGen(this.menuBando()));
     if (d.rendimiento) s.rendimiento = U.clamp(s.rendimiento + d.rendimiento, 0, 100);
     if (d.aumento) { s.sueldo = Math.round(s.sueldo * (1 + d.aumento)); this.log('Nuevo sueldo: ' + U.cr(s.sueldo), 'cr'); }
     if (d.despido) this.perderTrabajo();
@@ -412,7 +556,8 @@
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
     if (d.viajar) this.cola.unshift(this.prepararGen(this.menuViaje()));
     if (d.fuerzaMenu) this.cola.unshift(this.prepararGen(this.menuFuerza()));
-    if (d.accionMenu) this.cola.unshift(this.prepararGen(SW.GEN[rng.chance(0.5) && s.nave ? 'dogfight' : 'accion'](rng, s)));
+    if (d.clinica) this.cola.unshift(this.prepararGen(this.menuClinica()));
+    if (d.accionMenu) this.cola.unshift(this.prepararGen(SW.GEN[rng.chance(0.45) && s.nave ? 'dogfight' : 'accion'](rng, s)));
     if (d.nombrarNave) this.cola.unshift(this.prepararGen(this.menuNombreNave()));
     if (d.construirSable) this.cola.unshift(this.prepararGen(this.menuSable()));
     if (d.unirse) this.unirseOrden(d.unirse);
@@ -427,17 +572,16 @@
     if (d.naveCompra) this.darNave(rng.pick(SW.NAVES));
     if (d.naveGana) this.darNave(rng.pick(SW.NAVES));
     if (d.navePierde) { s.nave = null; s.naveNombre = null; this.log('Pierdes tu nave.', 'mal'); }
-    if (d.naveEstado) { s.naveEstado = U.clamp(s.naveEstado + d.naveEstado, 0, 100); }
+    if (d.naveEstado) s.naveEstado = U.clamp(s.naveEstado + d.naveEstado, 0, 100);
     if (d.apuesta === 'gana') { const g = Math.round(Math.max(1000, s.stats.creditos * 0.5)); s.stats.creditos += g; this.log('Ganas ' + U.cr(g) + '.', 'cr'); }
-    if (d.apuesta === 'pierde') { const g = Math.round(s.stats.creditos * 0.5); s.stats.creditos -= g; this.log('Pierdes ' + U.cr(g) + '.', 'mal'); }
+    if (d.apuesta === 'pierde') { const g = Math.round(Math.max(0, s.stats.creditos) * 0.5); s.stats.creditos -= g; this.log('Pierdes ' + U.cr(g) + '.', 'mal'); }
     if (d.legado) { s.legado = d.legado; this.hito('Deja un legado: ' + d.legado); }
     if (d.chequeo) this.chequeoMedico();
-    if (d.mover) this.mover(d.mover === 'casa' ? s.mundoNatal : null);
-    if (d.mueveA) this.mover(d.mueveA);
-    if (d.guerra) { s.flags.veterano = true; this.hito('Va a la guerra'); }
+    if (d.mover) this.mover(d.mover === 'casa' ? s.mundoNatal : (d.mover === 'cerca' ? this.mundoCercano() : null), d.motivo);
+    if (d.mueveA) this.mover(U.fill(d.mueveA, slots), d.motivo);
+    if (d.guerra) { s.flags.veterano = true; s.contadores.batallas++; this.hito('Va a la guerra'); }
     if (d.muerte) this.morir(d.muerteTxt || 'Una mala decisión, la última.');
 
-    // escenas interactivas
     if (d.combate) this.iniciarCombate(d.combate);
     if (d.dogfight) this.iniciarDogfight(d.dogfight);
 
@@ -446,11 +590,11 @@
   };
 
   Game.prototype.prepararGen = function (ev) {
-    const inst = { ref: ev, id: ev.id, slots: {}, texto: ev.t, opciones: [] };
+    const inst = { ref: ev, id: ev.id, slots: ev.slots || {}, texto: ev.t, opciones: [] };
     for (let i = 0; i < ev.c.length; i++) {
       const o = ev.c[i];
       if (o.req) { try { if (!o.req(this.s)) continue; } catch (e) { continue; } }
-      inst.opciones.push({ idx: i, txt: o.t, sub: o.sub || null, def: o });
+      inst.opciones.push({ idx: i, txt: o.t, sub: o.sub || null, def: o, bloqueada: o.bloqueada });
     }
     return inst;
   };
@@ -477,6 +621,7 @@
     s.relaciones.push({ nombre: n, tipo: tipo, afecto: U.clamp(afecto || 20, -100, 100), especie: esp.n, desde: s.edad });
     this.log('Nueva relación: ' + n + ' (' + tipo + ').', 'rel');
     if (tipo === 'cónyuge' || tipo === 'pareja') this.hito(U.titleCase(tipo) + ': ' + n);
+    return n;
   };
   Game.prototype.nuevaRelacion = function () {
     const rng = this.rng;
@@ -494,6 +639,17 @@
     s.relacionesPasadas.push(peor);
     this.log('Cortas con ' + peor.nombre + '.', 'rel');
   };
+  Game.prototype.matarRelacion = function (tipo) {
+    const s = this.s, rng = this.rng;
+    const cand = s.relaciones.filter(function (r) { return tipo === true || r.tipo === tipo; });
+    if (!cand.length) return;
+    const v = rng.pick(cand);
+    s.relaciones = s.relaciones.filter(function (r) { return r !== v; });
+    s.relacionesPasadas.push(v);
+    this.log('Muere ' + v.nombre + ' (' + v.tipo + ').', 'muerte');
+    this.hito('Pierde a ' + v.nombre);
+    this.aplicarFx({ cordura: -14 }, {});
+  };
   Game.prototype.romperPareja = function () {
     const s = this.s;
     const p = s.relaciones.filter(function (r) { return r.tipo === 'pareja' || r.tipo === 'cónyuge'; })[0];
@@ -509,7 +665,6 @@
     let p = s.relaciones.filter(function (r) { return r.tipo === 'pareja'; })[0];
     if (yaCasado) {
       if (!p) { this.log('Ya estás casad@ con ' + yaCasado.nombre + '. Renováis los votos.', 'bien'); yaCasado.afecto = Math.min(100, yaCasado.afecto + 10); return; }
-      // segunda boda: la anterior se rompe primero
       this.log('Te separas de ' + yaCasado.nombre + ' antes de volver a casarte.', 'rel');
       s.relaciones = s.relaciones.filter(function (r) { return r !== yaCasado; });
       s.relacionesPasadas.push(yaCasado);
@@ -544,7 +699,7 @@
   };
   Game.prototype.darDroide = function () {
     const s = this.s, rng = this.rng;
-    s.droide = { nombre: SW.genNombre(rng, 'droide'), tipo: rng.pick(['astromecánico', 'protocolar', 'médico', 'de carga', 'de combate reprogramado']) };
+    s.droide = { nombre: SW.genNombre(rng, 'droide'), tipo: rng.pick(['astromecánico', 'protocolar', 'médico', 'de carga', 'de combate reprogramado', 'de sondeo', 'de cocina malhumorado']) };
     this.log('Droide ' + s.droide.tipo + ' ' + s.droide.nombre + ' a tu servicio.', 'bien');
   };
   Game.prototype.darNave = function (nave) {
@@ -555,15 +710,60 @@
     this.hito('Consigue una nave: ' + nave.n);
   };
 
-  /* ---------------- Facciones ---------------- */
+  /* ---------------- Facciones y bandos ---------------- */
   Game.prototype.repFaccion = function (spec, slots) {
     const s = this.s;
-    let id, delta;
     const m = /^([a-z_]+)([+-]\d+)$/.exec(spec);
     if (!m) return;
-    id = m[1]; delta = parseInt(m[2], 10);
+    let id = m[1];
+    const delta = parseInt(m[2], 10);
     if (id === 'auto') id = (slots && slots._faccion) || 'imperio';
     s.faccionRep[id] = U.clamp((s.faccionRep[id] || 0) + delta, -100, 100);
+  };
+
+  Game.prototype.fijarBando = function (id, slots) {
+    const s = this.s;
+    if (id === 'auto') id = (slots && slots._faccion) || null;
+    if (!id) return;
+    const f = SW.faccion(id);
+    s.bando = id;
+    s.faccionRep[id] = U.clamp((s.faccionRep[id] || 0) + 25, -100, 100);
+    this.log('Te alistas con: ' + (f ? f.n : id) + '.', 'bien');
+    this.hito('Se alista con ' + (f ? f.n : id));
+  };
+
+  /** apodo de unidad: deja de ser un número */
+  Game.prototype.ponerApodo = function (elegir) {
+    const s = this.s, rng = this.rng;
+    if (elegir) {
+      const ops = rng.pickN(SW.APODOS_CLON, 5);
+      this.cola.unshift(this.prepararGen({
+        id: 'menu_apodo', gen: true,
+        t: 'Un nombre es un nombre aunque te lo pongas tú. ¿Cuál?',
+        c: ops.map(function (a) { return { t: '"' + a + '"', fijarApodo: a }; })
+      }));
+      return;
+    }
+    const a = rng.pick(SW.APODOS_CLON);
+    this.fijarApodo(a);
+  };
+
+  Game.prototype.fijarApodo = function (a) {
+    const s = this.s;
+    s.apodo = a;
+    s.nombre = a + ' (' + (s.designacion || s.nombre) + ')';
+    this.log('A partir de hoy te llaman <b>' + a + '</b>.', 'bien');
+    this.hito('Recibe el nombre de ' + a);
+  };
+
+  Game.prototype.menuBando = function () {
+    const s = this.s;
+    const bandos = SW.bandosDeEra(s.era, s);
+    const c = bandos.map(function (b) {
+      return { t: b.n, sub: b.desc, bando: b.id, fx: b.fx || {}, out: b.out || '' };
+    });
+    c.push({ t: 'No alistarte con nadie', fx: { cordura: 4 }, out: 'Esta guerra no es tuya. Aunque te alcance igual.' });
+    return { id: 'menu_bando', gen: true, t: 'CONFLICTO — ' + s.eraN + '. Hay que elegir con quién vas.', c: c };
   };
 
   /* ---------------- Trabajo ---------------- */
@@ -590,6 +790,10 @@
   Game.prototype.unirseOrden = function (cual) {
     const s = this.s;
     if (cual === 'jedi') {
+      if (!SW.ordenActiva(s.era)) {
+        this.log('No hay Orden a la que presentarse en esta época. Solo ruinas y rumores.', 'mal');
+        return;
+      }
       if (s.stats.alineamiento < -30) { this.log('La Orden percibe la sombra en ti. Te rechazan.', 'mal'); return; }
       this.tomarEmpleo('jedi', 0);
       s.stats.alineamiento += 15;
@@ -610,7 +814,7 @@
     if (!e) return;
     if (s.stats.creditos < e.coste) { this.log('No puedes pagar la matrícula.', 'mal'); return; }
     s.stats.creditos -= e.coste;
-    aplicarMods(s, e.mods);
+    for (const k in (e.mods || {})) if (s.stats[k] != null) s.stats[k] += e.mods[k];
     s.estudios.push(e.n);
     if (e.faccion) s.faccionRep[e.faccion] = U.clamp((s.faccionRep[e.faccion] || 0) + 15, -100, 100);
     clampStats(s);
@@ -624,9 +828,12 @@
     let pool = SW.PODERES.filter(function (p) { return s.poderes.indexOf(p.id) < 0; });
     if (spec === 'auto_luz') pool = pool.filter(function (p) { return p.lado >= 0; });
     else if (spec === 'auto_oscuro') pool = pool.filter(function (p) { return p.lado <= 0; });
-    else if (spec !== 'auto') { const p = SW.PODERES.filter(function (x) { return x.id === spec; })[0]; pool = p && s.poderes.indexOf(p.id) < 0 ? [p] : pool; }
+    else if (spec && spec !== 'auto') {
+      const p = SW.PODERES.filter(function (x) { return x.id === spec; })[0];
+      if (p && s.poderes.indexOf(p.id) < 0) pool = [p];
+    }
     pool = pool.filter(function (p) { return s.stats.fuerza >= p.coste * 0.8; });
-    if (!pool.length) { this.log('No aprendes nada nuevo esta vez.', 'res'); return; }
+    if (!pool.length) { this.log('No aprendes nada nuevo esta vez. Todavía no estás para más.', 'res'); return; }
     const p = rng.pick(pool);
     s.poderes.push(p.id);
     this.log('Aprendes: ' + p.n + '. ' + p.desc, 'bien');
@@ -642,141 +849,246 @@
   };
 
   /* ---------------- Movimiento ---------------- */
-  Game.prototype.mover = function (destino) {
+  Game.prototype.mover = function (destino, motivo) {
     const s = this.s, rng = this.rng;
     const d = destino || rng.pick(SW.MUNDO_NOMBRES.filter(function (m) { return m !== s.mundo; }));
-    if (d === s.mundo) return;
+    if (d === s.mundo) { this.log('Te quedas en ' + s.mundo + '.', 'viaje'); return; }
+    const m = SW.mundo(d);
+    const anterior = s.mundo;
     s.mundo = d;
     if (s.mundosVistos.indexOf(d) < 0) {
       s.mundosVistos.push(d);
       s.contadores.mundosVisitados = s.mundosVistos.length;
     }
-    this.log('Te trasladas a ' + d + '.', 'viaje');
+    this.log('✈ ' + anterior + ' → <b>' + d + '</b> (' + m.r + ', ' + m.bio + ')' +
+      (motivo ? ' — ' + motivo : '') + '. ' + U.titleCase(m.vibe) + '.', 'viaje');
+    this.hito('Se traslada a ' + d);
   };
 
-  /* ---------------- Chequeo médico ---------------- */
   Game.prototype.chequeoMedico = function () {
     const s = this.s, rng = this.rng;
-    if (rng.chance(0.25 + (100 - s.stats.salud) / 300)) {
-      const dolencias = ['una dolencia pulmonar por polvo de especia', 'daño hepático', 'microfracturas antiguas mal curadas', 'una arritmia', 'un parásito de Felucia', 'desgaste articular'];
-      const d = rng.pick(dolencias);
-      this.log('Te detectan ' + d + '. Tratable a tiempo.', 'mal');
-      this.aplicarFx({ salud: 6, creditos: -6000, cordura: -3 }, {});
+    if (s.heridas.length) {
+      const h = s.heridas[0];
+      h.sev = Math.max(0, h.sev - 8);
+      h.cronica = false;
+      this.log('Te tratan: ' + h.n + ' mejora bastante.', 'bien');
+      this.aplicarFx({ creditos: -7000 }, {});
+    } else if (rng.chance(0.22 + (100 - s.stats.salud) / 300)) {
+      const d = rng.pick(SW.DOLENCIAS);
+      this.log('Te detectan ' + d + '. Cogida a tiempo.', 'mal');
+      this.herir(d, rng.int(6, 14));
+      this.aplicarFx({ creditos: -6000, cordura: -3 }, {});
     } else {
       this.log('Todo en orden. El médico parece decepcionado.', 'bien');
       this.aplicarFx({ cordura: 5 }, {});
     }
+    clampStats(s);
   };
 
   /* ============================================================
-     ESCENAS DE ACCIÓN (combate por turnos)
+     COMBATE TÁCTICO
+     El enemigo elige postura y la telegrafía. Leerle es la clave:
+     Agresivo > Finta   ·   Defensa > Embestida   ·   Astuta > Guardia
      ============================================================ */
+  const POSTURAS = {
+    embestida: { n: 'embestida', tell: 'Carga el peso adelante y aprieta los dientes.', pierdeAnte: 'defensa' },
+    guardia:   { n: 'guardia',   tell: 'Retrocede medio paso y se cubre.',              pierdeAnte: 'astuta' },
+    finta:     { n: 'finta',     tell: 'Te mira las manos, no los ojos.',               pierdeAnte: 'agresivo' }
+  };
+
+  Game.prototype.poderCombate = function () {
+    const s = this.s;
+    return s.stats.destreza * 0.55 + s.stats.fisico * 0.35 + (s.sensible ? s.stats.fuerza * 0.3 : 0) +
+      (s.sable ? 14 : 0) + (s.habilidades.indexOf('luchador') >= 0 ? 9 : 0) +
+      (s.habilidades.indexOf('tirador') >= 0 ? 7 : 0) + s.cibernetica.length * 4;
+  };
+
   Game.prototype.iniciarCombate = function (cfg) {
-    const s = this.s, rng = this.rng;
-    const poderCombate = s.stats.destreza + s.stats.fuerza * 0.6 + (s.sable ? 18 : 0) +
-      (s.habilidades.indexOf('luchador') >= 0 ? 10 : 0) + (s.habilidades.indexOf('tirador') >= 0 ? 8 : 0) +
-      (s.cibernetica.length * 5);
+    const s = this.s;
     this.escena = {
       tipo: 'combate',
-      cfg: cfg,
+      cfg: cfg || {},
       ronda: 1,
-      maxRondas: 3,
+      maxRondas: 4,
       hpEnemigo: 100,
-      ventaja: 0,
-      poder: poderCombate,
-      dif: cfg.dif || 50
+      aguante: 100,
+      poder: this.poderCombate(),
+      dif: (cfg && cfg.dif) || 50,
+      postura: this.rng.pick(['embestida', 'guardia', 'finta'])
     };
     this.cola.unshift(this.escenaCombateEvento());
   };
 
   Game.prototype.escenaCombateEvento = function () {
-    const e = this.escena;
-    const s = this.s;
+    const e = this.escena, s = this.s;
     const desc = e.cfg.duelo ? 'DUELO' : (e.cfg.bestia ? 'BESTIA' : 'COMBATE');
-    const barra = '█'.repeat(Math.max(0, Math.round(e.hpEnemigo / 10))) + '░'.repeat(10 - Math.max(0, Math.round(e.hpEnemigo / 10)));
-    const opciones = [
-      { t: '⚔ Ataque agresivo', tac: 'agresivo', sub: 'Mucho daño, te expones.' },
-      { t: '⛨ Defensa y contra', tac: 'defensa', sub: 'Poco daño, poco riesgo.' },
-      { t: '↯ Maniobra astuta', tac: 'astuta', sub: 'Usa el entorno. Depende del intelecto.' },
-      { t: '✦ Usar la Fuerza', tac: 'fuerza', sub: 'Requiere sensibilidad.', req: function (st) { return st.stats.fuerza > 25; } },
-      { t: '⚑ Retirarte', tac: 'huir', sub: 'Vivir para contarlo.' }
+    const barra = function (v) {
+      const n = U.clamp(Math.round(v / 10), 0, 10);
+      return '█'.repeat(n) + '░'.repeat(10 - n);
+    };
+    const p = POSTURAS[e.postura];
+    const c = [
+      { t: '⚔ Ataque agresivo', tactica: 'agresivo', sub: 'Rompe fintas. Se estrella contra la defensa. Gasta aguante.' },
+      { t: '⛨ Defensa y contra', tactica: 'defensa', sub: 'Castiga embestidas. Poco daño contra el resto.' },
+      { t: '↯ Maniobra astuta', tactica: 'astuta', sub: 'Abre guardias. Depende del intelecto.' },
+      { t: '✦ Usar la Fuerza', tactica: 'fuerza', sub: 'Ignora la postura, pero cansa.', req: function (st) { return st.sensible && st.stats.fuerza > 20; } },
+      { t: '⚡ Jugártela', tactica: 'minijuego', sub: 'Todo a una jugada. Reflejos puros.' },
+      { t: '⚑ Retirarte', tactica: 'huir', sub: 'Vivir para contarlo.' }
     ];
     return this.prepararGen({
       id: 'escena_combate', gen: true,
-      t: '<span class="scene-tag">' + desc + ' · RONDA ' + e.ronda + '/' + e.maxRondas + '</span><br>Enemigo: [' + barra + '] ' + Math.max(0, Math.round(e.hpEnemigo)) + '%<br>Tu salud: ' + s.stats.salud + '%',
-      c: opciones.map(function (o) { return { t: o.t, sub: o.sub, req: o.req, tactica: o.tac }; })
+      t: '<span class="scene-tag">' + desc + ' · ASALTO ' + e.ronda + '/' + e.maxRondas + '</span>' +
+         '<div class="hp"><span>Rival</span><code>[' + barra(e.hpEnemigo) + ']</code> ' + Math.max(0, Math.round(e.hpEnemigo)) + '%</div>' +
+         '<div class="hp"><span>Tú</span><code>[' + barra(s.stats.salud) + ']</code> ' + s.stats.salud + '%</div>' +
+         '<div class="hp"><span>Aguante</span><code>[' + barra(e.aguante) + ']</code> ' + Math.round(e.aguante) + '%</div>' +
+         '<p class="tell">' + p.tell + '</p>',
+      c: c
     });
   };
+
+  /** matriz: devuelve 1 si ganas el intercambio, -1 si lo pierdes, 0 neutro */
+  function duelo(tac, postura) {
+    if (tac === 'agresivo' && postura === 'finta') return 1;
+    if (tac === 'agresivo' && postura === 'guardia') return -1;
+    if (tac === 'defensa' && postura === 'embestida') return 1;
+    if (tac === 'defensa' && postura === 'finta') return -1;
+    if (tac === 'astuta' && postura === 'guardia') return 1;
+    if (tac === 'astuta' && postura === 'embestida') return -1;
+    return 0;
+  }
 
   Game.prototype.resolverTactica = function (tac) {
     const e = this.escena, s = this.s, rng = this.rng;
     if (!e) return;
-    let dmg = 0, recib = 0, txt = '';
-
-    const skill = e.poder;
-    const dif = e.dif;
 
     if (tac === 'huir') {
-      if (rng.chance(0.55 + (s.stats.destreza - dif) / 200)) {
+      const p = U.clamp(0.45 + (s.stats.destreza - e.dif) / 180 + (e.aguante - 50) / 300, 0.12, 0.88);
+      if (rng.chance(p)) {
         this.log('Te retiras a tiempo. Sin gloria, con vida.', 'res');
-        this.escena = null;
-        return;
+      } else {
+        this.log('No consigues salir. Te alcanzan en la espalda.', 'mal');
+        this.aplicarFx({ salud: -16, cordura: -5 }, {});
       }
-      this.log('No consigues salir. Te alcanzan en la espalda.', 'mal');
-      this.aplicarFx({ salud: -18, cordura: -5 }, {});
       this.escena = null;
       return;
     }
 
-    if (tac === 'agresivo') {
-      const acierto = rng.chance(U.clamp(0.45 + (skill - dif) / 160, 0.15, 0.9));
-      dmg = acierto ? rng.int(35, 55) : rng.int(5, 15);
-      recib = acierto ? rng.int(4, 12) : rng.int(14, 26);
-      txt = acierto ? 'Entras fuerte y conectas.' : 'Fallas la entrada y te castigan.';
-    } else if (tac === 'defensa') {
-      const acierto = rng.chance(U.clamp(0.6 + (skill - dif) / 200, 0.3, 0.92));
-      dmg = acierto ? rng.int(15, 28) : rng.int(4, 10);
-      recib = acierto ? rng.int(0, 6) : rng.int(8, 16);
-      txt = acierto ? 'Aguantas y devuelves en el hueco.' : 'La defensa cede un poco.';
-    } else if (tac === 'astuta') {
-      const acierto = rng.chance(U.clamp(0.35 + (s.stats.intelecto - dif) / 130, 0.1, 0.9));
-      dmg = acierto ? rng.int(40, 70) : rng.int(0, 6);
-      recib = acierto ? rng.int(0, 5) : rng.int(12, 22);
-      txt = acierto ? 'Usas el terreno. Funciona de maravilla.' : 'La idea era buena sobre el papel.';
-    } else if (tac === 'fuerza') {
-      const acierto = rng.chance(U.clamp(0.4 + (s.stats.fuerza - dif) / 140, 0.1, 0.95));
-      dmg = acierto ? rng.int(45, 75) : rng.int(0, 10);
-      recib = acierto ? rng.int(0, 4) : rng.int(10, 20);
-      txt = acierto ? 'La Fuerza fluye y el resultado no admite discusión.' : 'La conexión se rompe en el peor momento.';
-      if (acierto && s.stats.alineamiento < -30) { s.stats.cordura -= 3; }
-      s.stats.fuerza = Math.min(100, s.stats.fuerza + 1);
+    if (tac === 'minijuego') {
+      this.cola.unshift(this.prepararGen(this.eventoMinijuego()));
+      return;
     }
 
+    const ventaja = duelo(tac, e.postura);
+    let dmg = 0, recib = 0, coste = 0, txt = '';
+    const skill = e.poder, dif = e.dif;
+    const cansado = e.aguante < 35 ? 0.5 : (e.aguante < 65 ? 0.78 : 1);
+    const expuesto = e.aguante < 28 ? 1.35 : 1;   // sin aire, encajas peor
+
+    if (tac === 'agresivo') {
+      coste = 34;
+      const base = U.clamp(0.44 + (skill - dif) / 170, 0.12, 0.88) * cansado;
+      const ok = rng.chance(base + ventaja * 0.28);
+      dmg = ok ? rng.int(26, 42) * (ventaja > 0 ? 1.5 : 1) : rng.int(2, 8);
+      recib = (ok ? rng.int(3, 9) : rng.int(12, 22) * (ventaja < 0 ? 1.5 : 1)) * expuesto;
+      txt = ventaja > 0 ? 'Su finta no llega a nada: entras por el hueco.'
+          : ventaja < 0 ? 'Te lanzas contra una guardia cerrada. Mal negocio.'
+          : (ok ? 'Entras fuerte y conectas.' : 'Fallas la entrada y te castigan.');
+    } else if (tac === 'defensa') {
+      coste = 8;
+      const base = U.clamp(0.58 + (skill - dif) / 210, 0.28, 0.9) * cansado;
+      const ok = rng.chance(base + ventaja * 0.25);
+      dmg = ok ? rng.int(12, 24) * (ventaja > 0 ? 1.8 : 1) : rng.int(2, 6);
+      recib = (ok ? rng.int(0, 4) : rng.int(8, 15) * (ventaja < 0 ? 1.4 : 1)) * expuesto;
+      txt = ventaja > 0 ? 'Le dejas venir y la embestida se come tu contra.'
+          : ventaja < 0 ? 'Cubres donde no era: la finta entra limpia.'
+          : (ok ? 'Aguantas y devuelves en el hueco.' : 'La defensa cede un poco.');
+    } else if (tac === 'astuta') {
+      coste = 14;
+      const base = U.clamp(0.34 + (s.stats.intelecto - dif) / 140, 0.1, 0.86) * cansado;
+      const ok = rng.chance(base + ventaja * 0.3);
+      dmg = ok ? rng.int(28, 46) * (ventaja > 0 ? 1.6 : 1) : rng.int(0, 5);
+      recib = (ok ? rng.int(0, 5) : rng.int(10, 20) * (ventaja < 0 ? 1.5 : 1)) * expuesto;
+      txt = ventaja > 0 ? 'Se ha cerrado tanto que no ve venir el entorno. Funciona.'
+          : ventaja < 0 ? 'Te pones creativo mientras te embisten. Error.'
+          : (ok ? 'Usas el terreno. Funciona de maravilla.' : 'La idea era buena sobre el papel.');
+    } else if (tac === 'fuerza') {
+      coste = 22;
+      const ok = rng.chance(U.clamp(0.4 + (s.stats.fuerza - dif) / 150, 0.1, 0.92) * cansado);
+      dmg = ok ? rng.int(34, 58) : rng.int(0, 8);
+      recib = (ok ? rng.int(0, 4) : rng.int(9, 18)) * expuesto;
+      txt = ok ? 'La Fuerza fluye y el resultado no admite discusión.' : 'La conexión se rompe en el peor momento.';
+      if (ok && s.stats.alineamiento < -30) s.stats.cordura -= 2;
+    }
+
+    e.aguante = U.clamp(e.aguante - coste + 6, 0, 100);
     e.hpEnemigo -= dmg;
-    this.aplicarFx({ salud: -recib }, {});
-    this.log(txt + ' (le haces ' + Math.round(dmg) + ', recibes ' + Math.round(recib) + ')', dmg > recib ? 'bien' : 'mal');
+    if (recib > 0) this.aplicarFx({ salud: -recib }, {});
+    this.log(txt + ' <span class="dim">(le haces ' + Math.round(dmg) + ', recibes ' + Math.round(recib) + ')</span>',
+      dmg > recib ? 'bien' : 'mal');
 
-    if (this.s.stats.salud <= 0) { this.morir(e.cfg.duelo ? 'Cae en un duelo.' : 'Cae en combate.'); this.escena = null; return; }
+    this.siguienteAsalto();
+  };
 
+  Game.prototype.siguienteAsalto = function () {
+    const e = this.escena, s = this.s;
+    if (!e) return;
+    if (s.stats.salud <= 0) { this.morir(e.cfg.duelo ? 'Cae en un duelo.' : 'Cae en combate.'); this.escena = null; return; }
     if (e.hpEnemigo <= 0) { this.finCombate(true); return; }
     e.ronda++;
-    if (e.ronda > e.maxRondas) { this.finCombate(e.hpEnemigo < 45); return; }
+    if (e.ronda > e.maxRondas) { this.finCombate(e.hpEnemigo < 40); return; }
+    // el rival cambia de postura, con tendencia a repetir lo que le funciona
+    e.postura = this.rng.pick(['embestida', 'guardia', 'finta']);
     this.cola.unshift(this.escenaCombateEvento());
   };
 
-  Game.prototype.finCombate = function (victoria) {
+  /* --- minijuego de reflejos dentro del combate --- */
+  Game.prototype.eventoMinijuego = function () {
+    const s = this.s;
+    const armado = !!s.sable || s.habilidades.indexOf('tirador') >= 0;
+    const modo = this.escena && this.escena.cfg.duelo && !s.sable ? 'desenfundar' : (s.sable ? 'filo' : 'desenfundar');
+    return {
+      id: 'escena_minijuego', gen: true,
+      t: '<span class="scene-tag">TE LA JUEGAS</span>' +
+         (modo === 'desenfundar'
+           ? '<p>Las manos quietas. Cuando la señal cambie, dispara. Ni un instante antes.</p>'
+           : '<p>El filo va y viene. Golpea cuando cruce el punto ciego de su guardia.</p>'),
+      minijuego: modo,
+      dificultad: U.clamp(this.escena ? this.escena.dif : 50, 20, 95),
+      c: [{ t: 'Volver a la táctica normal', tactica: 'cancelar' }]
+    };
+  };
+
+  /** llamado por la interfaz con el resultado del minijuego */
+  Game.prototype.resolverMinijuego = function (grado) {
     const e = this.escena, s = this.s, rng = this.rng;
+    if (!e) return;
+    // grado: 2 crítico · 1 bien · 0 flojo · -1 fallo
+    let dmg = 0, recib = 0, txt = '';
+    if (grado === 2) { dmg = rng.int(70, 100); recib = 0; txt = 'Perfecto. Ni te ha visto moverte.'; s.stats.reputacion += 3; }
+    else if (grado === 1) { dmg = rng.int(38, 58); recib = rng.int(0, 6); txt = 'Limpio. Suficiente.'; }
+    else if (grado === 0) { dmg = rng.int(10, 22); recib = rng.int(10, 20); txt = 'Los dos acertáis a medias.'; }
+    else { dmg = 0; recib = rng.int(24, 40); txt = 'Te precipitas. Y lo pagas entero.'; }
+
+    e.aguante = U.clamp(e.aguante - 18, 0, 100);
+    e.hpEnemigo -= dmg;
+    if (recib > 0) this.aplicarFx({ salud: -recib }, {});
+    this.log(txt + ' <span class="dim">(le haces ' + dmg + ', recibes ' + Math.round(recib) + ')</span>', dmg > recib ? 'bien' : 'mal');
+    this.siguienteAsalto();
+  };
+
+  Game.prototype.finCombate = function (victoria) {
+    const e = this.escena, s = this.s;
     if (!e) return;
     if (victoria) {
       const botin = e.cfg.botin || 0;
       if (botin) { s.stats.creditos += botin; this.log('Victoria. Cobras ' + U.cr(botin) + '.', 'cr'); }
       else this.log('Victoria.', 'bien');
-      this.aplicarFx({ destreza: 5, reputacion: 4, notoriedad: e.cfg.contrato ? 6 : 3 }, {});
+      this.aplicarFx({ destreza: 3, fisico: 2, reputacion: 4, notoriedad: e.cfg.contrato ? 6 : 3 }, {});
       if (e.cfg.contrato) s.contadores.cazas = (s.contadores.cazas || 0) + 1;
       if (e.cfg.duelo) { s.contadores.duelos = (s.contadores.duelos || 0) + 1; this.hito('Gana un duelo'); }
     } else {
       this.log('El enemigo aguanta más que tú. Te retiras maltrecho.', 'mal');
-      this.aplicarFx({ salud: -12, cordura: -6, reputacion: -4 }, {});
+      this.aplicarFx({ salud: -10, cordura: -6, reputacion: -4 }, {});
     }
     this.escena = null;
     if (this.s.stats.salud <= 0 && !this.s.muerto) this.morir('Heridas de combate.');
@@ -787,26 +1099,38 @@
     const s = this.s;
     if (!s.nave) { this.log('No tienes nave. Ves el combate desde tierra.', 'res'); return; }
     this.escena = {
-      tipo: 'dogfight', cfg: cfg, ronda: 1, maxRondas: 3,
+      tipo: 'dogfight', cfg: cfg || {}, ronda: 1, maxRondas: 4,
       hpEnemigo: 100,
-      dif: cfg.dif || 50,
-      poder: s.stats.destreza + s.nave.vel * 4 + s.nave.arm * 4 + (s.habilidades.indexOf('piloto') >= 0 ? 12 : 0) + (s.naveEstado - 60) / 3
+      dif: (cfg && cfg.dif) || 50,
+      postura: this.rng.pick(['embestida', 'guardia', 'finta']),
+      poder: s.stats.destreza * 0.5 + s.nave.vel * 4 + s.nave.arm * 4 +
+        (s.habilidades.indexOf('piloto') >= 0 ? 12 : 0) + (s.naveEstado - 60) / 3
     };
     this.cola.unshift(this.escenaDogfightEvento());
   };
 
   Game.prototype.escenaDogfightEvento = function () {
     const e = this.escena, s = this.s;
-    const barra = '█'.repeat(Math.max(0, Math.round(e.hpEnemigo / 10))) + '░'.repeat(10 - Math.max(0, Math.round(e.hpEnemigo / 10)));
+    const barra = function (v) {
+      const n = U.clamp(Math.round(v / 10), 0, 10);
+      return '█'.repeat(n) + '░'.repeat(10 - n);
+    };
+    const tells = {
+      embestida: 'Viene de frente, sin desviarse. Quiere el choque.',
+      guardia: 'Cierra el giro y se pega a la chatarra. Espera.',
+      finta: 'Amaga a estribor. No se lo cree ni él.'
+    };
     return this.prepararGen({
       id: 'escena_dogfight', gen: true,
-      t: '<span class="scene-tag">COMBATE ESPACIAL · PASADA ' + e.ronda + '/' + e.maxRondas + '</span><br>Enemigo: [' + barra + '] ' + Math.max(0, Math.round(e.hpEnemigo)) + '%<br>Casco de tu nave: ' + s.naveEstado + '%',
+      t: '<span class="scene-tag">COMBATE ESPACIAL · PASADA ' + e.ronda + '/' + e.maxRondas + '</span>' +
+         '<div class="hp"><span>Rival</span><code>[' + barra(e.hpEnemigo) + ']</code> ' + Math.max(0, Math.round(e.hpEnemigo)) + '%</div>' +
+         '<div class="hp"><span>Casco</span><code>[' + barra(s.naveEstado) + ']</code> ' + s.naveEstado + '%</div>' +
+         '<p class="tell">' + tells[e.postura] + '</p>',
       c: [
-        { t: '⤢ Persecución cerrada', tacticaN: 'persecucion', sub: 'Directo a su cola.' },
-        { t: '⟲ Giro de Koiogran', tacticaN: 'koiogran', sub: 'Maniobra difícil, premio alto.' },
-        { t: '⌖ Fuego de proa a distancia', tacticaN: 'distancia', sub: 'Seguro, lento.' },
-        { t: '≈ Usar el terreno / desechos', tacticaN: 'terreno', sub: 'Riesgo para el casco.' },
-        { t: '⇥ Salto al hiperespacio', tacticaN: 'saltar', sub: 'Abandonar el combate.' }
+        { t: '⤢ Persecución cerrada', tacticaN: 'agresivo', sub: 'Directo a su cola. Castiga fintas.' },
+        { t: '⟲ Frenar y dejarle pasar', tacticaN: 'defensa', sub: 'Castiga a quien viene de frente.' },
+        { t: '≈ Meterle en la chatarra', tacticaN: 'astuta', sub: 'Abre a los que se cierran. Riesgo de casco.' },
+        { t: '⇥ Salto al hiperespacio', tacticaN: 'huir', sub: 'Abandonar el combate.' }
       ]
     });
   };
@@ -814,45 +1138,47 @@
   Game.prototype.resolverTacticaNave = function (tac) {
     const e = this.escena, s = this.s, rng = this.rng;
     if (!e) return;
-    let dmg = 0, casco = 0, txt = '';
-    const p = e.poder, dif = e.dif;
 
-    if (tac === 'saltar') {
-      if (rng.chance(0.6 + (s.stats.intelecto - dif) / 200)) {
+    if (tac === 'huir') {
+      if (rng.chance(0.58 + (s.stats.intelecto - e.dif) / 200)) {
         this.log('Coordenadas metidas a tiempo. Desapareces.', 'res');
       } else {
         this.log('Te alcanzan justo antes del salto.', 'mal');
-        s.naveEstado = U.clamp(s.naveEstado - 30, 0, 100);
-        this.aplicarFx({ salud: -10 }, {});
+        s.naveEstado = U.clamp(s.naveEstado - 28, 0, 100);
+        this.aplicarFx({ salud: -8 }, {});
       }
       this.escena = null;
       return;
     }
-    if (tac === 'persecucion') {
-      const ok = rng.chance(U.clamp(0.5 + (p - dif) / 160, 0.15, 0.9));
-      dmg = ok ? rng.int(30, 50) : rng.int(5, 12); casco = ok ? rng.int(2, 8) : rng.int(12, 25);
-      txt = ok ? 'Le pegas la cola y disparas en el punto justo.' : 'Se te va y aparece detrás.';
-    } else if (tac === 'koiogran') {
-      const ok = rng.chance(U.clamp(0.35 + (p - dif) / 140, 0.1, 0.85));
-      dmg = ok ? rng.int(50, 80) : rng.int(0, 8); casco = ok ? rng.int(0, 5) : rng.int(18, 32);
-      txt = ok ? 'Invertida perfecta. Ahora el cazado es él.' : 'Pierdes velocidad en el peor momento.';
-    } else if (tac === 'distancia') {
-      const ok = rng.chance(U.clamp(0.65 + (p - dif) / 220, 0.3, 0.9));
-      dmg = ok ? rng.int(15, 28) : rng.int(3, 9); casco = ok ? rng.int(0, 4) : rng.int(6, 14);
-      txt = ok ? 'Disparo medido a distancia.' : 'Se cierra la distancia demasiado rápido.';
-    } else if (tac === 'terreno') {
-      const ok = rng.chance(U.clamp(0.45 + (s.stats.intelecto - dif) / 150, 0.1, 0.9));
-      dmg = ok ? rng.int(40, 70) : rng.int(0, 5); casco = ok ? rng.int(5, 15) : rng.int(20, 38);
-      txt = ok ? 'Le metes en la chatarra y no sale.' : 'Rozas algo grande. Suena feo.';
+
+    const ventaja = duelo(tac, e.postura);
+    let dmg = 0, casco = 0, txt = '';
+    const p = e.poder, dif = e.dif;
+
+    if (tac === 'agresivo') {
+      const ok = rng.chance(U.clamp(0.48 + (p - dif) / 170, 0.12, 0.88) + ventaja * 0.26);
+      dmg = ok ? rng.int(24, 40) * (ventaja > 0 ? 1.5 : 1) : rng.int(3, 9);
+      casco = ok ? rng.int(2, 7) : rng.int(12, 24) * (ventaja < 0 ? 1.4 : 1);
+      txt = ventaja > 0 ? 'Su amago no engaña a nadie: le pegas la cola.' : ventaja < 0 ? 'Le persigues justo cuando frena. Le pasas por delante.' : 'Pasada firme.';
+    } else if (tac === 'defensa') {
+      const ok = rng.chance(U.clamp(0.55 + (p - dif) / 200, 0.2, 0.9) + ventaja * 0.26);
+      dmg = ok ? rng.int(16, 30) * (ventaja > 0 ? 1.7 : 1) : rng.int(2, 7);
+      casco = ok ? rng.int(0, 5) : rng.int(8, 16) * (ventaja < 0 ? 1.4 : 1);
+      txt = ventaja > 0 ? 'Frenas, te pasa de largo y se lo comes por detrás.' : ventaja < 0 ? 'Frenas contra alguien que también esperaba. Mal sitio.' : 'Intercambio de disparos medido.';
+    } else if (tac === 'astuta') {
+      const ok = rng.chance(U.clamp(0.4 + (s.stats.intelecto - dif) / 155, 0.1, 0.88) + ventaja * 0.28);
+      dmg = ok ? rng.int(32, 55) * (ventaja > 0 ? 1.5 : 1) : rng.int(0, 6);
+      casco = ok ? rng.int(4, 12) : rng.int(16, 32) * (ventaja < 0 ? 1.4 : 1);
+      txt = ventaja > 0 ? 'Se había pegado a los restos. Ahí es donde le metes.' : ventaja < 0 ? 'Buscas chatarra mientras te embisten de frente.' : 'Rozas algo grande, pero le tocas.';
     }
 
     e.hpEnemigo -= dmg;
     s.naveEstado = U.clamp(s.naveEstado - casco, 0, 100);
-    this.log(txt + ' (daño ' + Math.round(dmg) + ', casco −' + Math.round(casco) + ')', dmg > casco ? 'bien' : 'mal');
+    this.log(txt + ' <span class="dim">(daño ' + Math.round(dmg) + ', casco −' + Math.round(casco) + ')</span>', dmg > casco ? 'bien' : 'mal');
 
     if (s.naveEstado <= 0) {
       this.log('Tu nave se parte. Cápsula de escape.', 'mal');
-      this.aplicarFx({ salud: -25, cordura: -10 }, {});
+      this.aplicarFx({ salud: -20, cordura: -10 }, {});
       s.nave = null; s.naveNombre = null;
       this.escena = null;
       if (s.stats.salud <= 0) this.morir('Derribado.');
@@ -861,33 +1187,31 @@
     if (e.hpEnemigo <= 0) {
       s.contadores.derribos = (s.contadores.derribos || 0) + 1;
       this.log('Derribado. Uno más para la lista.', 'bien');
-      this.aplicarFx({ destreza: 5, reputacion: 5 }, {});
+      this.aplicarFx({ destreza: 4, reputacion: 5 }, {});
       if (e.cfg.botin) { s.stats.creditos += e.cfg.botin; this.log('Recuperas ' + U.cr(e.cfg.botin) + ' de los restos.', 'cr'); }
       this.escena = null;
       return;
     }
     e.ronda++;
-    if (e.ronda > e.maxRondas) {
-      this.log('El enemigo rompe el combate y se marcha.', 'res');
-      this.escena = null;
-      return;
-    }
+    if (e.ronda > e.maxRondas) { this.log('El enemigo rompe el combate y se marcha.', 'res'); this.escena = null; return; }
+    e.postura = rng.pick(['embestida', 'guardia', 'finta']);
     this.cola.unshift(this.escenaDogfightEvento());
   };
 
   /* ============================================================
-     MENÚS GENERADOS
+     MENÚS
      ============================================================ */
   Game.prototype.menuTienda = function () {
     const s = this.s, rng = this.rng;
-    const stock = rng.pickN(SW.OBJETOS, 5);
+    const stock = rng.pickN(SW.OBJETOS, 6);
     const c = stock.map(function (o) {
+      const puede = s.stats.creditos >= o.p;
       return {
-        t: 'Comprar ' + o.n + ' — ' + U.cr(o.p),
-        sub: o.t,
-        req: function (st) { return st.stats.creditos >= o.p; },
-        fx: { creditos: -o.p },
-        comprar: o.n
+        t: (puede ? 'Comprar ' : '✕ ') + o.n + ' — ' + U.cr(o.p),
+        sub: puede ? o.t : 'no te llega',
+        bloqueada: !puede,
+        fx: puede ? { creditos: -o.p } : {},
+        comprar: puede ? o.n : null
       };
     });
     c.push({ t: 'Vender algo tuyo', vender: true });
@@ -898,21 +1222,21 @@
   Game.prototype.menuHangar = function () {
     const s = this.s, rng = this.rng;
     const c = [];
-    const oferta = rng.pickN(SW.NAVES, 3);
-    oferta.forEach(function (n) {
+    rng.pickN(SW.NAVES, 4).forEach(function (n) {
       const precio = Math.round(n.p * (0.8 + rng.next() * 0.5));
+      const puede = s.stats.creditos >= precio;
       c.push({
-        t: 'Comprar ' + n.n + ' — ' + U.cr(precio),
-        sub: 'vel ' + n.vel + ' · carga ' + n.carga + ' · armas ' + n.arm,
-        req: function (st) { return st.stats.creditos >= precio; },
-        fx: { creditos: -precio },
-        comprarNave: n.n
+        t: (puede ? 'Comprar ' : '✕ ') + n.n + ' — ' + U.cr(precio),
+        sub: 'vel ' + n.vel + ' · carga ' + n.carga + ' · armas ' + n.arm + (puede ? '' : ' · no te llega'),
+        bloqueada: !puede,
+        fx: puede ? { creditos: -precio } : {},
+        comprarNave: puede ? n.n : null
       });
     });
     if (s.nave) {
-      c.push({ t: 'Reparar casco (' + U.cr(12000) + ')', req: function (st) { return st.stats.creditos >= 12000; }, fx: { creditos: -12000 }, naveEstado: 100 });
-      c.push({ t: 'Mejorar motores (' + U.cr(25000) + ')', req: function (st) { return st.stats.creditos >= 25000; }, fx: { creditos: -25000 }, mejora: 'vel' });
-      c.push({ t: 'Mejorar armamento (' + U.cr(30000) + ')', req: function (st) { return st.stats.creditos >= 30000; }, fx: { creditos: -30000 }, mejora: 'arm' });
+      c.push({ t: 'Reparar casco — ' + U.cr(12000), req: function (st) { return st.stats.creditos >= 12000; }, fx: { creditos: -12000 }, naveEstado: 100 });
+      c.push({ t: 'Mejorar motores — ' + U.cr(25000), req: function (st) { return st.stats.creditos >= 25000; }, fx: { creditos: -25000 }, mejora: 'vel' });
+      c.push({ t: 'Mejorar armamento — ' + U.cr(30000), req: function (st) { return st.stats.creditos >= 30000; }, fx: { creditos: -30000 }, mejora: 'arm' });
       c.push({ t: 'Vender tu ' + s.nave.n, venderNave: true });
     }
     c.push({ t: 'Salir del hangar', fx: {} });
@@ -921,47 +1245,83 @@
 
   Game.prototype.menuViaje = function () {
     const s = this.s, rng = this.rng;
-    const destinos = rng.pickN(SW.MUNDO_NOMBRES.filter(function (m) { return m !== s.mundo; }), 5);
-    const c = destinos.map(function (d) {
-      const m = SW.mundo(d);
-      const coste = s.nave ? 800 : Math.round(2000 + m.riq * 400);
+    const reg = SW.mundo(s.mundo).r;
+    const cerca = SW.MUNDOS.filter(function (m) { return m.r === reg && m.n !== s.mundo; });
+    const lejos = SW.MUNDOS.filter(function (m) { return m.r !== reg; });
+    const destinos = rng.pickN(cerca, 3).concat(rng.pickN(lejos, 4));
+    const c = destinos.map(function (m) {
+      const salto = m.r === reg ? 1 : 2.6;
+      const coste = Math.round((s.nave ? 400 : 1400) * salto + m.riq * 220);
+      const puede = s.stats.creditos >= coste;
       return {
-        t: 'Ir a ' + d + ' — ' + U.cr(coste),
-        sub: m.r + ' · ' + m.bio + ' · ' + m.vibe,
-        req: function (st) { return st.stats.creditos >= coste; },
-        fx: { creditos: -coste },
-        mueveA: d
+        t: (puede ? '' : '✕ ') + 'Ir a ' + m.n + ' — ' + U.cr(coste) + (m.r === reg ? ' · cerca' : ''),
+        sub: m.r + ' · ' + m.bio + ' · ' + m.vibe + (puede ? '' : ' · no te llega'),
+        bloqueada: !puede,
+        fx: puede ? { creditos: -coste } : {},
+        mueveA: puede ? m.n : null,
+        motivo: 'por decisión propia'
       };
     });
-    c.push({ t: 'Quedarte donde estás', fx: { cordura: 2 } });
-    return { id: 'menu_viaje', gen: true, t: 'PUERTO ESTELAR de ' + s.mundo + ' — destinos disponibles', c: c };
+    c.push({
+      t: 'Pagarte el pasaje trabajando en la bodega',
+      sub: 'gratis, pero un año duro y sin elegir destino',
+      fx: { fisico: 4, cordura: -5, creditos: 600 }, mover: true, motivo: 'trabajando el pasaje'
+    });
+    c.push({ t: 'Quedarte en ' + s.mundo, fx: { cordura: 2 } });
+    return { id: 'menu_viaje', gen: true, t: 'PUERTO ESTELAR de ' + s.mundo + ' (' + reg + ') — tienes ' + U.cr(s.stats.creditos), c: c };
   };
 
   Game.prototype.menuFuerza = function () {
     const s = this.s;
     const c = [
-      { t: 'Meditar (fuerza + cordura)', fx: { fuerza: 8, cordura: 10 } },
-      { t: 'Entrenar poderes activos', fx: { fuerza: 10, salud: -4 }, poder: 'auto' },
-      { t: 'Buscar un cristal kyber', req: function (st) { return !st.kyber; }, fx: { fuerza: 5, salud: -6, creditos: -3000 }, kyber: true },
-      { t: 'Construir/rehacer tu sable', req: function (st) { return !!st.kyber; }, construirSable: true },
-      { t: 'Estudiar textos prohibidos', fx: { fuerza: 14, alineamiento: -12, cordura: -8 }, poder: 'auto_oscuro' },
-      { t: 'Estudiar textos de la Orden', fx: { fuerza: 10, alineamiento: 10, cordura: 5 }, poder: 'auto_luz' },
+      { t: 'Meditar', sub: 'Fuerza y cordura, sin riesgo', fx: { fuerza: 7, cordura: 10 } },
+      { t: 'Entrenar poderes activos', sub: 'Aprendes uno nuevo si estás a la altura', fx: { fuerza: 9, salud: -4 }, poder: 'auto' },
+      { t: 'Buscar un cristal kyber', req: function (st) { return !st.kyber && st.sensible; }, fx: { fuerza: 5, salud: -6, creditos: -3000 }, kyber: true },
+      { t: 'Construir o rehacer tu sable', req: function (st) { return !!st.kyber; }, construirSable: true },
+      { t: 'Estudiar textos prohibidos', sub: 'Rápido y caro', fx: { fuerza: 13, alineamiento: -12, cordura: -8 }, poder: 'auto_oscuro' },
+      { t: 'Estudiar textos de la Orden', sub: 'Lento y sólido', fx: { fuerza: 9, alineamiento: 10, cordura: 5 }, poder: 'auto_luz' },
+      { t: 'Practicar una forma de sable', req: function (st) { return !!st.sable; }, fx: { destreza: 8, fuerza: 5 }, habilidad: 'duelista' },
       { t: 'Ayunar y desconectar', fx: { fuerza: -5, cordura: 15, salud: 5 } }
     ];
-    return { id: 'menu_fuerza', gen: true, t: 'LA FUERZA — nivel actual: ' + s.stats.fuerza + ' · alineamiento: ' + s.stats.alineamiento, c: c };
+    return { id: 'menu_fuerza', gen: true, t: 'LA FUERZA — nivel ' + s.stats.fuerza + ' · alineamiento ' + SW.etiquetaAlineamiento(s.stats.alineamiento), c: c };
+  };
+
+  Game.prototype.menuClinica = function () {
+    const s = this.s;
+    const c = [];
+    if (s.heridas.length) {
+      s.heridas.forEach(function (h, i) {
+        const precio = 4000 + h.sev * 900;
+        const puede = s.stats.creditos >= precio;
+        c.push({
+          t: (puede ? 'Tratar: ' : '✕ ') + h.n + ' — ' + U.cr(precio),
+          sub: '−' + h.sev + ' de salud máxima' + (puede ? '' : ' · no te llega'),
+          bloqueada: !puede,
+          fx: puede ? { creditos: -precio } : {},
+          tratar: puede ? i : null
+        });
+      });
+    } else {
+      c.push({ t: 'No tienes heridas abiertas', sub: 'el médico te mira con envidia', fx: { cordura: 3 } });
+    }
+    c.push({ t: 'Tanque de bacta completo — ' + U.cr(30000), req: function (st) { return st.stats.creditos >= 30000; }, fx: { creditos: -30000, salud: 20 }, curarHeridas: true });
+    c.push({ t: 'Salir de la clínica', fx: {} });
+    return { id: 'menu_clinica', gen: true, t: 'CLÍNICA de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
   };
 
   Game.prototype.menuMatricula = function () {
     const s = this.s;
     const c = SW.ESTUDIOS.filter(function (e) {
+      if (e.era && e.era.indexOf(s.era) < 0) return false;
       if (e.req) { for (const k in e.req) if ((s.stats[k] || 0) < e.req[k]) return false; }
       return s.estudios.indexOf(e.n) < 0;
     }).map(function (e) {
+      const puede = s.stats.creditos >= e.coste;
       return {
-        t: e.n + ' — ' + (e.coste ? U.cr(e.coste) : 'gratis'),
-        sub: e.años + ' años de formación',
-        req: function (st) { return st.stats.creditos >= e.coste; },
-        estudio: e.id
+        t: (puede ? '' : '✕ ') + e.n + ' — ' + (e.coste ? U.cr(e.coste) : 'gratis'),
+        sub: e.años + ' años de formación' + (puede ? '' : ' · no te llega'),
+        bloqueada: !puede,
+        estudio: puede ? e.id : null
       };
     });
     c.push({ t: 'Ninguno', fx: {} });
@@ -970,26 +1330,30 @@
 
   Game.prototype.menuNombreNave = function () {
     const rng = this.rng;
-    const adj = ['Halcón', 'Fantasma', 'Vagabundo', 'Aguja', 'Corsario', 'Sombra', 'Errante', 'Trueno', 'Cuchillo', 'Mendigo'];
-    const comp = ['de Corellia', 'Milenario', 'del Borde', 'Oxidado', 'Afortunado', 'de Hierro', 'sin Nombre', 'Rojo', 'Tardío', 'de tu Madre'];
+    const adj = ['Halcón', 'Fantasma', 'Vagabundo', 'Aguja', 'Corsario', 'Sombra', 'Errante', 'Trueno', 'Cuchillo', 'Mendigo', 'Alondra', 'Espolón', 'Cometa', 'Púa'];
+    const comp = ['de Corellia', 'Milenario', 'del Borde', 'Oxidado', 'Afortunado', 'de Hierro', 'sin Nombre', 'Rojo', 'Tardío', 'de tu Madre', 'de Ceniza', 'Impagado'];
     const nombres = [];
-    for (let i = 0; i < 4; i++) nombres.push(rng.pick(adj) + ' ' + rng.pick(comp));
-    const c = nombres.map(function (n) { return { t: '"' + n + '"', ponerNombreNave: n }; });
-    return { id: 'menu_nave_nombre', gen: true, t: 'Hay que bautizarla. El nombre importa más de lo que parece.', c: c };
+    for (let i = 0; i < 5; i++) nombres.push(rng.pick(adj) + ' ' + rng.pick(comp));
+    return {
+      id: 'menu_nave_nombre', gen: true,
+      t: 'Hay que bautizarla. En el Borde dicen que una nave sin nombre no vuelve.',
+      c: nombres.map(function (n) { return { t: '"' + n + '"', ponerNombreNave: n }; })
+    };
   };
 
   Game.prototype.menuSable = function () {
-    const c = SW.COLORES_KYBER.map(function (k) {
-      return { t: 'Hoja ' + k.c, sub: k.s, colorSable: k.c };
-    });
-    return { id: 'menu_sable', gen: true, t: 'El cristal responde. ¿Qué color canta dentro de ti?', c: c };
+    return {
+      id: 'menu_sable', gen: true,
+      t: 'El cristal responde. ¿Qué color canta dentro de ti?',
+      c: SW.COLORES_KYBER.map(function (k) { return { t: 'Hoja ' + k.c, sub: k.s, colorSable: k.c }; })
+    };
   };
 
-  /* ---------------- Menú de actividad anual ---------------- */
+  /* ---------------- Actividades ---------------- */
   Game.prototype.menuActividades = function () {
     const s = this.s;
     return SW.ACTIVIDADES.filter(function (a) {
-      if (s.edad < a.min) return false;
+      if (s.edadBio < a.min) return false;
       if (a.req) { try { return a.req(s); } catch (e) { return false; } }
       return true;
     });
@@ -999,17 +1363,25 @@
     const s = this.s, rng = this.rng;
     const pool = SW.ACTOS[id] || [];
     const posibles = this.eventosPosibles(pool);
-    if (!posibles.length) { this.log('Este año no surge nada en esa vía.', 'res'); return; }
-    const ev = rng.weighted(posibles);
-    const inst = this.prepararEvento(ev);
-    if (inst) this.cola.push(inst);
+    if (!posibles.length) {
+      // nunca dejes al jugador sin nada: tira de generador
+      const gens = { crimen: 'contrato', nave: 'ruta', accion: 'accion', viaje: null };
+      const g = gens[id];
+      if (g && SW.GEN[g]) { this.cola.push(this.prepararGen(SW.GEN[g](rng, s))); }
+      else if (id === 'viaje') { this.cola.push(this.prepararGen(this.menuViaje())); }
+      else { this.log('Este año no surge nada por esa vía.', 'res'); }
+    } else {
+      const ev = this.elegirEvento(posibles);
+      const inst = this.prepararEvento(ev);
+      if (inst) this.cola.push(inst);
+    }
     this.actividadUsada = true;
     this.fase = 'evento';
   };
 
-  /* ---------------- Extras aplicados en UI ---------------- */
+  /* ---------------- Extras de interfaz ---------------- */
   Game.prototype.aplicarExtra = function (d) {
-    const s = this.s, rng = this.rng;
+    const s = this.s;
     if (d.comprar) { s.objetos.push(d.comprar); this.log('Compras: ' + d.comprar + '.', 'bien'); }
     if (d.comprarNave) {
       const n = SW.NAVES.filter(function (x) { return x.n === d.comprarNave; })[0];
@@ -1022,7 +1394,7 @@
       s.nave = null; s.naveNombre = null;
     }
     if (d.vender) {
-      if (!s.objetos.length) { this.log('No tienes nada que vender.', 'res'); }
+      if (!s.objetos.length) this.log('No tienes nada que vender.', 'res');
       else {
         const o = s.objetos.pop();
         const base = SW.OBJETOS.filter(function (x) { return x.n === o; })[0];
@@ -1031,12 +1403,22 @@
         this.log('Vendes ' + o + ' por ' + U.cr(v) + '.', 'cr');
       }
     }
+    if (d.tratar != null && s.heridas[d.tratar]) {
+      const h = s.heridas[d.tratar];
+      this.log('Te tratan: ' + h.n + '. Cerrado.', 'bien');
+      s.heridas.splice(d.tratar, 1);
+    }
     if (d.mejora && s.nave) {
       s.nave = Object.assign({}, s.nave);
       s.nave[d.mejora] = Math.min(12, s.nave[d.mejora] + 2);
       this.log('Mejora instalada.', 'bien');
     }
-    if (d.ponerNombreNave) { s.naveNombre = d.ponerNombreNave; this.log('Tu nave se llama "' + d.ponerNombreNave + '".', 'bien'); this.hito('Bautiza su nave: ' + d.ponerNombreNave); }
+    if (d.fijarApodo) this.fijarApodo(d.fijarApodo);
+    if (d.ponerNombreNave) {
+      s.naveNombre = d.ponerNombreNave;
+      this.log('Tu nave se llama "' + d.ponerNombreNave + '".', 'bien');
+      this.hito('Bautiza su nave: ' + d.ponerNombreNave);
+    }
     if (d.colorSable) {
       const k = SW.COLORES_KYBER.filter(function (x) { return x.c === d.colorSable; })[0];
       this.construirSable(k);
@@ -1046,5 +1428,6 @@
 
   SW.Game = Game;
   SW.clampStats = clampStats;
+  SW.saludMax = saludMax;
 
 })(window);
