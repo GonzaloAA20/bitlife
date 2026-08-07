@@ -46,7 +46,7 @@
     c: [{ t: 'Seguirle a todas partes', fx: { destreza: 8, cordura: 5, salud: -3 }, rel: { tipo: 'amigo', afecto: 45, quien: 'el mayor del barrio' }, out: 'Aprendes cosas con tres años de adelanto.' },
         { t: 'Plantarte el primer día', fx: { carisma: 6, cordura: 6 }, out: 'Te respeta más así.' },
         { t: 'Usarle para llegar a sitios', fx: { intelecto: 8, carisma: 6, alineamiento: -5 }, out: 'Funciona. Se da cuenta tarde.' }] },
-  { id: 'n3_lluvia', min: 3, max: 10, w: 8, slots: { p: 'mundo' }, t: 'Llueve en {p} por primera vez en años. Todo el mundo sale a la calle.',
+  { id: 'n3_lluvia', min: 3, max: 10, w: 8, slots: { p: 'mundoAqui' }, t: 'Llueve en {p} por primera vez en años. Todo el mundo sale a la calle.',
     c: [{ t: 'Empaparte con los demás', fx: { cordura: 12, salud: -3 }, relTodas: 10, out: 'Un recuerdo de esos que se cuentan luego mal.' },
         { t: 'Recoger agua en todo lo que encuentres', fx: { intelecto: 8, creditos: 300 }, out: 'Los vecinos te lo compran. Práctico y rentable.' },
         { t: 'Mirar desde la puerta', fx: { cordura: 5, intelecto: 4 }, out: 'Te fijas en cómo corre el agua. Te dura toda la vida.' }] },
@@ -149,7 +149,7 @@
         { t: 'Irte de ahí', fx: { cordura: -4, intelecto: 5 }, out: 'Al día siguiente hay un herido grave. Podrías haber sido tú.' }] },
 
   /* ══════════════ JOVEN ADULTO (19-30) ══════════════ */
-  { id: 'j3_piso', min: 19, max: 32, w: 10, slots: { p: 'mundo' }, t: 'Primera casa propia en {p}. Vacía y con humedades.',
+  { id: 'j3_piso', min: 19, max: 32, w: 10, slots: { p: 'mundoAqui' }, t: 'Primera casa propia en {p}. Vacía y con humedades.',
     c: [{ t: 'Arreglarla tú mismo', fx: { creditos: -4000, intelecto: 8, cordura: 10 }, out: 'Tardas un año. Queda tuya de verdad.' },
         { t: 'Vivir así, que ya se verá', fx: { creditos: -800, cordura: -4, salud: -4 }, out: 'Cuatro años con una pared sin pintar.' },
         { t: 'Compartirla con alguien', fx: { creditos: -1500, carisma: 8, cordura: 6 }, rel: { tipo: 'amigo', afecto: 40, quien: 'compañero de piso' }, out: 'Discutís por los platos. Sois familia.' }] },

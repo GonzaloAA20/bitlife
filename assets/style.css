@@ -748,3 +748,51 @@ body.en-juego::before {
     content: ""; position: fixed; inset: 0; z-index: 299; background: rgba(2,5,9,.6);
   }
 }
+
+/* ============================================================
+   BARRA SUPERIOR: rejilla con áreas, para que nada se solape
+   ============================================================ */
+.topbar {
+  display: grid;
+  grid-template-areas: "ficha id edad mundo cr acc mini mapa menu";
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto auto auto auto;
+  gap: 0 14px;
+  align-items: center;
+}
+.tb-ficha { grid-area: ficha; }
+.tb-id    { grid-area: id; min-width: 0; }
+.tb-edad  { grid-area: edad; }
+.tb-mundo { grid-area: mundo; min-width: 0; }
+.tb-cr    { grid-area: cr; }
+.tb-acc   { grid-area: acc; }
+.topbar > .tb-mini { grid-area: mini; }
+.tb-mapa  { grid-area: mapa; }
+.tb-menu  { grid-area: menu; }
+
+/* el nombre nunca empuja al resto: se corta con puntos suspensivos */
+.tb-id b, .tb-id span, .tb-mundo b, .tb-mundo span {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    grid-template-areas:
+      "ficha id    id   mapa menu"
+      "edad  mundo cr   acc  acc";
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    gap: 2px 10px;
+    padding: 7px 10px;
+  }
+  .topbar > div { line-height: 1.1; }
+  .tb-id b { font-size: 13px; }
+  .tb-edad b { font-size: 15px; }
+  .tb-mundo b, .tb-cr b { font-size: 11.5px; }
+  .topbar span { font-size: 8px; }
+  .tb-acc { justify-self: end; }
+  .tb-acc span { display: none; }
+  .tb-acc b { height: 12px; }
+}
+
+@media (max-width: 380px) {
+  .tb-mundo span, .tb-cr span, .tb-edad span { display: none; }
+}

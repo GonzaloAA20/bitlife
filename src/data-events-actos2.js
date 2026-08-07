@@ -388,8 +388,33 @@
     };
   };
 
+  /* dilemas a escala de crío: mismo peso emocional, otra escala */
+  SW.GEN.dilemaCrio = function (rng, s) {
+    const n1 = SW.genNombre(rng, 'humano');
+    const lugar = rng.pick(SW.lugaresDe(s.mundo));
+    const casos = [
+      { t: 'Has roto algo en casa y nadie te ha visto.', a: 'Decirlo', b: 'Callar', c: 'Echárselo a otro' },
+      { t: n1 + ' te ha copiado en clase y el profesor os mira a los dos.', a: 'Cubrirle', b: 'Decir la verdad', c: 'No decir nada y aguantar' },
+      { t: 'Encuentras unos créditos en ' + lugar + '.', a: 'Buscar a quien los perdió', b: 'Quedártelos', c: 'Dárselos a tu familia' },
+      { t: 'Los otros críos se están metiendo con ' + n1 + '.', a: 'Ponerte delante', b: 'Mirar', c: 'Unirte para que no te toque a ti' },
+      { t: 'Te han invitado a un sitio al que tienes prohibido ir.', a: 'Ir igualmente', b: 'No ir', c: 'Ir y contarlo después' },
+      { t: n1 + ' te pide que le guardes un secreto que da un poco de miedo.', a: 'Guardarlo', b: 'Contárselo a un adulto', c: 'Convencerle de contarlo él' }
+    ];
+    const k = rng.pick(casos);
+    return {
+      id: 'gen_dilema_crio', gen: true,
+      t: 'DECISIÓN — ' + k.t,
+      c: [
+        { t: k.a, fx: { cordura: rng.int(-3, 6), alineamiento: rng.int(0, 10), carisma: 3 }, out: 'Te acuerdas de esto muchos años.' },
+        { t: k.b, fx: { cordura: rng.int(-5, 4), alineamiento: rng.int(-6, 4), intelecto: 3 }, out: 'Nadie se entera. Tú sí.' },
+        { t: k.c, fx: { cordura: rng.int(-6, 2), alineamiento: rng.int(-10, 2), destreza: 3 }, out: 'Funciona ahora. Ya veremos luego.' }
+      ]
+    };
+  };
+
   /* dilema moral puro, sin combate */
   SW.GEN.dilema = function (rng, s) {
+    if (s.edadBio < 14) return SW.GEN.dilemaCrio(rng, s);
     const n1 = SW.genNombreCompleto(rng, 'humano');
     const n2 = SW.genNombreCompleto(rng, rng.pick(['twilek', 'zabrak', 'duros']));
     const lugar = rng.pick(SW.LUGARES);

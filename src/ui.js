@@ -371,15 +371,15 @@
 
     /* --- barra superior: siempre visible --- */
     h += '<header class="topbar">' +
-      '<button class="btn mini solo-movil" data-a="ficha">☰</button>' +
+      '<button class="btn mini tb-ficha solo-movil" data-a="ficha" title="ficha">☰</button>' +
       '<div class="tb-id"><b>' + U.esc(s.nombre) + '</b><span>' + U.esc(s.especieN) + '</span></div>' +
-      '<div class="tb-edad"><b>' + s.edad + '</b><span>' + (s.ritmo > 1 ? 'años · aspecto ' + s.edadBio : 'años') + '</span></div>' +
-      '<div class="tb-mundo"><b><i class="bioma-punto"></i>' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + ' · ' + U.esc(s.eraN) + '</span></div>' +
+      '<div class="tb-edad"><b>' + s.edad + '</b><span>' + (s.ritmo > 1 ? 'años · asp. ' + s.edadBio : 'años') + '</span></div>' +
+      '<div class="tb-mundo"><b><i class="bioma-punto"></i>' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + '</span></div>' +
       '<div class="tb-cr"><b>' + U.cr(s.stats.creditos) + '</b><span>créditos</span></div>' +
       '<div class="tb-acc"><b>' + UI.pips(s) + '</b><span>acciones</span></div>' +
-      '<button class="btn mini" data-a="mapa" title="carta estelar">◎</button>' +
       '<div class="tb-mini">' + UI.miniBarras(s) + '</div>' +
-      '<button class="btn mini" data-a="menu">≡</button>' +
+      '<button class="btn mini tb-mapa" data-a="mapa" title="carta estelar">◎</button>' +
+      '<button class="btn mini tb-menu" data-a="menu" title="menú">≡</button>' +
       '</header>';
 
     h += '<div class="cuerpo">';
@@ -695,7 +695,9 @@
 
     try {
       const arte = cont.querySelector('.vit-arte');
-      const cv = SW.pixel(p.sprite, { escala: 7, dinamico: p.color || '#c8d4e0' });
+      const cv = (SW.tienePixel2 && SW.tienePixel2(p.sprite))
+        ? SW.pixel2(p.sprite, { escala: 5, dinamico: p.color || null })
+        : SW.pixel(p.sprite, { escala: 7, dinamico: p.color || '#c8d4e0' });
       arte.appendChild(cv);
       if (p.color) arte.style.setProperty('--halo', p.color);
     } catch (e) {}

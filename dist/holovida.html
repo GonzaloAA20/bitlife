@@ -758,6 +758,54 @@ body.en-juego::before {
   }
 }
 
+/* ============================================================
+   BARRA SUPERIOR: rejilla con áreas, para que nada se solape
+   ============================================================ */
+.topbar {
+  display: grid;
+  grid-template-areas: "ficha id edad mundo cr acc mini mapa menu";
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto auto auto auto;
+  gap: 0 14px;
+  align-items: center;
+}
+.tb-ficha { grid-area: ficha; }
+.tb-id    { grid-area: id; min-width: 0; }
+.tb-edad  { grid-area: edad; }
+.tb-mundo { grid-area: mundo; min-width: 0; }
+.tb-cr    { grid-area: cr; }
+.tb-acc   { grid-area: acc; }
+.topbar > .tb-mini { grid-area: mini; }
+.tb-mapa  { grid-area: mapa; }
+.tb-menu  { grid-area: menu; }
+
+/* el nombre nunca empuja al resto: se corta con puntos suspensivos */
+.tb-id b, .tb-id span, .tb-mundo b, .tb-mundo span {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    grid-template-areas:
+      "ficha id    id   mapa menu"
+      "edad  mundo cr   acc  acc";
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    gap: 2px 10px;
+    padding: 7px 10px;
+  }
+  .topbar > div { line-height: 1.1; }
+  .tb-id b { font-size: 13px; }
+  .tb-edad b { font-size: 15px; }
+  .tb-mundo b, .tb-cr b { font-size: 11.5px; }
+  .topbar span { font-size: 8px; }
+  .tb-acc { justify-self: end; }
+  .tb-acc span { display: none; }
+  .tb-acc b { height: 12px; }
+}
+
+@media (max-width: 380px) {
+  .tb-mundo span, .tb-cr span, .tb-edad span { display: none; }
+}
+
 </style>
 </head>
 <body>
@@ -2316,6 +2364,411 @@ body.en-juego::before {
 
 })(window);
 
+/* ===== src/pixelart2.js ===== */
+/* ============================================================
+   HOLOVIDA :: pixel art de alta resolución
+   Los sprites viejos eran de 16-28 px de ancho y se veían muy
+   bastos. Estos van a 48x48 con un pequeño motor de dibujo por
+   píxel: primitivas, sombreado por luz y paletas de 4-5 tonos
+   por material. Sigue siendo pixel art, con más píxeles.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+
+  const N = 48;   // lienzo lógico
+
+  /* ---------- mini motor de dibujo por píxel ---------- */
+  function Lienzo(n) {
+    this.n = n || N;
+    this.px = new Array(this.n * this.n).fill(null);
+  }
+  Lienzo.prototype.set = function (x, y, c) {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || y < 0 || x >= this.n || y >= this.n || !c) return;
+    this.px[y * this.n + x] = c;
+  };
+  Lienzo.prototype.get = function (x, y) {
+    if (x < 0 || y < 0 || x >= this.n || y >= this.n) return null;
+    return this.px[y * this.n + x];
+  };
+  Lienzo.prototype.rect = function (x, y, w, h, c) {
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.set(x + i, y + j, c);
+  };
+  /** rectángulo con volumen: luz arriba-izquierda, sombra abajo-derecha */
+  Lienzo.prototype.bloque = function (x, y, w, h, pal) {
+    this.rect(x, y, w, h, pal[1]);
+    for (let i = 0; i < w; i++) { this.set(x + i, y, pal[0]); this.set(x + i, y + h - 1, pal[3] || pal[2]); }
+    for (let j = 0; j < h; j++) { this.set(x, y + j, pal[0]); this.set(x + w - 1, y + j, pal[2]); }
+    this.set(x, y, pal[0]); this.set(x + w - 1, y + h - 1, pal[3] || pal[2]);
+  };
+  /** cilindro vertical: degradado horizontal de tonos */
+  Lienzo.prototype.cilindro = function (x, y, w, h, pal) {
+    for (let i = 0; i < w; i++) {
+      const t = i / (w - 1);
+      const idx = t < 0.18 ? 0 : t < 0.45 ? 1 : t < 0.75 ? 2 : 3;
+      for (let j = 0; j < h; j++) this.set(x + i, y + j, pal[Math.min(idx, pal.length - 1)]);
+    }
+  };
+  Lienzo.prototype.elipse = function (cx, cy, rx, ry, c) {
+    for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++)
+      for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+        const dx = (x - cx) / rx, dy = (y - cy) / ry;
+        if (dx * dx + dy * dy <= 1) this.set(x, y, c);
+      }
+  };
+  Lienzo.prototype.linea = function (x0, y0, x1, y1, c, gr) {
+    const pasos = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 2 + 1;
+    for (let i = 0; i <= pasos; i++) {
+      const t = i / pasos;
+      const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
+      const g = gr || 1;
+      for (let a = 0; a < g; a++) for (let b = 0; b < g; b++) this.set(x + a, y + b, c);
+    }
+  };
+  /** contorno oscuro alrededor de todo lo dibujado */
+  Lienzo.prototype.contorno = function (c) {
+    const copia = this.px.slice();
+    const at = (x, y) => (x < 0 || y < 0 || x >= this.n || y >= this.n) ? null : copia[y * this.n + x];
+    for (let y = 0; y < this.n; y++) for (let x = 0; x < this.n; x++) {
+      if (at(x, y)) continue;
+      if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) this.set(x, y, c);
+    }
+  };
+
+  /* ---------- paletas de material (4 tonos: luz → sombra) ---------- */
+  const PAL = {
+    acero:   ['#e6eef7', '#a8b8c8', '#6a7a8a', '#3a4652'],
+    hierro:  ['#c8ccd4', '#8a909a', '#5a626c', '#2e343c'],
+    beskar:  ['#f2f6fb', '#c4d0de', '#8c9aac', '#525f6e'],
+    oro:     ['#ffe9a8', '#e0bd5a', '#a8842e', '#5e4818'],
+    cuero:   ['#8a6a44', '#6a4e30', '#4a3620', '#2c2012'],
+    negro:   ['#4a5260', '#2e3644', '#1c222c', '#0e1218'],
+    verdeMil:['#7a8a5a', '#5a6a40', '#3e4a2c', '#242c18'],
+    rojo:    ['#ff8a72', '#e04a3a', '#a02c22', '#5e1610'],
+    cobre:   ['#ffc08a', '#d88a4a', '#a05e2a', '#5e3414']
+  };
+
+  /* ============================================================
+     SPRITES
+     Cada uno devuelve un Lienzo de 48x48.
+     `din` es el color dinámico (hoja del sable, casco de nave…).
+     ============================================================ */
+  const S2 = {};
+
+  /* --- sable de luz encendido --- */
+  S2.sable = function (L, din) {
+    const hoja = din || '#3ad6ff';
+    const nucleo = '#ffffff';
+    const halo = SW.mezclaColor ? SW.mezclaColor(hoja, '#000010', 0.35) : hoja;
+    // hoja: halo, cuerpo, núcleo blanco
+    L.rect(20, 2, 8, 26, halo);
+    L.rect(21, 1, 6, 28, hoja);
+    L.rect(23, 1, 2, 28, nucleo);
+    L.set(23, 0, nucleo); L.set(24, 0, nucleo);
+    // empuñadura
+    L.cilindro(20, 29, 8, 16, PAL.hierro);
+    L.rect(20, 29, 8, 2, PAL.acero[0]);          // emisor
+    L.rect(19, 31, 10, 2, PAL.acero[1]);
+    L.rect(20, 34, 8, 1, PAL.oro[1]);            // anillos
+    L.rect(20, 38, 8, 1, PAL.oro[1]);
+    L.rect(22, 35, 1, 3, PAL.negro[1]);          // botón
+    L.rect(25, 35, 1, 3, PAL.negro[1]);
+    L.rect(20, 43, 8, 2, PAL.acero[2]);          // pomo
+    L.rect(21, 45, 6, 1, PAL.hierro[3]);
+  };
+
+  /* --- sable oscuro: hoja plana con filo blanco --- */
+  S2.sable_oscuro = function (L) {
+    const filo = '#e8e2ff', cuerpo = '#161222';
+    for (let y = 2; y < 29; y++) {
+      const t = (y - 2) / 27;
+      const ancho = Math.round(3 + t * 4);
+      const cx = 24 - Math.round(t * 2);
+      L.rect(cx - ancho, y, ancho * 2, 1, cuerpo);
+      L.set(cx - ancho - 1, y, filo);
+      L.set(cx + ancho, y, filo);
+    }
+    L.rect(22, 1, 4, 2, filo);
+    L.cilindro(20, 29, 8, 16, PAL.negro);
+    L.rect(20, 29, 8, 2, '#9a92c8');
+    L.rect(20, 34, 8, 1, '#6a5fb0');
+    L.rect(20, 39, 8, 1, '#6a5fb0');
+    L.rect(20, 43, 8, 2, PAL.negro[2]);
+  };
+
+  /* --- bláster pesado --- */
+  S2.blaster = function (L) {
+    L.bloque(6, 20, 30, 8, PAL.hierro);          // cuerpo
+    L.bloque(30, 22, 12, 4, PAL.acero);          // cañón
+    L.rect(42, 23, 2, 2, PAL.negro[0]);          // boca
+    L.bloque(10, 14, 12, 6, PAL.negro);          // mira
+    L.rect(12, 16, 8, 2, PAL.acero[1]);
+    L.bloque(8, 28, 8, 14, PAL.cuero);           // culata
+    L.bloque(18, 28, 5, 8, PAL.negro);           // cargador
+    L.linea(24, 27, 24, 31, PAL.negro[1], 1);    // gatillo
+    L.rect(22, 31, 5, 1, PAL.hierro[2]);
+    L.rect(30, 21, 10, 1, PAL.oro[1]);           // detalle
+    L.rect(6, 22, 2, 4, PAL.rojo[1]);            // indicador
+  };
+
+  /* --- casco mandaloriano --- */
+  S2.casco = function (L, din) {
+    const pal = din === 'beskar' ? PAL.beskar : PAL.acero;
+    for (let y = 6; y < 40; y++) {
+      const t = (y - 6) / 34;
+      const ancho = Math.round(13 - Math.pow(t, 2.2) * 5);
+      for (let x = 24 - ancho; x <= 24 + ancho; x++) {
+        const lat = (x - (24 - ancho)) / (ancho * 2);
+        const idx = lat < 0.18 ? 0 : lat < 0.5 ? 1 : lat < 0.8 ? 2 : 3;
+        L.set(x, y, pal[idx]);
+      }
+    }
+    L.elipse(24, 8, 12, 4, pal[0]);
+    // visor en T
+    L.rect(14, 16, 20, 5, PAL.negro[3]);
+    L.rect(21, 21, 6, 11, PAL.negro[3]);
+    L.rect(15, 17, 18, 1, '#1a2c3a');
+    // remache y rejilla
+    L.rect(18, 34, 12, 1, pal[3]);
+    L.rect(19, 36, 10, 1, pal[3]);
+  };
+
+  /* --- peto de armadura --- */
+  S2.armadura = function (L, din) {
+    const pal = din === 'beskar' ? PAL.beskar : PAL.hierro;
+    L.bloque(12, 12, 24, 26, pal);                // peto
+    L.bloque(4, 14, 9, 10, pal);                  // hombreras
+    L.bloque(35, 14, 9, 10, pal);
+    L.rect(20, 18, 8, 8, PAL.negro[1]);           // placa central
+    L.rect(21, 19, 6, 6, PAL.rojo[1]);
+    L.rect(14, 30, 20, 1, pal[3]);
+    L.rect(14, 33, 20, 1, pal[3]);
+    L.bloque(16, 38, 6, 8, pal);                  // musleras
+    L.bloque(26, 38, 6, 8, pal);
+  };
+
+  /* --- holocrón --- */
+  S2.holocron = function (L, din) {
+    const luz = din || '#8ad8ff';
+    // cubo en perspectiva
+    L.rect(14, 16, 20, 20, PAL.oro[2]);
+    L.rect(16, 18, 16, 16, luz);
+    L.rect(18, 20, 12, 12, SW.mezclaColor ? SW.mezclaColor(luz, '#ffffff', 0.4) : luz);
+    L.rect(21, 23, 6, 6, '#ffffff');
+    // aristas doradas
+    L.rect(14, 16, 20, 1, PAL.oro[0]); L.rect(14, 35, 20, 1, PAL.oro[3]);
+    L.rect(14, 16, 1, 20, PAL.oro[0]); L.rect(33, 16, 1, 20, PAL.oro[3]);
+    // esquinas biseladas
+    for (let i = 0; i < 4; i++) {
+      L.set(14 + i, 16 + 3 - i, PAL.oro[1]); L.set(33 - i, 16 + 3 - i, PAL.oro[1]);
+      L.set(14 + i, 35 - 3 + i, PAL.oro[2]); L.set(33 - i, 35 - 3 + i, PAL.oro[2]);
+    }
+    // resplandor
+    L.rect(23, 10, 2, 5, luz); L.rect(23, 37, 2, 5, luz);
+    L.rect(8, 25, 5, 2, luz); L.rect(35, 25, 5, 2, luz);
+  };
+
+  /* --- cristal kyber --- */
+  S2.kyber = function (L, din) {
+    const c = din || '#cfe8f5';
+    const claro = SW.mezclaColor ? SW.mezclaColor(c, '#ffffff', 0.55) : '#ffffff';
+    const osc = SW.mezclaColor ? SW.mezclaColor(c, '#000018', 0.45) : c;
+    for (let y = 6; y < 42; y++) {
+      const t = Math.abs(y - 24) / 18;
+      const ancho = Math.round((1 - t) * 11) + 1;
+      for (let x = 24 - ancho; x <= 24 + ancho; x++) {
+        const lat = (x - (24 - ancho)) / (ancho * 2 || 1);
+        L.set(x, y, lat < 0.3 ? claro : lat < 0.62 ? c : osc);
+      }
+    }
+    // facetas
+    L.linea(24, 6, 24, 41, claro, 1);
+    L.linea(24, 24, 14, 30, osc, 1);
+    L.linea(24, 24, 34, 30, osc, 1);
+    // destellos
+    L.rect(19, 12, 2, 2, '#ffffff');
+    L.rect(28, 30, 1, 1, '#ffffff');
+  };
+
+  /* --- droide astromecánico --- */
+  S2.droide = function (L, din) {
+    const acc = din || '#3ad6ff';
+    L.elipse(24, 12, 10, 7, PAL.acero[1]);        // cúpula
+    L.elipse(22, 10, 6, 4, PAL.acero[0]);
+    L.rect(20, 9, 5, 4, PAL.negro[2]);            // ojo
+    L.rect(21, 10, 3, 2, acc);
+    L.rect(14, 15, 20, 2, PAL.acero[2]);
+    L.bloque(15, 17, 18, 22, PAL.acero);          // cuerpo
+    L.rect(18, 20, 12, 5, PAL.negro[1]);          // panel
+    L.rect(19, 21, 4, 3, acc);
+    L.rect(25, 21, 4, 3, PAL.rojo[1]);
+    L.rect(18, 27, 12, 2, PAL.hierro[2]);
+    L.rect(18, 31, 12, 2, PAL.hierro[2]);
+    L.rect(20, 35, 8, 3, PAL.oro[2]);
+    L.bloque(11, 20, 4, 16, PAL.hierro);          // patas
+    L.bloque(33, 20, 4, 16, PAL.hierro);
+    L.rect(10, 36, 6, 5, PAL.negro[1]);
+    L.rect(32, 36, 6, 5, PAL.negro[1]);
+    L.rect(20, 39, 8, 5, PAL.negro[1]);
+  };
+
+  /* --- naves: cuatro siluetas --- */
+  S2.nave_carguero = function (L, din) {
+    const c = din ? [din, din, din, din] : PAL.hierro;
+    L.elipse(24, 26, 20, 12, c[1]);               // casco
+    L.elipse(22, 23, 16, 8, c[0]);
+    L.rect(4, 24, 40, 5, c[2]);
+    L.bloque(30, 12, 12, 9, c);                   // cabina lateral
+    L.rect(32, 14, 8, 4, '#7fd8ff');
+    L.bloque(6, 14, 9, 8, c);                     // mandíbulas
+    L.bloque(6, 30, 9, 8, c);
+    L.rect(2, 16, 5, 4, c[2]);
+    L.rect(2, 32, 5, 4, c[2]);
+    L.rect(40, 24, 6, 5, PAL.cobre[1]);           // motores
+    L.rect(44, 25, 4, 3, '#ffd28a');
+    L.rect(16, 22, 14, 1, c[0]);
+    L.rect(16, 30, 14, 1, c[3]);
+  };
+  S2.nave_caza = function (L, din) {
+    const c = din ? [din, din, din, din] : PAL.acero;
+    // alas en X
+    L.linea(4, 8, 22, 22, c[1], 3); L.linea(4, 40, 22, 26, c[2], 3);
+    L.linea(44, 8, 26, 22, c[1], 3); L.linea(44, 40, 26, 26, c[2], 3);
+    L.rect(3, 6, 4, 5, PAL.rojo[1]); L.rect(3, 38, 4, 5, PAL.rojo[1]);
+    L.rect(42, 6, 4, 5, PAL.rojo[1]); L.rect(42, 38, 4, 5, PAL.rojo[1]);
+    // fuselaje
+    for (let y = 10; y < 42; y++) {
+      const t = Math.abs(y - 26) / 16;
+      const w = Math.round((1 - t * 0.75) * 6);
+      for (let x = 24 - w; x <= 24 + w; x++) {
+        const lat = (x - (24 - w)) / (w * 2 || 1);
+        L.set(x, y, lat < 0.25 ? c[0] : lat < 0.6 ? c[1] : c[2]);
+      }
+    }
+    L.rect(21, 14, 6, 5, '#7fd8ff');              // cabina
+    L.rect(22, 15, 4, 3, '#cfefff');
+    L.rect(21, 40, 6, 4, PAL.cobre[1]);           // motor
+    L.rect(22, 43, 4, 3, '#ffd28a');
+  };
+  S2.nave_lanzadera = function (L, din) {
+    const c = din ? [din, din, din, din] : PAL.hierro;
+    L.linea(24, 4, 10, 34, c[1], 3);              // ala superior
+    L.linea(24, 4, 38, 34, c[2], 3);
+    L.rect(23, 2, 3, 12, c[0]);
+    for (let y = 18; y < 44; y++) {               // cuerpo triangular
+      const t = (y - 18) / 26;
+      const w = Math.round(4 + t * 9);
+      for (let x = 24 - w; x <= 24 + w; x++) {
+        const lat = (x - (24 - w)) / (w * 2 || 1);
+        L.set(x, y, lat < 0.22 ? c[0] : lat < 0.58 ? c[1] : c[2]);
+      }
+    }
+    L.rect(20, 22, 9, 4, '#7fd8ff');
+    L.rect(12, 44, 24, 2, c[3]);
+    L.rect(14, 40, 4, 4, PAL.cobre[1]);
+    L.rect(30, 40, 4, 4, PAL.cobre[1]);
+  };
+  S2.nave_capital = function (L, din) {
+    const c = din ? [din, din, din, din] : PAL.hierro;
+    for (let y = 8; y < 40; y++) {                // cuña
+      const t = (y - 8) / 32;
+      const w = Math.round(2 + t * 21);
+      for (let x = 24 - w; x <= 24 + w; x++) {
+        const lat = (x - (24 - w)) / (w * 2 || 1);
+        L.set(x, y, lat < 0.2 ? c[0] : lat < 0.55 ? c[1] : c[2]);
+      }
+    }
+    L.rect(2, 39, 44, 3, c[3]);
+    L.bloque(19, 14, 10, 6, c);                   // torre de mando
+    L.rect(21, 16, 6, 2, '#7fd8ff');
+    for (let i = 0; i < 5; i++) L.rect(8 + i * 7, 42, 5, 4, PAL.cobre[1]);
+    for (let i = 0; i < 5; i++) L.rect(9 + i * 7, 45, 3, 2, '#a8d8ff');
+    L.rect(14, 30, 20, 1, c[3]);
+  };
+
+  /* --- rival: silueta con detalle --- */
+  S2.rival = function (L, din) {
+    const c = din || '#ff4d5e';
+    L.elipse(24, 12, 7, 8, PAL.negro[1]);         // cabeza
+    L.rect(19, 10, 4, 2, c); L.rect(25, 10, 4, 2, c);
+    L.bloque(16, 20, 16, 16, PAL.negro);          // torso
+    L.rect(18, 23, 12, 2, c);
+    L.bloque(10, 21, 6, 13, PAL.negro);           // brazos
+    L.bloque(32, 21, 6, 13, PAL.negro);
+    L.bloque(17, 36, 6, 11, PAL.negro);           // piernas
+    L.bloque(25, 36, 6, 11, PAL.negro);
+    L.rect(6, 30, 6, 3, PAL.hierro[2]);           // arma
+    L.rect(4, 31, 3, 1, c);
+  };
+
+  /* --- criatura --- */
+  S2.criatura = function (L, din) {
+    const pal = din ? [din, din, din, din] : PAL.cuero;
+    L.elipse(26, 26, 15, 10, pal[1]);             // cuerpo
+    L.elipse(24, 22, 12, 6, pal[0]);
+    L.elipse(11, 20, 7, 6, pal[1]);               // cabeza
+    L.rect(6, 19, 5, 3, pal[2]);                  // hocico
+    L.rect(9, 17, 2, 2, '#ffd23a');               // ojo
+    L.linea(9, 14, 7, 9, pal[2], 2);              // cuernos
+    L.linea(14, 14, 16, 9, pal[2], 2);
+    L.bloque(16, 33, 5, 12, pal);                 // patas
+    L.bloque(24, 33, 5, 12, pal);
+    L.bloque(32, 33, 5, 12, pal);
+    L.rect(15, 44, 7, 2, PAL.negro[2]);
+    L.rect(23, 44, 7, 2, PAL.negro[2]);
+    L.rect(31, 44, 7, 2, PAL.negro[2]);
+    L.linea(41, 24, 46, 16, pal[2], 2);           // cola
+  };
+
+  /* --- reliquia --- */
+  S2.reliquia = function (L, din) {
+    const c = din || '#ffe9a8';
+    L.bloque(13, 14, 22, 24, PAL.oro);
+    L.rect(16, 17, 16, 18, PAL.cuero[2]);
+    L.rect(18, 19, 12, 14, c);
+    L.rect(21, 22, 6, 8, PAL.oro[2]);
+    L.rect(22, 24, 4, 4, '#ffffff');
+    L.rect(13, 38, 22, 3, PAL.oro[2]);
+    L.rect(15, 41, 18, 2, PAL.oro[3]);
+    L.rect(13, 11, 22, 3, PAL.oro[1]);
+  };
+
+  SW.SPRITES2 = S2;
+
+  /* ============================================================
+     RENDER
+     ============================================================ */
+  SW.pixel2 = function (nombre, opts) {
+    const o = opts || {};
+    const fn = S2[nombre];
+    const esc = o.escala || 5;
+    const cv = document.createElement('canvas');
+    cv.width = N * esc; cv.height = N * esc;
+    cv.className = 'sprite';
+    const cx = cv.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+    if (!fn) return cv;
+
+    const L = new Lienzo(N);
+    fn(L, o.dinamico);
+    L.contorno('#0a0d12');
+
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const c = L.px[y * N + x];
+      if (!c) continue;
+      cx.fillStyle = c;
+      cx.fillRect(x * esc, y * esc, esc, esc);
+    }
+    return cv;
+  };
+
+  SW.tienePixel2 = function (nombre) { return !!S2[nombre]; };
+  SW.Lienzo = Lienzo;
+  SW.PAL_PIXEL = PAL;
+
+})(window);
+
 /* ===== src/galaxia.js ===== */
 /* ============================================================
    HOLOVIDA :: la galaxia
@@ -2877,6 +3330,278 @@ body.en-juego::before {
     if (this._raf) cancelAnimationFrame(this._raf);
     this._raf = null;
     this.destruir();
+  };
+
+})(window);
+
+/* ===== src/data-mundos-local.js ===== */
+/* ============================================================
+   HOLOVIDA :: color local
+   El problema de fondo era que los lugares salían de una lista
+   global: un tusken de Tatooine acababa en "un baño público del
+   nivel 40". Aquí cada mundo tiene sus propios sitios, sus
+   oficios y su gente, y lo que no esté escrito a mano se
+   rellena con lo que corresponda a su bioma.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+
+  /* ============================================================
+     LUGARES POR BIOMA — cubre los 113 mundos
+     ============================================================ */
+  SW.LUGARES_BIOMA = {
+    desierto: ['un puesto comercial junto a los vaporizadores', 'una cantina sin ventanas', 'el fondo seco de un cañón',
+      'un mar de dunas al mediodía', 'una granja de humedad abandonada', 'el desguace del asentamiento',
+      'un pozo comunal', 'la sombra de una roca partida', 'un mercado bajo toldos remendados', 'un cementerio de reptadores'],
+    ciudad: ['un pasillo del nivel bajo', 'una plataforma de aterrizaje entre torres', 'un mercado de tres pisos',
+      'un tren de superficie a medianoche', 'una azotea con antenas', 'un conducto de mantenimiento',
+      'una galería comercial infinita', 'la cola de una oficina administrativa', 'un bar de trabajadores del turno de noche', 'un mirador sobre el tráfico'],
+    hielo: ['una grieta bajo el hielo', 'un refugio de emergencia', 'un campamento de perforación',
+      'un túnel excavado a mano', 'la superficie durante una ventisca', 'un invernadero presurizado',
+      'un puesto de escucha helado', 'una estación de transporte enterrada'],
+    oceano: ['un embarcadero flotante', 'una cúpula sumergida', 'una plataforma de algas',
+      'un arrecife a media profundidad', 'una lonja de pescado', 'un dique con la marea baja',
+      'un submarino de carga', 'un faro sobre pilotes'],
+    volcanico: ['la boca de una mina de obsidiana', 'una pasarela sobre lava', 'un refugio con filtros de ceniza',
+      'una refinería de mineral', 'un campo de escoria caliente', 'un puente de roca negra'],
+    jungla: ['una plataforma entre las copas', 'un sendero abierto a machete', 'un claro con ruinas',
+      'una aldea sobre pilotes', 'un río de aguas marrones', 'la base de un árbol imposible',
+      'un puesto de caza', 'un tramo de selva que nadie ha cartografiado'],
+    templado: ['un granero comunal', 'un camino entre campos', 'la plaza del pueblo',
+      'un molino parado', 'una feria de ganado', 'un tejado con vistas al valle',
+      'una casa de postas', 'un lago al amanecer'],
+    pantano: ['una pasarela podrida', 'una choza sobre el agua', 'un banco de niebla espesa',
+      'un tocón hueco', 'un canal de aguas negras', 'una trampa de anguilas'],
+    gaseoso: ['una plataforma flotante', 'un ascensor exterior', 'una sala de extracción de gas',
+      'un balcón sobre las nubes', 'un hangar suspendido', 'un salón con el atardecer permanente'],
+    rocoso: ['una galería de mina', 'un desfiladero estrecho', 'un campamento entre peñascos',
+      'una cueva con ecos', 'una cantera abandonada', 'un puesto avanzado en la roca']
+  };
+
+  SW.OFICIOS_BIOMA = {
+    desierto: ['granjero de humedad', 'chatarrero', 'cazador de reptadores', 'tabernero', 'guía de dunas'],
+    ciudad: ['funcionario cansado', 'mensajero de niveles', 'técnico de mantenimiento', 'vendedor de galería', 'vigilante de plataforma'],
+    hielo: ['perforador', 'operario de refugio', 'rastreador de superficie', 'mecánico de calefacción'],
+    oceano: ['pescador', 'buzo de reparación', 'lonjero', 'piloto de submarino'],
+    volcanico: ['minero de obsidiana', 'capataz de refinería', 'técnico de filtros'],
+    jungla: ['guía de selva', 'recolector', 'cazador', 'constructor de pasarelas'],
+    templado: ['agricultor', 'herrero', 'tratante de ganado', 'molinero'],
+    pantano: ['trampero', 'barquero', 'destilador clandestino'],
+    gaseoso: ['operario de extracción', 'piloto de plataforma', 'camarero de mirador'],
+    rocoso: ['minero', 'cantero', 'guía de desfiladero']
+  };
+
+  /* ============================================================
+     MUNDOS CON COLOR PROPIO
+     Sitios y oficios escritos a mano para los mundos que más
+     aparecen. El resto hereda los de su bioma.
+     ============================================================ */
+  SW.LOCAL = {
+    'Tatooine': {
+      lugares: ['la cantina de Chalmun en Mos Eisley', 'los desguaces de Mos Espa', 'un pozo de agua vigilado',
+        'el Mar de Dunas al anochecer', 'una granja de humedad en el borde del yermo', 'el circuito de Boonta Eve',
+        'el palacio de Jabba', 'la Garganta del Mendigo', 'un campamento tusken entre rocas', 'el puerto espacial de Mos Eisley'],
+      oficios: ['granjero de humedad', 'chatarrero jawa', 'mecánico de vainas', 'tabernero de Mos Eisley', 'matón de Jabba', 'cazador de bantha'],
+      sabor: 'dos soles y ningún gobierno que valga'
+    },
+    'Coruscant': {
+      lugares: ['un pasillo del nivel 1313', 'la Plaza del Senado', 'una plataforma de aterrizaje del nivel 5127',
+        'los archivos de un edificio administrativo', 'un bar del distrito industrial', 'el tráfico aéreo a hora punta',
+        'una azotea a kilómetros del suelo', 'los túneles de mantenimiento del subnivel', 'el Templo Jedi visto desde fuera', 'un mercado de la Franja Inferior'],
+      oficios: ['funcionario del Senado', 'guardia de plataforma', 'ayudante de senador', 'técnico de tráfico aéreo', 'carterista del 1313', 'periodista de la HoloRed'],
+      sabor: 'la ciudad no acaba nunca, ni hacia arriba ni hacia abajo'
+    },
+    'Nar Shaddaa': {
+      lugares: ['una galería de neón vertical', 'un fumadero de las Terrazas Rojas', 'un hangar sin registrar',
+        'la casa de apuestas de un hutt', 'un callejón entre dos torres', 'un mercado que solo abre de noche',
+        'los muelles inferiores', 'un refugio de refugiados en un almacén'],
+      oficios: ['prestamista', 'guardaespaldas', 'traficante de información', 'crupier', 'contrabandista', 'cobrador de deudas'],
+      sabor: 'todo se compra, todo se vende, nadie pregunta'
+    },
+    'Kashyyyk': {
+      lugares: ['una plataforma en la copa de un wroshyr', 'el Bosque de las Sombras al pie de los árboles',
+        'una aldea colgante', 'un puente de lianas trenzadas', 'un taller de arcos', 'un campamento de esclavistas'],
+      oficios: ['constructor de plataformas', 'tejedor de cuerdas', 'cazador de las profundidades', 'guardián de la aldea'],
+      sabor: 'arriba se vive, abajo se sobrevive'
+    },
+    'Hoth': {
+      lugares: ['una cueva de wampa', 'un refugio con las paredes de hielo', 'la llanura blanca a menos cincuenta',
+        'un campamento de perforación', 'una grieta que no se ve hasta que caes'],
+      oficios: ['explorador de superficie', 'operario de refugio', 'mecánico de reptadores'],
+      sabor: 'seis horas fuera y no vuelves'
+    },
+    'Bespin': {
+      lugares: ['un mirador de Ciudad Nube', 'una sala de extracción de tibanna', 'una pasarela exterior',
+        'un salón de juego sobre las nubes', 'el hangar de la plataforma 327'],
+      oficios: ['operario de tibanna', 'crupier de altura', 'administrador de plataforma', 'guardia de Ciudad Nube'],
+      sabor: 'un atardecer permanente y muy caro'
+    },
+    'Naboo': {
+      lugares: ['una plaza con fuentes en Theed', 'las cascadas al amanecer', 'un domo gungan bajo el lago',
+        'un hangar de cazas cromados', 'una pradera junto al río', 'un pasillo del palacio real'],
+      oficios: ['artesano de Theed', 'piloto de la Guardia Real', 'granjero del valle', 'pescador gungan'],
+      sabor: 'todo demasiado bonito para lo que pasa debajo'
+    },
+    'Nal Hutta': {
+      lugares: ['una ciénaga industrial', 'el salón de un kajidic', 'un almacén de especia',
+        'una pista de aterrizaje hundiéndose en el barro', 'un mercado de contratos'],
+      oficios: ['intermediario de cártel', 'capataz de almacén', 'traductor de huttés', 'cobrador'],
+      sabor: 'el barro huele dulce y los contratos son verbales'
+    },
+    'Corellia': {
+      lugares: ['un astillero con el casco a medio montar', 'los muelles de Coronet', 'un tramo de vía de conveyex',
+        'una taberna de mecánicos', 'un circuito ilegal de deslizadores', 'las alcantarillas del puerto'],
+      oficios: ['soldador de astillero', 'piloto de pruebas', 'contrabandista joven', 'capataz de muelle', 'mecánico'],
+      sabor: 'aquí todo el mundo sabe pilotar algo'
+    },
+    'Mandalore': {
+      lugares: ['un domo de la Ciudad Vieja', 'el desierto de cristal fuera de la cúpula', 'una forja de beskar',
+        'una sala de clan', 'un campo de entrenamiento'],
+      oficios: ['herrero de beskar', 'instructor de clan', 'armero', 'piloto de Fang'],
+      sabor: 'el Credo pesa más que la ley'
+    },
+    'Kamino': {
+      lugares: ['un pasillo blanco sin ventanas', 'una sala de crecimiento', 'la plataforma de aterrizaje bajo la lluvia',
+        'un barracón de cadetes', 'la sala de reacondicionamiento'],
+      oficios: ['técnico de crecimiento', 'instructor', 'médico kaminoano'],
+      sabor: 'llueve siempre y nadie lo menciona'
+    },
+    'Ryloth': {
+      lugares: ['una mina de ryll', 'un asentamiento en la franja templada', 'la cara oscura al descubierto',
+        'un mercado de clanes', 'un túnel excavado en la roca'],
+      oficios: ['minero de ryll', 'jefe de clan', 'guía de la franja', 'músico de bar'],
+      sabor: 'una cara arde, la otra congela, y se vive en la costura'
+    },
+    'Jedha': {
+      lugares: ['la Ciudad Sagrada', 'una mina de kyber', 'un templo de los Whills',
+        'un callejón de peregrinos', 'el desierto de piedra alrededor'],
+      oficios: ['guardián de los Whills', 'guía de peregrinos', 'minero de kyber', 'vendedor de reliquias falsas'],
+      sabor: 'la fe y la minería compiten por el mismo suelo'
+    },
+    'Lothal': {
+      lugares: ['un campo de trigo interminable', 'la torre de comunicaciones imperial', 'el mercado de Ciudad Capital',
+        'una granja abandonada', 'una loma con loth-gatos'],
+      oficios: ['granjero de trigo', 'obrero de fábrica imperial', 'comerciante de mercado'],
+      sabor: 'pradera abierta con una torre gris en medio'
+    },
+    'Mustafar': {
+      lugares: ['una pasarela sobre un río de lava', 'una plataforma de extracción', 'un refugio con filtros',
+        'una mina de obsidiana', 'el borde de una colada'],
+      oficios: ['minero de obsidiana', 'operario de extracción', 'técnico de refrigeración'],
+      sabor: 'el aire quema y aquí trabaja gente igualmente'
+    },
+    'Nevarro': {
+      lugares: ['la sede del Gremio', 'una taberna de cazadores', 'la llanura de basalto negro',
+        'un puerto con dos rampas', 'la fundición'],
+      oficios: ['agente del Gremio', 'cazarrecompensas', 'fundidor', 'tabernera'],
+      sabor: 'roca negra y contratos sobre la mesa'
+    },
+    'Jakku': {
+      lugares: ['el interior de un destructor caído', 'el puesto de Niima', 'un mar de arena con restos asomando',
+        'un lavadero de piezas', 'una tienda de chatarrero'],
+      oficios: ['chatarrero', 'tasador de piezas', 'aguador', 'mercader de raciones'],
+      sabor: 'una batalla acabó aquí y nadie recogió nada'
+    },
+    'Kessel': {
+      lugares: ['una galería de mina de especia', 'el barracón de trabajadores', 'la torre de control',
+        'el borde del Pozo de Boquejo'],
+      oficios: ['capataz de mina', 'trabajador contratado', 'controlador de vuelo'],
+      sabor: 'aquí se entra a trabajar y casi nadie sale'
+    },
+    'Cantonica': {
+      lugares: ['la sala principal del casino', 'un establo de fathiers', 'una suite con vistas al mar artificial',
+        'un salón privado de apuestas altas', 'el paseo marítimo de Canto Bight'],
+      oficios: ['crupier', 'mozo de establo', 'marchante de armas', 'portero de casino'],
+      sabor: 'todo el lujo se paga con guerras de otros'
+    },
+    'Dathomir': {
+      lugares: ['una aldea del aquelarre', 'un bosque de niebla roja', 'un altar de huesos',
+        'la cueva de un rancor', 'un nido de nightbrothers'],
+      oficios: ['hermana del aquelarre', 'criador de rancor', 'guerrero zabrak'],
+      sabor: 'la magia aquí no se llama Fuerza'
+    },
+    'Mon Cala': {
+      lugares: ['una ciudad-burbuja sumergida', 'un astillero submarino', 'un arrecife de coral vivo',
+        'la cámara del consejo', 'una granja de algas'],
+      oficios: ['ingeniero naval', 'pescador quarren', 'diplomático', 'buzo de reparación'],
+      sabor: 'dos pueblos, un planeta y ningún acuerdo'
+    },
+    'Geonosis': {
+      lugares: ['una colmena de roca roja', 'una fábrica de droides', 'la arena de ejecuciones',
+        'un túnel de casta obrera'],
+      oficios: ['obrero de colmena', 'supervisor de fábrica', 'domador de arena'],
+      sabor: 'la colmena decide y tú obedeces'
+    },
+    'Endor': {
+      lugares: ['una aldea en las copas', 'un claro con trampas', 'un tronco caído sobre un barranco',
+        'un sendero de caza'],
+      oficios: ['cazador ewok', 'constructor de trampas', 'explorador'],
+      sabor: 'todo parece inofensivo hasta que te cuelga de un pie'
+    },
+    'Alderaan': {
+      lugares: ['una sala de conciertos en Aldera', 'un sendero de montaña', 'un lago glaciar',
+        'la biblioteca del palacio', 'un mercado de artesanía'],
+      oficios: ['músico', 'guía de montaña', 'bibliotecario', 'diplomático'],
+      sabor: 'sin ejército y muy orgullosos de ello'
+    },
+    'Nar Kesh': { lugares: ['una refinería de ácido', 'un barracón de contratados'], oficios: ['capataz'], sabor: 'todo pica' },
+    'Ord Mantell': {
+      lugares: ['una feria de chatarra', 'un campamento de milicianos', 'una playa con restos',
+        'un salón de apuestas', 'un desguace en la costa'],
+      oficios: ['tratante de chatarra', 'miliciano', 'timador de feria'],
+      sabor: 'aquí se vende hasta lo que no existe'
+    },
+    'Takodana': {
+      lugares: ['el castillo de Maz', 'un embarcadero del lago', 'un bosque de árboles altos',
+        'la bodega del castillo'],
+      oficios: ['tabernero del castillo', 'piloto de paso', 'contrabandista de visita'],
+      sabor: 'todos los bandos beben en la misma sala'
+    },
+    'Ilum': {
+      lugares: ['una cueva de cristal', 'la superficie helada', 'un templo excavado en el hielo'],
+      oficios: ['guardián del templo'],
+      sabor: 'el hielo canta si te quedas quieto'
+    },
+    'Korriban': {
+      lugares: ['el Valle de los Señores Oscuros', 'la entrada de una tumba', 'una academia en ruinas',
+        'un desfiladero con estatuas'],
+      oficios: ['saqueador de tumbas', 'acólito'],
+      sabor: 'las tumbas hablan y es mejor no contestar'
+    },
+    'Bracca': {
+      lugares: ['el casco abierto de un destructor', 'una grúa de desguace', 'el barracón de la cuadrilla',
+        'un montón de chatarra del tamaño de un edificio'],
+      oficios: ['cortador de cascos', 'gruista', 'capataz de cuadrilla'],
+      sabor: 'se despieza lo que otros construyeron'
+    },
+    'Kijimi': {
+      lugares: ['una calle empinada con nieve sucia', 'el gremio de ladrones', 'un taller clandestino',
+        'un templo pequeño en la montaña'],
+      oficios: ['ladrón', 'relojero', 'mercader de abrigos'],
+      sabor: 'hace un frío que justifica cualquier delito'
+    }
+  };
+
+  /** Lugares que corresponden al mundo donde estás */
+  SW.lugaresDe = function (nombre) {
+    const l = SW.LOCAL[nombre];
+    if (l && l.lugares && l.lugares.length) return l.lugares;
+    const b = SW.biomaDe ? SW.biomaDe(nombre).id : 'rocoso';
+    return SW.LUGARES_BIOMA[b] || SW.LUGARES_BIOMA.rocoso;
+  };
+
+  /** Oficios propios del mundo donde estás */
+  SW.oficiosDe = function (nombre) {
+    const l = SW.LOCAL[nombre];
+    if (l && l.oficios && l.oficios.length) return l.oficios;
+    const b = SW.biomaDe ? SW.biomaDe(nombre).id : 'rocoso';
+    return SW.OFICIOS_BIOMA[b] || SW.OFICIOS_BIOMA.rocoso;
+  };
+
+  SW.saborDe = function (nombre) {
+    const l = SW.LOCAL[nombre];
+    return (l && l.sabor) || SW.mundo(nombre).vibe;
   };
 
 })(window);
@@ -3501,7 +4226,7 @@ body.en-juego::before {
 
   /* ================= INFANCIA (0-5) ================= */
   {
-    id: 'inf_primera_palabra', min: 1, max: 3, w: 10, slots: { p: 'mundo' },
+    id: 'inf_primera_palabra', min: 1, max: 3, w: 10, slots: { p: 'mundoAqui' },
     t: 'Dices tu primera palabra en {p}. Tu familia se queda muy callada.',
     c: [
       { t: '"Mamá"', fx: { carisma: 3, cordura: 3 }, out: 'Lloran. Es un buen día.' },
@@ -3574,7 +4299,7 @@ body.en-juego::before {
 
   /* ================= NIÑEZ (6-12) ================= */
   {
-    id: 'nin_escuela', min: 6, max: 10, w: 10, slots: { p: 'mundo' },
+    id: 'nin_escuela', min: 6, max: 10, w: 10, slots: { p: 'mundoAqui' },
     t: 'Primer día en la escuela del sector de {p}. Huele a desinfectante y a droide viejo.',
     c: [
       { t: 'Empollar y sacar las mejores notas', fx: { intelecto: 10, carisma: -3 }, out: 'Los profesores te adoran. Nadie más.' },
@@ -3643,7 +4368,7 @@ body.en-juego::before {
     ]
   },
   {
-    id: 'nin_carrera', min: 8, max: 14, w: 7, slots: { p: 'mundo' },
+    id: 'nin_carrera', min: 8, max: 14, w: 7, slots: { p: 'mundoAqui' },
     t: 'Se celebra una carrera de vainas ilegal en las afueras de {p}. Puedes colarte en el foso.',
     c: [
       { t: 'Colarte y ayudar a un mecánico', fx: { intelecto: 8, destreza: 6, creditos: 300 }, flag: 'foso_vainas', out: 'Te dejan tocar un motor Radon-Ulzer. No lo olvidas.' },
@@ -4145,7 +4870,7 @@ body.en-juego::before {
   },
   {
     id: 'com_fama', min: 20, max: 200, w: 5, req: function (s) { return s.stats.reputacion > 55 || s.stats.notoriedad > 55; },
-    slots: { p: 'mundo' },
+    slots: { p: 'mundoAqui' },
     t: 'Sales en las noticias de {p}. La foto es horrible y el titular peor.',
     c: [
       { t: 'Aprovechar el momento', fx: { carisma: 10, creditos: 12000, reputacion: 6 }, out: 'Firmas cosas. Cobras por aparecer.' },
@@ -4270,7 +4995,7 @@ body.en-juego::before {
 
   /* ================= INFANCIA ================= */
   {
-    id: 'i2_hambre', min: 3, max: 10, w: 9, slots: { p: 'mundo' },
+    id: 'i2_hambre', min: 3, max: 10, w: 9, slots: { p: 'mundoAqui' },
     t: 'Mala cosecha en {p}. En casa se come una vez al día y nadie lo comenta.',
     c: [
       { t: 'Repartir tu parte con tu hermano pequeño', fx: { alineamiento: 14, cordura: 8, fisico: -6 }, relTodas: 20, out: 'Creces menos. Creces distinto.' },
@@ -4584,7 +5309,7 @@ body.en-juego::before {
     c: [{ t: 'Seguirle a todas partes', fx: { destreza: 8, cordura: 5, salud: -3 }, rel: { tipo: 'amigo', afecto: 45, quien: 'el mayor del barrio' }, out: 'Aprendes cosas con tres años de adelanto.' },
         { t: 'Plantarte el primer día', fx: { carisma: 6, cordura: 6 }, out: 'Te respeta más así.' },
         { t: 'Usarle para llegar a sitios', fx: { intelecto: 8, carisma: 6, alineamiento: -5 }, out: 'Funciona. Se da cuenta tarde.' }] },
-  { id: 'n3_lluvia', min: 3, max: 10, w: 8, slots: { p: 'mundo' }, t: 'Llueve en {p} por primera vez en años. Todo el mundo sale a la calle.',
+  { id: 'n3_lluvia', min: 3, max: 10, w: 8, slots: { p: 'mundoAqui' }, t: 'Llueve en {p} por primera vez en años. Todo el mundo sale a la calle.',
     c: [{ t: 'Empaparte con los demás', fx: { cordura: 12, salud: -3 }, relTodas: 10, out: 'Un recuerdo de esos que se cuentan luego mal.' },
         { t: 'Recoger agua en todo lo que encuentres', fx: { intelecto: 8, creditos: 300 }, out: 'Los vecinos te lo compran. Práctico y rentable.' },
         { t: 'Mirar desde la puerta', fx: { cordura: 5, intelecto: 4 }, out: 'Te fijas en cómo corre el agua. Te dura toda la vida.' }] },
@@ -4687,7 +5412,7 @@ body.en-juego::before {
         { t: 'Irte de ahí', fx: { cordura: -4, intelecto: 5 }, out: 'Al día siguiente hay un herido grave. Podrías haber sido tú.' }] },
 
   /* ══════════════ JOVEN ADULTO (19-30) ══════════════ */
-  { id: 'j3_piso', min: 19, max: 32, w: 10, slots: { p: 'mundo' }, t: 'Primera casa propia en {p}. Vacía y con humedades.',
+  { id: 'j3_piso', min: 19, max: 32, w: 10, slots: { p: 'mundoAqui' }, t: 'Primera casa propia en {p}. Vacía y con humedades.',
     c: [{ t: 'Arreglarla tú mismo', fx: { creditos: -4000, intelecto: 8, cordura: 10 }, out: 'Tardas un año. Queda tuya de verdad.' },
         { t: 'Vivir así, que ya se verá', fx: { creditos: -800, cordura: -4, salud: -4 }, out: 'Cuatro años con una pared sin pintar.' },
         { t: 'Compartirla con alguien', fx: { creditos: -1500, carisma: 8, cordura: 6 }, rel: { tipo: 'amigo', afecto: 40, quien: 'compañero de piso' }, out: 'Discutís por los platos. Sois familia.' }] },
@@ -4855,6 +5580,219 @@ body.en-juego::before {
         { t: 'Escribirlo todo para quien venga', fx: { cordura: 12, intelecto: 8 }, flag: 'memorias_ocultas', out: 'Un cuaderno que alguien encontrará.' }] }
 
   ]);
+
+})(window);
+
+/* ===== src/data-eventos-mundo.js ===== */
+/* ============================================================
+   HOLOVIDA :: eventos propios de cada mundo
+   Solo salen si estás en ese planeta. Un tusken de Tatooine no
+   recibe la vida de un funcionario de Coruscant.
+   Se usa `mundo: [...]` para atar el evento al sitio.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  SW.EVENTOS_MUNDO = [];
+  const push = function (arr, items) { for (let i = 0; i < items.length; i++) arr.push(items[i]); };
+
+  push(SW.EVENTOS_MUNDO, [
+
+  /* ════════ TATOOINE ════════ */
+  { id: 'w_tat_vaporizador', mundo: ['Tatooine'], min: 5, max: 200, w: 12,
+    t: 'Se avería el vaporizador de humedad principal. Sin él, la granja tiene tres días de agua.',
+    c: [{ t: 'Arreglarlo tú con lo que haya', r: [{ p: 0.55, t: 'Funciona. Chirría, pero funciona.', fx: { intelecto: 8, destreza: 5 } },
+           { p: 0.45, t: 'Lo empeoras y hay que llamar a un jawa.', fx: { creditos: -1200, intelecto: 4 } }] },
+        { t: 'Comprar una pieza a los jawas', fx: { creditos: -900, carisma: 5 }, out: 'Regateas mal. Te lo recuerdan cada visita.' },
+        { t: 'Racionar el agua y aguantar', fx: { salud: -8, cordura: 6, fisico: 4 }, out: 'Aprendes cuánta agua necesita de verdad un cuerpo.' }] },
+  { id: 'w_tat_tusken', mundo: ['Tatooine'], min: 6, max: 200, w: 11,
+    t: 'Hay humo de un campamento tusken a dos crestas de aquí. Los colonos hablan de organizarse.',
+    c: [{ t: 'Ir con los colonos', fx: { destreza: 6, alineamiento: -14, reputacion: 6 }, buscado: 10, out: 'Vuelven todos. No todos vuelven iguales.' },
+        { t: 'Avisar a los tusken', fx: { alineamiento: 18, reputacion: -12, cordura: 6 }, out: 'Levantan el campamento de noche. Nadie sabe por qué.' },
+        { t: 'No meterte', fx: { cordura: -5 }, out: 'Oyes los disparos desde el porche.' },
+        { t: 'Ir a comerciar en vez de a pelear', req: function (s) { return s.stats.carisma > 35; }, fx: { carisma: 12, creditos: 3000, alineamiento: 10 }, idioma: 'lengua tusken', out: 'Cambias agua por carne seca. Funciona durante años.' }] },
+  { id: 'w_tat_carrera', mundo: ['Tatooine', 'Malastare'], min: 8, max: 200, w: 11,
+    t: 'Carrera de vainas en el circuito. Medio planeta apuesta y el otro medio trabaja en los fosos.',
+    c: [{ t: 'Trabajar en un foso', fx: { intelecto: 8, destreza: 6, creditos: 900 }, habilidad: 'ingeniero', out: 'Motores Radon-Ulzer y las manos quemadas.' },
+        { t: 'Apostar por el favorito', r: [{ p: 0.5, t: 'Gana.', fx: { creditos: 2500, suerte: 4 } }, { p: 0.5, t: 'Se estrella en la Garganta del Mendigo.', fx: { creditos: -2000 } }] },
+        { t: 'Correr tú', req: function (s) { return s.stats.destreza > 45; }, combate: { dif: 65, botin: 25000 }, fx: { reputacion: 10 } },
+        { t: 'Robar piezas del foso', fx: { creditos: 1800, notoriedad: 8, alineamiento: -8 }, buscado: 12, out: 'Un weequay te ve. No hace nada. Todavía.' }] },
+  { id: 'w_tat_jabba', mundo: ['Tatooine'], min: 14, max: 200, w: 10,
+    t: 'El palacio de Jabba busca gente. Pagan bien y no dan detalles.',
+    c: [{ t: 'Entrar a trabajar allí', fx: { creditos: 14000, notoriedad: 15, alineamiento: -10 }, faccion: 'hutt+20', out: 'Comes bien. Ves cosas.' },
+        { t: 'Rechazarlo educadamente', fx: { cordura: 5 }, out: 'Se toma nota de quién dice que no.' },
+        { t: 'Entrar para robarle', r: [{ p: 0.3, t: 'Sales con algo que vale una fortuna.', fx: { creditos: 60000, notoriedad: 25 }, buscado: 45, item: true },
+           { p: 0.7, t: 'Hay un rancor debajo del salón por algo.', fx: { salud: -30 }, herida: { n: 'mordedura profunda', sev: 18 } }] }] },
+  { id: 'w_tat_dos_soles', mundo: ['Tatooine'], min: 4, max: 200, w: 9,
+    t: 'Te sientas a ver ponerse los dos soles. No es la primera vez, pero hoy pesa distinto.',
+    c: [{ t: 'Prometerte que te irás de aquí', fx: { cordura: 8, intelecto: 4 }, flag: 'quiere_irse', out: 'La mayoría no se va. Algunos sí.' },
+        { t: 'Aceptar que este es tu sitio', fx: { cordura: 12, salud: 3 }, out: 'Hay paz en eso, aunque no lo parezca.' },
+        { t: 'Ir a buscar a alguien con quien verlo', fx: { carisma: 6, cordura: 10 }, nuevaRel: true }] },
+
+  /* ════════ CORUSCANT ════════ */
+  { id: 'w_cor_niveles', mundo: ['Coruscant', 'Coruscant Nivel 1313'], min: 6, max: 200, w: 12,
+    t: 'Vives por debajo del nivel 50. Arriba hay sol y aquí hay luz de anuncio.',
+    c: [{ t: 'Subir a ver el sol una vez', fx: { cordura: 10, creditos: -300 }, out: 'Un guardia te mira todo el rato. Merece la pena igual.' },
+        { t: 'Aprenderte los túneles como nadie', fx: { intelecto: 8, destreza: 8 }, habilidad: 'rastreador', flag: 'conoce_los_bajos', out: 'Puedes cruzar veinte niveles sin pisar una pasarela oficial.' },
+        { t: 'Trabajar en lo que salga aquí abajo', fx: { creditos: 2500, salud: -5, fisico: 4 }, out: 'Turnos de doce horas sin ver el cielo.' }] },
+  { id: 'w_cor_senado', mundo: ['Coruscant'], min: 16, max: 200, w: 11, slots: { f: 'faccion' },
+    t: 'Una votación del Senado va a decidir algo que afecta a tu barrio. Hay sitio en la galería pública.',
+    c: [{ t: 'Ir a mirar', fx: { intelecto: 10, carisma: 4 }, out: 'Cuatro horas de procedimiento y una decisión en dos minutos.' },
+        { t: 'Colarte en un despacho y hablar con alguien', fx: { carisma: 12, notoriedad: 6 }, rel: { tipo: 'contacto', afecto: 30, quien: 'ayudante de senador' }, out: 'Te escucha. No promete nada. Es más de lo normal.' },
+        { t: 'Organizar una protesta en la plaza', fx: { carisma: 14, notoriedad: 14, reputacion: 8 }, faccion: 'auto-12', out: 'Salís en la HoloRed nueve segundos.' },
+        { t: 'Vender el resultado antes de que se anuncie', req: function (s) { return s.stats.intelecto > 45; }, fx: { creditos: 22000, alineamiento: -14, notoriedad: 10 }, out: 'La información vale más caliente.' }] },
+  { id: 'w_cor_trafico', mundo: ['Coruscant'], min: 14, max: 200, w: 10,
+    t: 'Accidente de tráfico aéreo a doce carriles de altura. Cae chatarra durante veinte minutos.',
+    c: [{ t: 'Ayudar en el rescate', fx: { alineamiento: 15, salud: -8, reputacion: 10 }, out: 'Sacas a dos de una cabina partida.' },
+        { t: 'Recoger lo que cae', fx: { creditos: 6000, alineamiento: -8 }, item: true, out: 'Piezas caras y un poco de vergüenza.' },
+        { t: 'Grabarlo y venderlo', fx: { creditos: 4000, carisma: 5 }, out: 'Tu vídeo circula por medio planeta.' }] },
+  { id: 'w_cor_templo', mundo: ['Coruscant'], min: 8, max: 200, w: 9,
+    req: function (s) { return SW.ordenActiva(s.era); },
+    t: 'Pasas por delante del Templo Jedi. Las puertas están abiertas y nadie te mira.',
+    c: [{ t: 'Entrar hasta donde te dejen', fx: { cordura: 10, fuerza: 5, intelecto: 4 }, out: 'Silencio, piedra y gente que no hace ruido al andar.' },
+        { t: 'Preguntar si pueden mirarte', req: function (s) { return s.sensible; }, fx: { fuerza: 10, cordura: 6 }, flag: 'visto_por_la_orden', out: 'Un maestro te pone la mano en la frente y frunce el ceño.' },
+        { t: 'Seguir andando', fx: { cordura: 3 }, out: 'Piensas en ello el resto de la semana.' }] },
+
+  /* ════════ NAR SHADDAA / NAL HUTTA ════════ */
+  { id: 'w_nar_deuda', mundo: ['Nar Shaddaa', 'Nal Hutta', 'Kintan'], min: 12, max: 200, w: 12,
+    t: 'Aquí todo el mundo le debe algo a alguien. Hoy te toca a ti estar en la lista.',
+    c: [{ t: 'Pagar como sea', fx: { creditos: -9000, notoriedad: -5 }, out: 'Limpio. Por ahora.' },
+        { t: 'Trabajar la deuda', fx: { notoriedad: 10, destreza: 5 }, faccion: 'hutt+12', pendiente: 'una deuda de trabajo con un cártel', out: 'Ahora tienes un jefe que no elegiste.' },
+        { t: 'Cambiar de nivel y desaparecer', fx: { destreza: 8, cordura: -6 }, buscado: 25, out: 'Vertical hay mucho sitio donde perderse.' }] },
+  { id: 'w_nar_neon', mundo: ['Nar Shaddaa'], min: 14, max: 200, w: 11,
+    t: 'Una galería entera de neón vertical y nadie mira a nadie a los ojos.',
+    c: [{ t: 'Montar un puesto propio', fx: { creditos: -4000, carisma: 8 }, flag: 'puesto_propio', out: 'Vendes de todo un poco. Sobre todo información.' },
+        { t: 'Trabajar de vigilante en un local', fx: { creditos: 9000, fisico: 6, notoriedad: 6 }, out: 'Sacas a gente a rastras tres noches por semana.' },
+        { t: 'Buscar a alguien perdido en los niveles', fx: { intelecto: 8, cordura: -6 }, rel: { tipo: 'contacto', afecto: 30, quien: 'que te debe una' }, out: 'Le encuentras. No quería que le encontraran.' }] },
+
+  /* ════════ KASHYYYK ════════ */
+  { id: 'w_kas_esclavistas', mundo: ['Kashyyyk'], min: 10, max: 200, w: 12,
+    t: 'Una nave esclavista ha aterrizado en el suelo del bosque, muy por debajo de las plataformas.',
+    c: [{ t: 'Bajar a cortarles el paso', combate: { dif: 62 }, fx: { alineamiento: 20, reputacion: 12 } },
+        { t: 'Avisar a las aldeas y evacuar', fx: { carisma: 12, alineamiento: 18, cordura: -5 }, out: 'Suben a doscientos por las cuerdas en una noche.' },
+        { t: 'Venderles la ubicación de una aldea', fx: { creditos: 35000, alineamiento: -35, notoriedad: 20 }, buscado: 50, out: 'Nunca podrás volver a este planeta.' },
+        { t: 'Esconderte arriba y no bajar', fx: { cordura: -10 }, out: 'Oyes lo que pasa abajo durante dos días.' }] },
+  { id: 'w_kas_arbol', mundo: ['Kashyyyk', 'Endor', 'Felucia', 'Yavin 4'], min: 6, max: 200, w: 10,
+    t: 'El bosque tiene un piso de abajo del que nadie habla y al que nadie baja.',
+    c: [{ t: 'Bajar de todas formas', r: [{ p: 0.5, t: 'Encuentras algo que llevaba mucho tiempo ahí.', fx: { intelecto: 8, cordura: -8 }, item: true },
+           { p: 0.5, t: 'Encuentras por qué nadie baja.', fx: { salud: -20, destreza: 8 } }] },
+        { t: 'Aprender a moverte solo por arriba', fx: { destreza: 10, fisico: 6 }, out: 'Puentes, lianas y ningún paso en falso.' },
+        { t: 'Escuchar las historias de los viejos', fx: { cordura: 8, intelecto: 6, fuerza: 3 }, out: 'La mitad son ciertas y no dicen cuál.' }] },
+
+  /* ════════ MANDALORE ════════ */
+  { id: 'w_man_forja', mundo: ['Mandalore', 'Concordia', 'Concord Dawn'], min: 8, max: 200, w: 12,
+    t: 'La forja del clan está encendida. El armero acepta aprendices una vez cada muchos años.',
+    c: [{ t: 'Presentarte', fx: { intelecto: 8, destreza: 8, fisico: 6 }, habilidad: 'armero', faccion: 'mandalorianos+18', out: '"Este es el Camino." Y te da un martillo.' },
+        { t: 'Pedir una pieza de beskar para ti', fx: { creditos: -22000 }, item: 'armadura de beskar (una pieza)', faccion: 'mandalorianos+10' },
+        { t: 'Preguntar por tu casco', fx: { cordura: 10, reputacion: 6 }, out: 'Te explican qué significa cada abolladura. Tardan tres horas.' }] },
+  { id: 'w_man_credo', mundo: ['Mandalore', 'Concordia'], min: 10, max: 200, w: 11,
+    t: 'Hay dos formas de ser mandaloriano y las dos se odian: los del Credo y los que quieren otra cosa.',
+    c: [{ t: 'Seguir el Credo al pie de la letra', fx: { cordura: 10, reputacion: 8, carisma: -5 }, faccion: 'mandalorianos+20', flag: 'credo_estricto', out: 'No te quitas el casco delante de nadie. Nunca.' },
+        { t: 'Defender una Mandalore nueva', fx: { carisma: 12, intelecto: 6 }, faccion: 'mandalorianos-10', out: 'Te llaman traidor los mismos que te enseñaron a pelear.' },
+        { t: 'Irte del planeta y dejarlos discutir', fx: { cordura: 8 }, mover: true, motivo: 'harto de guerras civiles' }] },
+
+  /* ════════ KAMINO ════════ */
+  { id: 'w_kam_lluvia', mundo: ['Kamino'], min: 4, max: 200, w: 11,
+    t: 'Llueve. Lleva lloviendo desde antes de que existieras y seguirá cuando no estés.',
+    c: [{ t: 'Salir a la plataforma a mojarte', fx: { cordura: 12, salud: -3 }, out: 'Te llaman la atención. Vuelves a hacerlo la semana siguiente.' },
+        { t: 'Aprenderte el sonido del mar', fx: { cordura: 8, intelecto: 4 }, out: 'Sabes qué tormenta viene por cómo suena.' },
+        { t: 'Odiar este sitio en silencio', fx: { cordura: -6, destreza: 5 }, out: 'Cuentas los días para el despliegue.' }] },
+
+  /* ════════ HOTH / MUNDOS HELADOS ════════ */
+  { id: 'w_hie_ventisca', mundo: ['Hoth', 'Orto Plutonia', 'Csilla', 'Ilum', 'Mygeeto', 'Kijimi'], min: 8, max: 200, w: 11,
+    t: 'Ventisca. Visibilidad de dos metros y alguien no ha vuelto al refugio.',
+    c: [{ t: 'Salir a buscarle', r: [{ p: 0.55, t: 'Le encuentras a doscientos metros, sentado.', fx: { alineamiento: 18, salud: -12, reputacion: 10 }, rel: { tipo: 'amigo', afecto: 55, quien: 'a quien sacaste de la ventisca' } },
+           { p: 0.45, t: 'Le encuentras tarde.', fx: { cordura: -16, salud: -18 }, herida: { n: 'congelación', sev: 14 } }] },
+        { t: 'Esperar a que amaine', fx: { cordura: -8, intelecto: 4 }, out: 'Es lo que dice el protocolo. No ayuda a dormir.' },
+        { t: 'Organizar una cuerda de búsqueda', fx: { carisma: 12, intelecto: 8, alineamiento: 12 }, out: 'Seis personas atadas entre sí. Funciona.' }] },
+
+  /* ════════ MUNDOS DE CIUDAD Y FÁBRICA ════════ */
+  { id: 'w_ciu_turno', mundo: ['Sullust', 'Duro', 'Bracca', 'Gentes', 'Kuat', 'Sluis Van', 'Ringo Vinda'], min: 12, max: 200, w: 11,
+    t: 'La fábrica funciona en tres turnos y aquí no se habla de otra cosa.',
+    c: [{ t: 'Entrar en el turno de noche', fx: { creditos: 8000, salud: -8, cordura: -5 }, out: 'Pagan más porque nadie quiere.' },
+        { t: 'Meterte en el comité de seguridad', fx: { carisma: 10, reputacion: 10, intelecto: 6 }, flag: 'sindicalista', out: 'Consigues dos barandillas y un extractor.' },
+        { t: 'Aprender el oficio de verdad', fx: { intelecto: 12, destreza: 6 }, habilidad: 'ingeniero', out: 'En diez años eres quien arregla lo que nadie entiende.' }] },
+
+  /* ════════ MUNDOS MINEROS ════════ */
+  { id: 'w_min_derrumbe', mundo: ['Kessel', 'Mustafar', 'Mygeeto', 'Bracca', 'Sullust', 'Ryloth', 'Ryloth Sur'], min: 12, max: 200, w: 11,
+    t: 'Un derrumbe en la galería tres. Hay gente dentro y el capataz calcula costes en voz alta.',
+    c: [{ t: 'Entrar a sacarlos', r: [{ p: 0.6, t: 'Sacas a cuatro.', fx: { alineamiento: 20, reputacion: 15, salud: -12, fisico: 5 } },
+           { p: 0.4, t: 'Sacas a dos y te quedas dentro seis horas.', fx: { alineamiento: 18, salud: -25, cordura: -10 }, herida: { n: 'pulmones llenos de polvo', sev: 16, cronica: false } }] },
+        { t: 'Organizar la excavación desde fuera', fx: { intelecto: 10, carisma: 10, alineamiento: 12 }, out: 'Tardáis más y salen todos.' },
+        { t: 'Grabar al capataz diciendo lo que dice', fx: { intelecto: 8, notoriedad: 8 }, flag: 'material_chantaje', out: 'Ese audio vale mucho en las manos correctas.' }] },
+
+  /* ════════ MUNDOS OCEÁNICOS ════════ */
+  { id: 'w_oce_marea', mundo: ['Mon Cala', 'Manaan', 'Glee Anselm', 'Ando', 'Kamino', 'Kef Bir'], min: 8, max: 200, w: 10,
+    t: 'La marea de temporada sube más de lo previsto y hay barrios bajos que se inundan.',
+    c: [{ t: 'Ayudar a evacuar', fx: { alineamiento: 16, reputacion: 10, salud: -6 }, out: 'Barcas, cuerdas y tres días sin dormir.' },
+        { t: 'Reparar los diques', fx: { intelecto: 10, fisico: 8, creditos: 4000 }, habilidad: 'ingeniero' },
+        { t: 'Comprar barato lo que la gente vende para huir', fx: { creditos: 20000, alineamiento: -20, reputacion: -12 }, out: 'Legal. Repugnante. Rentable.' }] },
+
+  /* ════════ MUNDOS DE FRONTERA ════════ */
+  { id: 'w_fro_forastero', mundo: ['Batuu', 'Ord Mantell', 'Nevarro', 'Takodana', 'Jakku', 'Savareen', 'Akiva', 'Vandor'], min: 10, max: 200, w: 11,
+    t: 'Llega un forastero al puerto haciendo preguntas y todo el mundo deja de hablar.',
+    c: [{ t: 'Contarle lo que quiere saber', fx: { creditos: 3000, reputacion: -8 }, out: 'Se va contento. El pueblo se acuerda.' },
+        { t: 'Mentirle bien', fx: { carisma: 12, intelecto: 6 }, out: 'Se va hacia donde no hay nada. Tardará semanas.' },
+        { t: 'Seguirle para ver qué busca', fx: { intelecto: 10, destreza: 6 }, r: [{ p: 0.5, t: 'Busca algo que también te interesa.', fx: { creditos: 12000 }, item: true },
+           { p: 0.5, t: 'Te descubre y no le gusta.', fx: { salud: -14, notoriedad: 8 } }] },
+        { t: 'Avisar a quien esté buscando', fx: { alineamiento: 10, reputacion: 8 }, rel: { tipo: 'contacto', afecto: 40, quien: 'a quien avisaste a tiempo' } }] },
+
+  /* ════════ MUNDOS SAGRADOS ════════ */
+  { id: 'w_sag_peregrino', mundo: ['Jedha', 'Ilum', 'Tython', 'Ossus', 'Dorin', 'Ithor'], min: 8, max: 200, w: 11,
+    t: 'Los peregrinos llenan las calles y los precios se triplican durante la temporada.',
+    c: [{ t: 'Hacerte guía', fx: { creditos: 7000, carisma: 10, intelecto: 5 }, out: 'Te aprendes cuarenta historias sagradas y te crees seis.' },
+        { t: 'Peregrinar tú también', fx: { cordura: 16, fuerza: 8, fisico: 5 }, out: 'Andas mucho. Piensas más.' },
+        { t: 'Vender reliquias falsas', fx: { creditos: 12000, alineamiento: -18, notoriedad: 8 }, buscado: 15, out: 'Piedras del río con un cordel. Se venden solas.' },
+        { t: 'Proteger a los peregrinos de quien los desvalija', combate: { dif: 48 }, fx: { alineamiento: 15, reputacion: 10 } }] },
+
+  /* ════════ MUNDOS DE GUERRA ════════ */
+  { id: 'w_gue_ocupacion', mundo: ['Lothal', 'Christophsis', 'Umbara', 'Umbara Profunda', 'Onderon', 'Wobani', 'Corvus', 'Saleucami'],
+    min: 10, max: 200, w: 11, slots: { f: 'faccion' },
+    t: 'Hay guarnición de {f} en el pueblo y todo el mundo ha aprendido a bajar la mirada.',
+    c: [{ t: 'Bajar la mirada como todos', fx: { cordura: -6, reputacion: 3 }, out: 'Se sobrevive así muchos años.' },
+        { t: 'Sabotear algo pequeño cada semana', fx: { destreza: 8, notoriedad: 12, alineamiento: 12 }, faccion: 'auto-18', buscado: 20, out: 'Nunca nada grande. Nunca dos veces igual.' },
+        { t: 'Hacerte útil para la guarnición', fx: { creditos: 12000, alineamiento: -14, reputacion: -10 }, faccion: 'auto+18', out: 'Comes bien. Cruzas la calle para evitar a los vecinos.' },
+        { t: 'Ayudar a esconder a quien buscan', fx: { alineamiento: 20, cordura: 8 }, buscado: 25, rel: { tipo: 'aliado', afecto: 50, quien: 'a quien escondiste' } }] },
+
+  /* ════════ MUNDOS DE LUJO ════════ */
+  { id: 'w_luj_casino', mundo: ['Cantonica', 'Zeltros', 'Cato Neimoidia', 'Muunilinst', 'Serenno'], min: 16, max: 200, w: 11,
+    t: 'Aquí el dinero de otros se mueve delante de tus narices toda la noche.',
+    c: [{ t: 'Jugar en serio', r: [{ p: 0.35, t: 'Buena racha.', fx: { creditos: 30000, carisma: 8, suerte: 6 } },
+           { p: 0.65, t: 'La casa siempre gana.', fx: { creditos: -18000, cordura: -6 } }] },
+        { t: 'Trabajar en el servicio y escuchar', fx: { creditos: 6000, intelecto: 10, carisma: 6 }, flag: 'material_chantaje', out: 'La gente rica habla como si no hubiera nadie.' },
+        { t: 'Buscar de dónde sale ese dinero', fx: { intelecto: 14, cordura: -8, notoriedad: 8 }, flag: 'sabe_demasiado', out: 'Sale de vender armas a los dos bandos. Siempre es eso.' },
+        { t: 'Soltar los fathiers del establo', fx: { alineamiento: 15, notoriedad: 14, destreza: 6 }, buscado: 20, out: 'Destrozan medio paseo marítimo. Vale cada crédito de multa.' }] },
+
+  /* ════════ MUNDOS OSCUROS ════════ */
+  { id: 'w_osc_tumbas', mundo: ['Korriban', 'Dathomir', 'Exegol', 'Zeffo', 'Dxun', 'Nur', 'Mustafar'], min: 14, max: 200, w: 11,
+    t: 'Este sitio tiene algo debajo. No es una metáfora: la gente evita ciertas piedras.',
+    c: [{ t: 'Bajar a mirar', r: [{ p: 0.4, t: 'Encuentras algo antiguo y muy despierto.', fx: { fuerza: 16, cordura: -14, alineamiento: -10 }, item: true },
+           { p: 0.35, t: 'Encuentras huesos y una advertencia grabada.', fx: { intelecto: 10, cordura: -6 } },
+           { p: 0.25, t: 'Encuentras lo que se comió a los anteriores.', combate: { dif: 74 } }] },
+        { t: 'Preguntar a los locales', fx: { intelecto: 8, cordura: 5 }, out: 'Te cuentan tres versiones y ninguna tranquiliza.' },
+        { t: 'Marcar el sitio y no volver', fx: { cordura: 8, alineamiento: 8 }, flag: 'sitio_marcado' }] },
+
+  /* ════════ MUNDOS AGRÍCOLAS ════════ */
+  { id: 'w_agr_cosecha', mundo: ['Naboo', 'Alderaan', 'Chandrila', 'Lothal', 'Cerea', 'Kinyen', 'Ithor', 'Shili', 'Togoria', 'Lasan'],
+    min: 6, max: 200, w: 11,
+    t: 'Temporada de cosecha. El pueblo entero trabaja de sol a sol y luego cena junto.',
+    c: [{ t: 'Trabajar como el que más', fx: { fisico: 8, creditos: 2500, reputacion: 8 }, relTodas: 12, out: 'Te ganas un sitio en la mesa larga.' },
+        { t: 'Organizar el reparto', fx: { carisma: 10, intelecto: 8, reputacion: 10 }, out: 'Menos peleas que otros años.' },
+        { t: 'Escaquearte y explorar', fx: { intelecto: 6, cordura: 6, reputacion: -6 }, out: 'Encuentras un sitio bonito. Nadie te lo agradece.' },
+        { t: 'Vender la cosecha fuera por tu cuenta', fx: { creditos: 12000, reputacion: -10, carisma: 8 }, out: 'Ganas más. Los vecinos toman nota.' }] },
+
+  /* ════════ ESPACIO PROFUNDO / RAREZAS ════════ */
+  { id: 'w_raro_señal', mundo: ['Exegol', 'Mundo sin nombre', 'Anzat', 'Af\'El', 'Alpheridies', 'Ilum Profundo'], min: 12, max: 200, w: 11,
+    t: 'Aquí las cartas fallan, los relojes discrepan y hay una señal que se repite cada once horas.',
+    c: [{ t: 'Seguir la señal', r: [{ p: 0.45, t: 'Llegas a algo que no debería existir.', fx: { intelecto: 14, fuerza: 10, cordura: -12 }, item: true },
+           { p: 0.55, t: 'La señal se apaga justo cuando llegas.', fx: { cordura: -8, intelecto: 6 } }] },
+        { t: 'Grabarla y venderla', fx: { creditos: 15000, intelecto: 6 }, out: 'Tres compradores distintos y ninguno explica para qué.' },
+        { t: 'Irte de aquí cuanto antes', fx: { cordura: 6 }, mover: true, motivo: 'huyendo de un sitio que no cuadra' }] }
+
+  ]);
+
+  /* ---- se suman al conjunto general: el motor filtra por `mundo` ---- */
+  for (let i = 0; i < SW.EVENTOS_MUNDO.length; i++) SW.EVENTOS.push(SW.EVENTOS_MUNDO[i]);
 
 })(window);
 
@@ -5937,8 +6875,33 @@ body.en-juego::before {
     };
   };
 
+  /* dilemas a escala de crío: mismo peso emocional, otra escala */
+  SW.GEN.dilemaCrio = function (rng, s) {
+    const n1 = SW.genNombre(rng, 'humano');
+    const lugar = rng.pick(SW.lugaresDe(s.mundo));
+    const casos = [
+      { t: 'Has roto algo en casa y nadie te ha visto.', a: 'Decirlo', b: 'Callar', c: 'Echárselo a otro' },
+      { t: n1 + ' te ha copiado en clase y el profesor os mira a los dos.', a: 'Cubrirle', b: 'Decir la verdad', c: 'No decir nada y aguantar' },
+      { t: 'Encuentras unos créditos en ' + lugar + '.', a: 'Buscar a quien los perdió', b: 'Quedártelos', c: 'Dárselos a tu familia' },
+      { t: 'Los otros críos se están metiendo con ' + n1 + '.', a: 'Ponerte delante', b: 'Mirar', c: 'Unirte para que no te toque a ti' },
+      { t: 'Te han invitado a un sitio al que tienes prohibido ir.', a: 'Ir igualmente', b: 'No ir', c: 'Ir y contarlo después' },
+      { t: n1 + ' te pide que le guardes un secreto que da un poco de miedo.', a: 'Guardarlo', b: 'Contárselo a un adulto', c: 'Convencerle de contarlo él' }
+    ];
+    const k = rng.pick(casos);
+    return {
+      id: 'gen_dilema_crio', gen: true,
+      t: 'DECISIÓN — ' + k.t,
+      c: [
+        { t: k.a, fx: { cordura: rng.int(-3, 6), alineamiento: rng.int(0, 10), carisma: 3 }, out: 'Te acuerdas de esto muchos años.' },
+        { t: k.b, fx: { cordura: rng.int(-5, 4), alineamiento: rng.int(-6, 4), intelecto: 3 }, out: 'Nadie se entera. Tú sí.' },
+        { t: k.c, fx: { cordura: rng.int(-6, 2), alineamiento: rng.int(-10, 2), destreza: 3 }, out: 'Funciona ahora. Ya veremos luego.' }
+      ]
+    };
+  };
+
   /* dilema moral puro, sin combate */
   SW.GEN.dilema = function (rng, s) {
+    if (s.edadBio < 14) return SW.GEN.dilemaCrio(rng, s);
     const n1 = SW.genNombreCompleto(rng, 'humano');
     const n2 = SW.genNombreCompleto(rng, rng.pick(['twilek', 'zabrak', 'duros']));
     const lugar = rng.pick(SW.LUGARES);
@@ -7132,8 +8095,12 @@ body.en-juego::before {
       switch (def[k]) {
         case 'mundo': slots[k] = rng.pick(SW.MUNDO_NOMBRES); break;
         case 'mundoCerca': slots[k] = this.mundoCercano(); break;
+        case 'mundoAqui': slots[k] = this.s.mundo; break;
+        case 'mundoNatal': slots[k] = this.s.mundoNatal; break;
         case 'criatura': slots[k] = rng.pick(SW.CRIATURAS); break;
-        case 'lugar': slots[k] = rng.pick(SW.LUGARES); break;
+        case 'lugar': slots[k] = rng.pick(SW.lugaresDe ? SW.lugaresDe(this.s.mundo) : SW.LUGARES); break;
+        case 'lugarLejos': { const m = rng.pick(SW.MUNDO_NOMBRES); slots[k] = rng.pick(SW.lugaresDe(m)) + ' de ' + m; break; }
+        case 'oficio': slots[k] = rng.pick(SW.oficiosDe ? SW.oficiosDe(this.s.mundo) : ['mecánico']); break;
         case 'objeto': slots[k] = rng.pick(SW.OBJETOS).n; break;
         case 'nombre': slots[k] = SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'rodiano', 'duros'])); break;
         case 'faccion': { const f = rng.pick(SW.faccionesDeEra(this.s.era)); slots[k] = f.n; slots['_faccion'] = f.id; break; }
@@ -7165,6 +8132,8 @@ body.en-juego::before {
       if (e.max != null && s.edadBio > e.max) continue;
       if (e.era && e.era.indexOf(s.era) < 0) continue;
       if (e.eraNo && e.eraNo.indexOf(s.era) >= 0) continue;
+      if (e.mundo && e.mundo.indexOf(s.mundo) < 0) continue;
+      if (e.mundoNo && e.mundoNo.indexOf(s.mundo) >= 0) continue;
       if (e.esp && e.esp.indexOf(s.especie) < 0) continue;
       if (e.espNo && e.espNo.indexOf(s.especie) >= 0) continue;
       if (e.unaVez && s.vistos[e.id]) continue;
@@ -7177,7 +8146,8 @@ body.en-juego::before {
 
   /** peso efectivo: lo ya visto pesa mucho menos */
   Game.prototype.peso = function (ev) {
-    const base = ev.w == null ? 1 : ev.w;
+    let base = ev.w == null ? 1 : ev.w;
+    if (ev.mundo) base *= 2.2;   // lo que pasa aquí pasa más que lo genérico
     const visto = this.s.vistos[ev.id] || 0;
     return base / (1 + visto * visto * 3);
   };
@@ -7276,7 +8246,7 @@ body.en-juego::before {
 
     const n = s.edadBio < 6 ? 1 : this.rng.int(1, 2);
     let posibles = this.eventosPosibles(SW.EVENTOS);
-    if (!posibles.length && SW.GEN.dilema && this.rng.chance(0.6)) {
+    if (!posibles.length && s.edadBio >= 14 && SW.GEN.dilema && this.rng.chance(0.6)) {
       this.cola.push(this.prepararGen(SW.GEN.dilema(this.rng, s)));
     }
     if (!posibles.length) posibles = this.eventosPosibles(SW.EVENTOS, true);
@@ -8686,7 +9656,7 @@ body.en-juego::before {
         nave: 'ruta', accion: 'accion', escuadron: 'mision', politica: 'encargo',
         exploracion: 'encargo', mercado: 'armeria', salud: 'dilema', fuerza: 'dilema'
       };
-      const g = gens[id];
+      const g = s.edadBio >= 14 ? gens[id] : null;   // los generadores son cosa de adultos
       if (g && SW.GEN[g] && rng.chance(0.75)) {
         this.cola.push(this.prepararGen(SW.GEN[g](rng, s)));
         this.actividadUsada = s.acciones <= 0;
@@ -8789,7 +9759,41 @@ body.en-juego::before {
     ] }
   };
 
+  /* Rellenos para cuando el personaje todavía es un crío */
+  const RELLENO_CRIO = {
+    formacion: { t: 'Nadie te va a enseñar nada hoy. Puedes practicar por tu cuenta.', c: [
+      { t: 'Leer todo lo que caiga en tus manos', fx: { intelecto: 5 }, out: 'Manuales viejos y un cuento repetido.' },
+      { t: 'Trepar y correr hasta cansarte', fx: { fisico: 5, destreza: 4 }, out: 'Rodillas peladas y buen fondo.' },
+      { t: 'Copiar lo que hacen los mayores', fx: { intelecto: 3, carisma: 4 }, out: 'Aprendes gestos antes que motivos.' },
+      { t: '◂ Otro día', volver: true }
+    ] },
+    social: { t: 'Los críos del barrio están fuera.', c: [
+      { t: 'Salir a jugar con ellos', fx: { cordura: 8, carisma: 5 }, out: 'Un juego con reglas que cambian cada diez minutos.' },
+      { t: 'Quedarte cerca de casa', fx: { cordura: 4, intelecto: 3 }, out: 'Miras desde la puerta.' },
+      { t: '◂ Nada', volver: true }
+    ] },
+    salud: { t: 'Tienes la edad en la que el cuerpo crece solo.', c: [
+      { t: 'Comer todo lo que te pongan', fx: { fisico: 5, salud: 4 }, out: 'Creces un palmo en un año.' },
+      { t: 'Dormir mucho', fx: { salud: 5, cordura: 5 }, out: 'Doce horas y sin remordimientos.' },
+      { t: '◂ Nada', volver: true }
+    ] },
+    mercado: { t: 'El mercado con la paga de un crío da para poco.', c: [
+      { t: 'Mirarlo todo sin comprar nada', fx: { intelecto: 4, carisma: 3 }, out: 'Te aprendes los precios de memoria.' },
+      { t: 'Gastarte lo poco que tienes en un dulce', fx: { cordura: 6, creditos: -30 }, out: 'Merece la pena.' },
+      { t: '◂ Volver', volver: true }
+    ] },
+    fuerza: { t: 'Cierras los ojos como te dijeron. No pasa gran cosa.', c: [
+      { t: 'Insistir un rato', fx: { fuerza: 4, cordura: 5 }, out: 'Un cosquilleo. O te lo imaginas.' },
+      { t: '◂ Aburrirte', volver: true }
+    ] }
+  };
+
   Game.prototype.rellenoActividad = function (id) {
+    const s = this.s;
+    if (s.edadBio < 13 && RELLENO_CRIO[id]) {
+      const c = RELLENO_CRIO[id];
+      return { id: 'relleno_crio_' + id, gen: true, esMenu: true, t: c.t, c: c.c };
+    }
     const base = RELLENO[id] || RELLENO.social;
     return { id: 'relleno_' + id, gen: true, esMenu: true, t: base.t, c: base.c };
   };
@@ -9518,15 +10522,15 @@ body.en-juego::before {
 
     /* --- barra superior: siempre visible --- */
     h += '<header class="topbar">' +
-      '<button class="btn mini solo-movil" data-a="ficha">☰</button>' +
+      '<button class="btn mini tb-ficha solo-movil" data-a="ficha" title="ficha">☰</button>' +
       '<div class="tb-id"><b>' + U.esc(s.nombre) + '</b><span>' + U.esc(s.especieN) + '</span></div>' +
-      '<div class="tb-edad"><b>' + s.edad + '</b><span>' + (s.ritmo > 1 ? 'años · aspecto ' + s.edadBio : 'años') + '</span></div>' +
-      '<div class="tb-mundo"><b><i class="bioma-punto"></i>' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + ' · ' + U.esc(s.eraN) + '</span></div>' +
+      '<div class="tb-edad"><b>' + s.edad + '</b><span>' + (s.ritmo > 1 ? 'años · asp. ' + s.edadBio : 'años') + '</span></div>' +
+      '<div class="tb-mundo"><b><i class="bioma-punto"></i>' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + '</span></div>' +
       '<div class="tb-cr"><b>' + U.cr(s.stats.creditos) + '</b><span>créditos</span></div>' +
       '<div class="tb-acc"><b>' + UI.pips(s) + '</b><span>acciones</span></div>' +
-      '<button class="btn mini" data-a="mapa" title="carta estelar">◎</button>' +
       '<div class="tb-mini">' + UI.miniBarras(s) + '</div>' +
-      '<button class="btn mini" data-a="menu">≡</button>' +
+      '<button class="btn mini tb-mapa" data-a="mapa" title="carta estelar">◎</button>' +
+      '<button class="btn mini tb-menu" data-a="menu" title="menú">≡</button>' +
       '</header>';
 
     h += '<div class="cuerpo">';
@@ -9842,7 +10846,9 @@ body.en-juego::before {
 
     try {
       const arte = cont.querySelector('.vit-arte');
-      const cv = SW.pixel(p.sprite, { escala: 7, dinamico: p.color || '#c8d4e0' });
+      const cv = (SW.tienePixel2 && SW.tienePixel2(p.sprite))
+        ? SW.pixel2(p.sprite, { escala: 5, dinamico: p.color || null })
+        : SW.pixel(p.sprite, { escala: 7, dinamico: p.color || '#c8d4e0' });
       arte.appendChild(cv);
       if (p.color) arte.style.setProperty('--halo', p.color);
     } catch (e) {}

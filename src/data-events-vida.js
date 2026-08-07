@@ -15,7 +15,7 @@
 
   /* ================= INFANCIA (0-5) ================= */
   {
-    id: 'inf_primera_palabra', min: 1, max: 3, w: 10, slots: { p: 'mundo' },
+    id: 'inf_primera_palabra', min: 1, max: 3, w: 10, slots: { p: 'mundoAqui' },
     t: 'Dices tu primera palabra en {p}. Tu familia se queda muy callada.',
     c: [
       { t: '"Mamá"', fx: { carisma: 3, cordura: 3 }, out: 'Lloran. Es un buen día.' },
@@ -88,7 +88,7 @@
 
   /* ================= NIÑEZ (6-12) ================= */
   {
-    id: 'nin_escuela', min: 6, max: 10, w: 10, slots: { p: 'mundo' },
+    id: 'nin_escuela', min: 6, max: 10, w: 10, slots: { p: 'mundoAqui' },
     t: 'Primer día en la escuela del sector de {p}. Huele a desinfectante y a droide viejo.',
     c: [
       { t: 'Empollar y sacar las mejores notas', fx: { intelecto: 10, carisma: -3 }, out: 'Los profesores te adoran. Nadie más.' },
@@ -157,7 +157,7 @@
     ]
   },
   {
-    id: 'nin_carrera', min: 8, max: 14, w: 7, slots: { p: 'mundo' },
+    id: 'nin_carrera', min: 8, max: 14, w: 7, slots: { p: 'mundoAqui' },
     t: 'Se celebra una carrera de vainas ilegal en las afueras de {p}. Puedes colarte en el foso.',
     c: [
       { t: 'Colarte y ayudar a un mecánico', fx: { intelecto: 8, destreza: 6, creditos: 300 }, flag: 'foso_vainas', out: 'Te dejan tocar un motor Radon-Ulzer. No lo olvidas.' },
@@ -659,7 +659,7 @@
   },
   {
     id: 'com_fama', min: 20, max: 200, w: 5, req: function (s) { return s.stats.reputacion > 55 || s.stats.notoriedad > 55; },
-    slots: { p: 'mundo' },
+    slots: { p: 'mundoAqui' },
     t: 'Sales en las noticias de {p}. La foto es horrible y el titular peor.',
     c: [
       { t: 'Aprovechar el momento', fx: { carisma: 10, creditos: 12000, reputacion: 6 }, out: 'Firmas cosas. Cobras por aparecer.' },

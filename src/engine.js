@@ -179,8 +179,12 @@
       switch (def[k]) {
         case 'mundo': slots[k] = rng.pick(SW.MUNDO_NOMBRES); break;
         case 'mundoCerca': slots[k] = this.mundoCercano(); break;
+        case 'mundoAqui': slots[k] = this.s.mundo; break;
+        case 'mundoNatal': slots[k] = this.s.mundoNatal; break;
         case 'criatura': slots[k] = rng.pick(SW.CRIATURAS); break;
-        case 'lugar': slots[k] = rng.pick(SW.LUGARES); break;
+        case 'lugar': slots[k] = rng.pick(SW.lugaresDe ? SW.lugaresDe(this.s.mundo) : SW.LUGARES); break;
+        case 'lugarLejos': { const m = rng.pick(SW.MUNDO_NOMBRES); slots[k] = rng.pick(SW.lugaresDe(m)) + ' de ' + m; break; }
+        case 'oficio': slots[k] = rng.pick(SW.oficiosDe ? SW.oficiosDe(this.s.mundo) : ['mecánico']); break;
         case 'objeto': slots[k] = rng.pick(SW.OBJETOS).n; break;
         case 'nombre': slots[k] = SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'rodiano', 'duros'])); break;
         case 'faccion': { const f = rng.pick(SW.faccionesDeEra(this.s.era)); slots[k] = f.n; slots['_faccion'] = f.id; break; }
@@ -212,6 +216,8 @@
       if (e.max != null && s.edadBio > e.max) continue;
       if (e.era && e.era.indexOf(s.era) < 0) continue;
       if (e.eraNo && e.eraNo.indexOf(s.era) >= 0) continue;
+      if (e.mundo && e.mundo.indexOf(s.mundo) < 0) continue;
+      if (e.mundoNo && e.mundoNo.indexOf(s.mundo) >= 0) continue;
       if (e.esp && e.esp.indexOf(s.especie) < 0) continue;
       if (e.espNo && e.espNo.indexOf(s.especie) >= 0) continue;
       if (e.unaVez && s.vistos[e.id]) continue;
@@ -224,7 +230,8 @@
 
   /** peso efectivo: lo ya visto pesa mucho menos */
   Game.prototype.peso = function (ev) {
-    const base = ev.w == null ? 1 : ev.w;
+    let base = ev.w == null ? 1 : ev.w;
+    if (ev.mundo) base *= 2.2;   // lo que pasa aquí pasa más que lo genérico
     const visto = this.s.vistos[ev.id] || 0;
     return base / (1 + visto * visto * 3);
   };
@@ -323,7 +330,7 @@
 
     const n = s.edadBio < 6 ? 1 : this.rng.int(1, 2);
     let posibles = this.eventosPosibles(SW.EVENTOS);
-    if (!posibles.length && SW.GEN.dilema && this.rng.chance(0.6)) {
+    if (!posibles.length && s.edadBio >= 14 && SW.GEN.dilema && this.rng.chance(0.6)) {
       this.cola.push(this.prepararGen(SW.GEN.dilema(this.rng, s)));
     }
     if (!posibles.length) posibles = this.eventosPosibles(SW.EVENTOS, true);
@@ -1733,7 +1740,7 @@
         nave: 'ruta', accion: 'accion', escuadron: 'mision', politica: 'encargo',
         exploracion: 'encargo', mercado: 'armeria', salud: 'dilema', fuerza: 'dilema'
       };
-      const g = gens[id];
+      const g = s.edadBio >= 14 ? gens[id] : null;   // los generadores son cosa de adultos
       if (g && SW.GEN[g] && rng.chance(0.75)) {
         this.cola.push(this.prepararGen(SW.GEN[g](rng, s)));
         this.actividadUsada = s.acciones <= 0;
@@ -1836,7 +1843,41 @@
     ] }
   };
 
+  /* Rellenos para cuando el personaje todavía es un crío */
+  const RELLENO_CRIO = {
+    formacion: { t: 'Nadie te va a enseñar nada hoy. Puedes practicar por tu cuenta.', c: [
+      { t: 'Leer todo lo que caiga en tus manos', fx: { intelecto: 5 }, out: 'Manuales viejos y un cuento repetido.' },
+      { t: 'Trepar y correr hasta cansarte', fx: { fisico: 5, destreza: 4 }, out: 'Rodillas peladas y buen fondo.' },
+      { t: 'Copiar lo que hacen los mayores', fx: { intelecto: 3, carisma: 4 }, out: 'Aprendes gestos antes que motivos.' },
+      { t: '◂ Otro día', volver: true }
+    ] },
+    social: { t: 'Los críos del barrio están fuera.', c: [
+      { t: 'Salir a jugar con ellos', fx: { cordura: 8, carisma: 5 }, out: 'Un juego con reglas que cambian cada diez minutos.' },
+      { t: 'Quedarte cerca de casa', fx: { cordura: 4, intelecto: 3 }, out: 'Miras desde la puerta.' },
+      { t: '◂ Nada', volver: true }
+    ] },
+    salud: { t: 'Tienes la edad en la que el cuerpo crece solo.', c: [
+      { t: 'Comer todo lo que te pongan', fx: { fisico: 5, salud: 4 }, out: 'Creces un palmo en un año.' },
+      { t: 'Dormir mucho', fx: { salud: 5, cordura: 5 }, out: 'Doce horas y sin remordimientos.' },
+      { t: '◂ Nada', volver: true }
+    ] },
+    mercado: { t: 'El mercado con la paga de un crío da para poco.', c: [
+      { t: 'Mirarlo todo sin comprar nada', fx: { intelecto: 4, carisma: 3 }, out: 'Te aprendes los precios de memoria.' },
+      { t: 'Gastarte lo poco que tienes en un dulce', fx: { cordura: 6, creditos: -30 }, out: 'Merece la pena.' },
+      { t: '◂ Volver', volver: true }
+    ] },
+    fuerza: { t: 'Cierras los ojos como te dijeron. No pasa gran cosa.', c: [
+      { t: 'Insistir un rato', fx: { fuerza: 4, cordura: 5 }, out: 'Un cosquilleo. O te lo imaginas.' },
+      { t: '◂ Aburrirte', volver: true }
+    ] }
+  };
+
   Game.prototype.rellenoActividad = function (id) {
+    const s = this.s;
+    if (s.edadBio < 13 && RELLENO_CRIO[id]) {
+      const c = RELLENO_CRIO[id];
+      return { id: 'relleno_crio_' + id, gen: true, esMenu: true, t: c.t, c: c.c };
+    }
     const base = RELLENO[id] || RELLENO.social;
     return { id: 'relleno_' + id, gen: true, esMenu: true, t: base.t, c: base.c };
   };

@@ -12,7 +12,7 @@
 
   /* ================= INFANCIA ================= */
   {
-    id: 'i2_hambre', min: 3, max: 10, w: 9, slots: { p: 'mundo' },
+    id: 'i2_hambre', min: 3, max: 10, w: 9, slots: { p: 'mundoAqui' },
     t: 'Mala cosecha en {p}. En casa se come una vez al día y nadie lo comenta.',
     c: [
       { t: 'Repartir tu parte con tu hermano pequeño', fx: { alineamiento: 14, cordura: 8, fisico: -6 }, relTodas: 20, out: 'Creces menos. Creces distinto.' },
