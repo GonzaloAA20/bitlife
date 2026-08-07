@@ -118,24 +118,46 @@ En un minuto la web queda en `https://<usuario>.github.io/<repo>/`.
 ## Estructura
 
 ```
-index.html                    punto de entrada
-assets/style.css              estética retrofuturista (CRT, fósforo cian, art déco)
-src/rng.js                    aleatoriedad determinista + compresión de enlaces
-src/data-world.js             especies, mundos, facciones, nombres, objetos, naves
-src/data-world-ext.js         expansión del universo + bandos y eras
-src/data-careers.js           carreras, estudios, poderes, actividades
-src/pixelart.js               sprites en rejilla de caracteres y su renderizador
-src/data-equipo.js            fichas de combate de los objetos y la armería
-src/data-canon.js             personajes conocidos, datos de mundo, reglas del kyber
-src/data-fuerza.js            el camino jedi y sith, con sus renuncias
-src/data-events-vida.js       eventos del ciclo anual (infancia → vejez)
-src/data-events-clon.js       la vida de un clon, de Kamino a la Orden 66
-src/data-events-era.js        eventos atados a cada época
-src/data-events-actos.js      eventos por actividad + generadores procedurales
-src/engine.js                 estado, ciclo anual, efectos, combate, muerte
-src/summary.js                retrato SVG, tarjeta de vida, enlaces, métricas
-src/ui.js                     interfaz completa
+index.html                   punto de entrada
+assets/style.css             estética retrofuturista (CRT, fósforo cian, art déco)
+src/rng.js                   aleatoriedad determinista + compresión de enlaces
+src/data-world.js            especies, mundos, facciones, nombres, objetos, naves
+src/data-careers.js          carreras, estudios, poderes, actividades
+src/data-world-ext.js        expansión del universo + bandos y eras
+src/pixelart.js              sprites en rejilla de caracteres y su renderizador
+src/pixelart2.js             motor de pixel art de 48×48 (objetos, naves, mejoras)
+src/pixelart-retrato.js      retratos de 64×64 con anatomía propia por especie
+src/galaxia.js               mapa de la galaxia, planetas dibujados por código, viajes
+src/fondo.js                 fondo en pixel art por planeta (tramado Bayer y horizontes)
+src/data-mundos-local.js     lugares y oficios propios de cada mundo
+src/data-mundos-dosier.js    dosier de los 117 mundos: fauna, bandas, hitos, comida
+src/data-equipo.js           fichas de combate de los objetos y la armería
+src/data-canon.js            personajes conocidos, datos de mundo, reglas del kyber
+src/data-careers-ext.js      más carreras y ramas profesionales
+src/data-events-vida.js      eventos del ciclo anual (infancia → vejez)
+src/data-events-vida2.js     segunda tanda de eventos de vida
+src/data-events-vida3.js     eventos de vida por franja de edad
+src/data-eventos-mundo.js    eventos escritos a mano para planetas concretos
+src/data-eventos-locales.js  plantillas que se adaptan al dosier del planeta
+src/data-events-cuna.js      los primeros años (0–6), para que no se repita el arranque
+src/data-events-actos.js     eventos por actividad + generadores procedurales
+src/data-events-actos2.js    más eventos por actividad
+src/data-events-actos3.js    tercera tanda de eventos por actividad
+src/data-events-clon.js      la vida de un clon, de Kamino a la Orden 66
+src/data-events-era.js       eventos atados a cada época
+src/data-riesgo.js           peligro acumulado, consecuencias de perder y muerte en guerra
+src/data-nave-taller.js      taller: mejoras de nave que desbloquean decisiones
+src/data-events-nave.js      eventos que exigen una mejora concreta montada
+src/data-carrera.js          carreras de naves: circuitos, trazadas y accidentes
+src/data-fuerza.js           el camino jedi y sith, con sus renuncias
+src/data-fuerza-atencion.js  quién se fija en ti: reclutamiento, amenaza o cacería
+src/engine.js                estado, ciclo anual, efectos, combate, muerte
+src/summary.js               tarjeta de vida, enlaces para compartir, métricas
+src/ui.js                    interfaz completa
 ```
+
+El orden de carga lo manda `index.html`, y `tools/build-single.js` lee esa misma
+lista para empaquetar: no hay dos sitios que mantener.
 
 Sin frameworks, sin build, sin dependencias: JavaScript de navegador con etiquetas `<script>` clásicas, para que `index.html` funcione también desde `file://`.
 
