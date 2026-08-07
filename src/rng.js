@@ -115,7 +115,15 @@
     /** rellena {slots} en una plantilla */
     fill: function (tpl, slots) {
       return String(tpl).replace(/\{(\w+)\}/g, function (m, k) {
-        return slots && slots[k] != null ? slots[k] : m;
+        if (!slots) return m;
+        if (slots[k] != null) return slots[k];
+        // {C} = el hueco {c} con mayúscula, para abrir frase
+        const baja = k.charAt(0).toLowerCase() + k.slice(1);
+        if (k !== baja && slots[baja] != null) {
+          const v = String(slots[baja]);
+          return v.charAt(0).toUpperCase() + v.slice(1);
+        }
+        return m;
       });
     },
     titleCase: function (s) {

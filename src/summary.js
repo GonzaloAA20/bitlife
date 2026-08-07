@@ -6,8 +6,18 @@
   const SW = (global.SW = global.SW || {});
   const U = SW.U;
 
-  /* ---------------- RETRATO SVG ---------------- */
-  SW.retrato = function (ap, tam) {
+  /* ---------------- RETRATO ----------------
+     El de verdad lo dibuja pixelart-retrato.js en 64×64. Esto de
+     abajo es el SVG viejo, que queda como red de seguridad si el
+     navegador no deja usar canvas. */
+  SW.retrato = function (ap, tam, especie) {
+    if (SW.retratoPixel) {
+      try { return SW.retratoPixel(ap, tam, especie || (ap && ap.especie)); } catch (e) { /* al SVG */ }
+    }
+    return SW.retratoSVG(ap, tam);
+  };
+
+  SW.retratoSVG = function (ap, tam) {
     const t = tam || 160;
     const piel = ap.piel, ojos = ap.ojos, pelo = ap.pelo;
     const cabeza = ap.forma || 0;
@@ -99,6 +109,7 @@
       sa: s.sable ? [s.sable.color, s.sable.forma] : null,
       na: s.nave ? (s.naveNombre ? '"' + s.naveNombre + '" (' + s.nave.n + ')' : s.nave.n) : null,
       ap: s.apariencia,
+      esp: s.especie,
       ct: s.contadores,
       ra: s.rasgoN,
       sem: s.semilla
@@ -162,7 +173,7 @@
     if (d.se !== false) stats.push(['✦ La Fuerza', st[1]]);
     let h = '<div class="card-vida">';
     h += '<div class="cv-head">';
-    h += '<div class="cv-retrato">' + SW.retrato(d.ap, 130) + '</div>';
+    h += '<div class="cv-retrato">' + SW.retrato(d.ap, 130, d.esp) + '</div>';
     h += '<div class="cv-id"><h2>' + U.esc(d.n) + '</h2>';
     h += '<p class="cv-sub">' + U.esc(d.e) + ' · ' + U.esc(d.ra || '') + '</p>';
     h += '<p class="cv-sub">' + U.esc(d.er) + ' · nacid@ en ' + U.esc(d.m) + '</p>';

@@ -174,7 +174,7 @@
   /* ================= ERA PERDIDA ================= */
   {
     id: 'ep_deriva', min: 10, max: 200, w: 14, era: ['era_perdida'], slots: { p: 'mundo', c: 'criatura' },
-    t: 'Las cartas de navegación no coinciden con el cielo. En {p} nadie sabe qué año es y hay un {c} adorado como dios local.',
+    t: 'Las cartas de navegación no coinciden con el cielo. En {p} nadie sabe qué año es y hay {c} adorado como dios local.',
     c: [
       { t: 'Aceptar el sinsentido y vivir aquí', fx: { cordura: 14, suerte: 10, intelecto: -4 }, out: 'Es más fácil que discutir con el cielo.' },
       { t: 'Intentar reconstruir el calendario', fx: { intelecto: 18, cordura: -10 }, flag: 'calendario', out: 'Llegas a tres fechas posibles. Ninguna cuadra con la anterior.' },

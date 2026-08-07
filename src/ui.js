@@ -158,7 +158,7 @@
     h += '<div class="crear-grid">';
 
     h += '<div class="col-retrato">';
-    h += '<div class="holo-marco">' + SW.retrato(c.apariencia, 190) + '</div>';
+    h += '<div class="holo-marco">' + SW.retrato(c.apariencia, 190, c.especie) + '</div>';
     h += '<button class="btn mini bloque" data-a="rand-cara">⟳ generar aspecto</button>';
     h += '<div class="ap-controles">';
 
@@ -437,7 +437,7 @@
   };
 
   UI.htmlPanel = function (s) {
-    let h = '<div class="holo-mini">' + SW.retrato(s.apariencia, 116) + '</div>';
+    let h = '<div class="holo-mini">' + SW.retrato(s.apariencia, 116, s.especie) + '</div>';
 
     h += '<div class="stats">';
     [['salud', 'Salud'], ['fisico', 'Físico'], ['destreza', 'Destreza'], ['intelecto', 'Intelecto'],

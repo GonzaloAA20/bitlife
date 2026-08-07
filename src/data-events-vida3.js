@@ -17,7 +17,7 @@
     c: [{ t: 'Guardar allí tus tesoros', fx: { cordura: 8, intelecto: 4 }, out: 'Piedras, cables y un diente. Patrimonio.' },
         { t: 'Enseñárselo a otro crío', fx: { carisma: 8 }, rel: { tipo: 'amigo', afecto: 40, quien: 'del barrio' }, out: 'Ya sois dos contra el mundo.' },
         { t: 'Dormir ahí cuando gritan en casa', fx: { cordura: -6, destreza: 5 }, out: 'Aprendes a no estar cuando no conviene.' }] },
-  { id: 'n3_animalillo', min: 3, max: 10, w: 9, slots: { c: 'criatura' }, t: 'Un {c} pequeño se cuela en la cocina y se esconde detrás del generador.',
+  { id: 'n3_animalillo', min: 3, max: 10, w: 9, slots: { c: 'criatura' }, t: '{C} pequeño se cuela en la cocina y se esconde detrás del generador.',
     c: [{ t: 'Sacarlo con cuidado', fx: { cordura: 6, alineamiento: 6 }, out: 'Te muerde. Lo sacas igual.' },
         { t: 'Alimentarlo a escondidas', fx: { cordura: 8, creditos: -100 }, mascota: true, out: 'Vuelve cada noche. Luego ya no se va.' },
         { t: 'Avisar a un adulto', fx: { reputacion: 4 }, out: 'Lo resuelven con una escoba. No te gusta cómo.' }] },

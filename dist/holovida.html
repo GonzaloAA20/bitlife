@@ -929,7 +929,15 @@ body.en-juego::before {
     /** rellena {slots} en una plantilla */
     fill: function (tpl, slots) {
       return String(tpl).replace(/\{(\w+)\}/g, function (m, k) {
-        return slots && slots[k] != null ? slots[k] : m;
+        if (!slots) return m;
+        if (slots[k] != null) return slots[k];
+        // {C} = el hueco {c} con mayúscula, para abrir frase
+        const baja = k.charAt(0).toLowerCase() + k.slice(1);
+        if (k !== baja && slots[baja] != null) {
+          const v = String(slots[baja]);
+          return v.charAt(0).toUpperCase() + v.slice(1);
+        }
+        return m;
       });
     },
     titleCase: function (s) {
@@ -4237,7 +4245,7 @@ body.en-juego::before {
   },
   {
     id: 'inf_juguete', min: 2, max: 5, w: 9, slots: { o: 'objeto', c: 'criatura' },
-    t: 'Tu juguete favorito es un {c} de trapo con un ojo de menos.',
+    t: 'Tu juguete favorito es {c} de trapo con un ojo de menos.',
     c: [
       { t: 'Dormir abrazado a él cada noche', fx: { cordura: 6, destreza: -2 }, out: 'Te dura años. Aún lo tienes en algún cajón.' },
       { t: 'Desmontarlo para ver qué hay dentro', fx: { intelecto: 7, cordura: -3 }, out: 'Serrín. Y una decepción temprana con el universo.' },
@@ -4289,7 +4297,7 @@ body.en-juego::before {
   },
   {
     id: 'inf_mascota', min: 3, max: 8, w: 8, slots: { c: 'criatura' },
-    t: 'Encuentras un {c} bebé herido detrás de casa.',
+    t: 'Encuentras {c} recién nacido y herido detrás de casa.',
     c: [
       { t: 'Curarlo y quedártelo', fx: { cordura: 8, creditos: -200 }, mascota: true, out: 'Te sigue a todas partes. Le pones un nombre ridículo.' },
       { t: 'Venderlo en el mercado', fx: { creditos: 600, alineamiento: -6 }, out: 'Pagan bien. No duermes bien.' },
@@ -4357,7 +4365,7 @@ body.en-juego::before {
   {
     id: 'nin_sueño', min: 6, max: 16, w: 6, req: function (s) { return s.stats.fuerza > 15; },
     slots: { p: 'mundo', c: 'criatura' },
-    t: 'Sueñas con {p}, un planeta que nunca has visto, y con un {c} enorme que dice tu nombre.',
+    t: 'Sueñas con {p}, un planeta que nunca has visto, y con {c} enorme que dice tu nombre.',
     c: [
       { t: 'Anotarlo todo en un datapad', fx: { intelecto: 6, fuerza: 8 }, flag: 'diario_visiones', out: 'El cuaderno crecerá durante décadas.' },
       { t: 'Contárselo a alguien', r: [
@@ -4637,7 +4645,7 @@ body.en-juego::before {
   },
   {
     id: 'adu_bestia', min: 14, max: 80, w: 7, slots: { c: 'criatura', p: 'mundo' },
-    t: 'Un {c} adulto bloquea el único paso hacia el asentamiento en {p}.',
+    t: '{C} adulto bloquea el único paso hacia el asentamiento en {p}.',
     c: [
       { t: 'Enfrentarlo', combate: { dif: 55, bestia: true }, out: '' },
       { t: 'Rodearlo por el desfiladero (dos días más)', fx: { salud: -6, cordura: -3, intelecto: 4 }, out: 'Llegas tarde y entero. Suele ser buen trato.' },
@@ -4915,7 +4923,7 @@ body.en-juego::before {
   {
     id: 'com_despertar', min: 9, max: 60, w: 3, req: function (s) { return !s.sensible && s.especie !== 'droide'; },
     slots: { l: 'lugar', c: 'criatura' },
-    t: 'En {l}, un {c} se abalanza sobre ti. Levantas la mano por instinto y el animal se detiene en el aire.',
+    t: 'En {l}, {c} se abalanza sobre ti. Levantas la mano por instinto y el animal se detiene en el aire.',
     c: [
       { t: 'Mirarte la mano en silencio', despertar: true, fx: { cordura: -6, intelecto: 4 }, out: 'Tardarás años en atreverte a repetirlo.' },
       { t: 'Probar otra vez, ahora mismo', despertar: true, fx: { fuerza: 8, salud: -6 }, out: 'Funciona. Te sangra la nariz, pero funciona.' },
@@ -5280,7 +5288,7 @@ body.en-juego::before {
     c: [{ t: 'Guardar allí tus tesoros', fx: { cordura: 8, intelecto: 4 }, out: 'Piedras, cables y un diente. Patrimonio.' },
         { t: 'Enseñárselo a otro crío', fx: { carisma: 8 }, rel: { tipo: 'amigo', afecto: 40, quien: 'del barrio' }, out: 'Ya sois dos contra el mundo.' },
         { t: 'Dormir ahí cuando gritan en casa', fx: { cordura: -6, destreza: 5 }, out: 'Aprendes a no estar cuando no conviene.' }] },
-  { id: 'n3_animalillo', min: 3, max: 10, w: 9, slots: { c: 'criatura' }, t: 'Un {c} pequeño se cuela en la cocina y se esconde detrás del generador.',
+  { id: 'n3_animalillo', min: 3, max: 10, w: 9, slots: { c: 'criatura' }, t: '{C} pequeño se cuela en la cocina y se esconde detrás del generador.',
     c: [{ t: 'Sacarlo con cuidado', fx: { cordura: 6, alineamiento: 6 }, out: 'Te muerde. Lo sacas igual.' },
         { t: 'Alimentarlo a escondidas', fx: { cordura: 8, creditos: -100 }, mascota: true, out: 'Vuelve cada noche. Luego ya no se va.' },
         { t: 'Avisar a un adulto', fx: { reputacion: 4 }, out: 'Lo resuelven con una escoba. No te gusta cómo.' }] },
@@ -5792,6 +5800,260 @@ body.en-juego::before {
   ]);
 
   /* ---- se suman al conjunto general: el motor filtra por `mundo` ---- */
+
+  /* ════════ los 34 mundos que faltaban por tener lo suyo ════════ */
+  push(SW.EVENTOS_MUNDO, [
+
+  { id: 'w_cor_espina', mundo: ['Corellia'], min: 14, max: 200, w: 11,
+    t: 'La Espina de Corellia: el tramo de vía por donde pasan los cargueros de Ingeniería. Los chavales lo cruzan corriendo por apuesta.',
+    c: [{ t: 'Cruzarlo', r: [{ p: 0.6, t: 'Lo cruzas. Te ganas un mote para siempre.', fx: { destreza: 12, reputacion: 12, cordura: 8 }, apodo: true },
+           { p: 0.4, t: 'No calculas el segundo carguero.', fx: { salud: -22 }, herida: { n: 'pierna partida', sev: 16 } }] },
+        { t: 'Meterte en los astilleros a aprender de verdad', fx: { intelecto: 10, destreza: 10, creditos: 2200 }, habilidad: 'ingeniero', out: 'De aquí salen los mejores pilotos porque antes fueron los mejores mecánicos.' },
+        { t: 'Apuntarte a la lista de pilotos de la Aduana', fx: { faccion: 'auto+15', creditos: 5000, reputacion: 6 }, out: 'Uniforme, sueldo y todo el barrio mirándote raro.' },
+        { t: 'Robar un motor y venderlo en el puerto', fx: { creditos: 9000, notoriedad: 12, alineamiento: -10 }, buscado: 15 }] },
+
+  { id: 'w_bes_carbonita', mundo: ['Bespin'], min: 16, max: 200, w: 11,
+    t: 'En la plataforma de carbonita de Ciudad Nube buscan operario. Se congela mineral. A veces no solo mineral.',
+    c: [{ t: 'Trabajar en la cámara', fx: { creditos: 8000, intelecto: 6, salud: -6 }, habilidad: 'operario de carbonita' },
+        { t: 'Preguntar qué congelan los martes', fx: { intelecto: 10, cordura: -8 }, flag: 'sabe_lo_de_bespin', out: 'Te dicen que no preguntes. Con eso ya lo sabes.' },
+        { t: 'Bajar a las capas de tibanna con los mineros de gas', fx: { creditos: 12000, fisico: 8, salud: -10 }, out: 'Se cobra el doble por buenas razones.' },
+        { t: 'Jugarte el sueldo al sabacc en el salón', r: [{ p: 0.45, t: 'Ganas.', fx: { creditos: 14000, carisma: 6 } }, { p: 0.55, t: 'Pierdes.', fx: { creditos: -6000 } }] }] },
+
+  { id: 'w_dag_cueva', mundo: ['Dagobah'], min: 12, max: 200, w: 12,
+    t: 'Hay una cueva bajo el árbol grande. No hay animales dentro. El aire pesa de otra manera.',
+    c: [{ t: 'Entrar', fx: { cordura: -10, intelecto: 12, fuerza: 6 }, out: 'Lo que hay dentro solo lo llevas tú. Sales sabiendo algo de ti que preferías no saber.' },
+        { t: 'Entrar armado', fx: { cordura: -16, fisico: 6 }, out: 'Sales con el arma en la mano y sin nadie a quien apuntar.' },
+        { t: 'No entrar', fx: { cordura: 6, intelecto: 4 }, out: 'Es la respuesta cómoda y a veces la correcta.' },
+        { t: 'Acampar fuera y esperar a ver qué sale', fx: { cordura: -6, intelecto: 8 }, out: 'No sale nada. Tres noches. Nada.' }] },
+
+  { id: 'w_geo_arena', mundo: ['Geonosis'], min: 14, max: 200, w: 12,
+    t: 'La colmena celebra ejecuciones en la arena. Se paga por asistir y se paga más por participar en la organización.',
+    c: [{ t: 'Trabajar en los fosos de bestias', fx: { creditos: 6000, fisico: 8, alineamiento: -10, salud: -8 }, out: 'Alimentas a un acklay durante dos años. Le pones nombre.' },
+        { t: 'Sabotear una ejecución', r: [{ p: 0.4, t: 'Escapan tres.', fx: { alineamiento: 22, reputacion: 12 }, buscado: 40 },
+           { p: 0.6, t: 'Te descubren y te bajan a la arena.', combate: { dif: 72, botin: 0 }, fx: { alineamiento: 16 } }] },
+        { t: 'Entrar en las fábricas de droides', fx: { creditos: 9000, intelecto: 10 }, habilidad: 'ingeniero', out: 'Cadena de montaje bajo tierra, dieciocho horas, sin ver el sol rojo.' },
+        { t: 'Irte de esta colmena', mover: 'cerca', motivo: 'porque aquí no hay vida propia', fx: { cordura: 6 } }] },
+
+  { id: 'w_iri_duelo', mundo: ['Iridonia'], min: 14, max: 200, w: 12,
+    t: 'En Iridonia una discusión se termina en la plataforma del cañón. No a muerte, pero sí hasta que uno lo reconoce.',
+    c: [{ t: 'Aceptar el duelo', combate: { dif: 52, botin: 3000 }, fx: { fisico: 8, reputacion: 8 } },
+        { t: 'Aceptar y perder a propósito', fx: { reputacion: -12, cordura: 10, carisma: 8, alineamiento: 8 }, out: 'Le dejas ganar. Los dos lo sabéis. Eso cambia algo.' },
+        { t: 'Negarte', fx: { reputacion: -18, cordura: -6 }, out: 'Aquí eso se paga en silencio durante años.' },
+        { t: 'Proponer resolverlo trabajando juntos', req: function (s) { return s.stats.carisma > 45; }, fx: { carisma: 14, reputacion: 10, alineamiento: 10 }, rel: { tipo: 'contacto', afecto: 45 } }] },
+
+  { id: 'w_sca_playa', mundo: ['Scarif'], min: 16, max: 200, w: 11,
+    t: 'Scarif es un archivo con playas. Te destinan a la torre de datos y las palmeras son lo único que no está clasificado.',
+    c: [{ t: 'Archivar sin leer', fx: { creditos: 9000, cordura: 6, intelecto: 4 } },
+        { t: 'Leer lo que archivas', fx: { intelecto: 16, cordura: -10 }, flag: 'vio_los_planos', out: 'Hay cosas ahí dentro que no deberías saber que existen.' },
+        { t: 'Copiar algo', r: [{ p: 0.4, t: 'Sales con la cinta.', fx: { alineamiento: 20, notoriedad: 14 }, buscado: 60, item: true },
+           { p: 0.6, t: 'El escudo se cierra antes de que llegues al puerto.', fx: { carcel: 6 }, buscado: 40 }] },
+        { t: 'Pedir el traslado', fx: { cordura: 8 }, mover: 'cerca', motivo: 'traslado solicitado' }] },
+
+  { id: 'w_bot_secreto', mundo: ['Bothawui'], min: 16, max: 200, w: 12,
+    t: 'La Spynet bothan compra lo que sepas. Y sabe lo que no le has contado.',
+    c: [{ t: 'Vender lo que sabes', fx: { creditos: 20000, notoriedad: 10, alineamiento: -6 }, out: 'Pagan bien y no vuelven a llamarte hasta que les hace falta.' },
+        { t: 'Entrar a trabajar para ellos', fx: { intelecto: 14, carisma: 10, creditos: 8000 }, habilidad: 'espía', faccion: 'bothan+25' },
+        { t: 'Comprar información en vez de venderla', coste: 12000, fx: { intelecto: 12 }, flag: 'sabe_un_secreto_gordo', out: 'Lo que compras vale mucho más de lo que pagas. Ese es el problema.' },
+        { t: 'No jugar a esto', volver: true }] },
+
+  { id: 'w_tra_trofeo', mundo: ['Trandosha'], min: 14, max: 200, w: 12,
+    t: 'En Trandosha se cuenta la vida en puntos de caza. Alguien te propone salir a por un wookiee escapado.',
+    c: [{ t: 'Ir', fx: { creditos: 14000, alineamiento: -25, notoriedad: 14, fisico: 6 }, out: 'Vuelves con puntos. Y con eso te quedas.' },
+        { t: 'Ir y dejarlo escapar', fx: { alineamiento: 22, reputacion: -14, cordura: 12 }, buscado: 20, rel: { tipo: 'contacto', afecto: 70 }, out: 'Nadie de aquí te lo perdona. Él sí.' },
+        { t: 'Negarte y cazar bestias en vez de gente', fx: { fisico: 10, destreza: 8, creditos: 6000, alineamiento: 6 }, habilidad: 'cazador' },
+        { t: 'Denunciar el mercado de esclavos', fx: { alineamiento: 24, reputacion: 12 }, buscado: 45, out: 'No sirve de nada esta vez. Sirve dentro de veinte años.' }] },
+
+  { id: 'w_rod_caza', mundo: ['Rodia'], min: 13, max: 200, w: 11,
+    t: 'En Rodia se es adulto cuando traes tu primera presa. Todo el clan mira.',
+    c: [{ t: 'Cazar en la jungla como se ha hecho siempre', fx: { destreza: 12, fisico: 8, reputacion: 10 }, habilidad: 'rastreador' },
+        { t: 'Comprar una presa y fingir', r: [{ p: 0.5, t: 'Cuela.', fx: { creditos: -3000, reputacion: 8, cordura: -8 } },
+           { p: 0.5, t: 'No cuela y el clan entero lo sabe.', fx: { reputacion: -22, cordura: -10 } }] },
+        { t: 'Cazar algo que no debías', fx: { reputacion: 14, alineamiento: -10, notoriedad: 8 }, out: 'Impresiona. También ofende.' },
+        { t: 'Decir que no quieres cazar nada', fx: { reputacion: -12, cordura: 10, alineamiento: 8 }, out: 'Tu familia tarda años en volver a hablarte del tema.' }] },
+
+  { id: 'w_sri_contrato', mundo: ['Sriluur'], min: 16, max: 200, w: 11,
+    t: 'Una compañía weequay recluta para un contrato en otro sistema. No dicen contra quién.',
+    c: [{ t: 'Firmar', fx: { creditos: 16000, fisico: 10, alineamiento: -8 }, guerra: true, habilidad: 'mercenario' },
+        { t: 'Firmar solo si te dicen contra quién', fx: { carisma: 10, creditos: 9000 }, out: 'Te lo dicen. Ahora tienes que decidir de verdad.', generar: 'dilema' },
+        { t: 'Quedarte a guardar caravanas aquí', fx: { creditos: 6000, destreza: 8, salud: -4 } },
+        { t: 'Meterte a sacerdote del templo del clan', fx: { carisma: 10, cordura: 12, intelecto: 6 }, out: 'Sorprende a todo el mundo, tú incluido.' }] },
+
+  { id: 'w_pan_asamblea', mundo: ['Pantora'], min: 15, max: 200, w: 11,
+    t: 'La Asamblea Pantorana discute quién manda de verdad en la luna de al lado. Se buscan voluntarios para la expedición.',
+    c: [{ t: 'Ir con la expedición', fx: { fisico: 8, intelecto: 8, creditos: 4000 }, mover: 'cerca', motivo: 'con la expedición de la Asamblea' },
+        { t: 'Meterte en política', fx: { carisma: 14, intelecto: 10, reputacion: 10 }, habilidad: 'orador', out: 'Descubres que se te da bien y que eso no es del todo bueno.' },
+        { t: 'Trabajar en los campos de hielo azul', fx: { creditos: 7000, fisico: 10, salud: -6 } },
+        { t: 'Decir en público que la luna no es vuestra', fx: { alineamiento: 18, reputacion: 8, carisma: 8 }, faccion: 'auto-15', out: 'Media Asamblea te odia. La otra media toma nota.' }] },
+
+  { id: 'w_ana_academia', mundo: ['Anaxes'], min: 16, max: 200, w: 12,
+    t: 'La Academia Naval de Anaxes. Simuladores dieciséis horas al día y una lista de promoción que todos miran.',
+    c: [{ t: 'Estudiar hasta reventar', fx: { intelecto: 16, destreza: 10, salud: -8, cordura: -6 }, habilidad: 'pilotaje', out: 'Sales el tercero de tu promoción.' },
+        { t: 'Hacer contactos en vez de notas', fx: { carisma: 16, reputacion: 10, intelecto: 4 }, rel: { tipo: 'contacto', afecto: 50 }, out: 'A largo plazo puede valer más. A corto te suspenden dos.' },
+        { t: 'Amañar un simulacro', r: [{ p: 0.45, t: 'Nadie lo detecta y subes veinte puestos.', fx: { intelecto: 8, reputacion: 12, alineamiento: -12 } },
+           { p: 0.55, t: 'Consejo de disciplina.', fx: { reputacion: -20, cordura: -8 }, out: 'Expulsado.' }] },
+        { t: 'Dejarlo', fx: { cordura: 8, reputacion: -10 }, out: 'No todo el mundo aguanta un uniforme.' }] },
+
+  { id: 'w_esh_escuela', mundo: ['Eshan'], min: 12, max: 200, w: 12,
+    t: 'En Eshan se conversa peleando. Un maestro te ofrece plaza en su patio.',
+    c: [{ t: 'Aceptar y quedarte años', fx: { destreza: 18, fisico: 12, cordura: 10 }, habilidad: 'esgrima', out: 'Aprendes a leer a alguien antes de que se mueva.' },
+        { t: 'Aceptar y marcharte al primer año', fx: { destreza: 8, fisico: 5, cordura: -6 } },
+        { t: 'Retar al maestro el primer día', combate: { dif: 78, botin: 0 }, fx: { reputacion: 10 }, out: 'Es una estupidez. También es muy de aquí.' },
+        { t: 'Rechazarlo', fx: { cordura: 4 } }] },
+
+  { id: 'w_roc_taller', mundo: ['Roche'], min: 14, max: 200, w: 11,
+    t: 'Los verpine de la colmena te dejan mirar cómo montan un arma de precisión. Nadie habla mientras trabajan.',
+    c: [{ t: 'Aprender el oficio', fx: { intelecto: 14, destreza: 14 }, habilidad: 'armero', out: 'Cuatro años. Sales sabiendo hacer cosas que casi nadie sabe hacer.' },
+        { t: 'Encargar un arma a medida', coste: 18000, fx: { destreza: 4 }, armeria: true, out: 'Tardan ocho meses. Vale cada crédito.' },
+        { t: 'Copiar el diseño y venderlo fuera', fx: { creditos: 30000, alineamiento: -16, reputacion: -14 }, buscado: 15, out: 'La colmena no persigue a nadie. Simplemente deja de venderte.' },
+        { t: 'Trabajar de portero de la colmena', fx: { creditos: 5000, fisico: 6 } }] },
+
+  { id: 'w_hon_deuda', mundo: ['Honoghr'], min: 14, max: 200, w: 12,
+    t: 'Te explican por qué el suelo de Honoghr está muerto y a quién le debe el planeta entero su supervivencia.',
+    c: [{ t: 'Aceptar la deuda como todos', fx: { cordura: 6, alineamiento: -4, fisico: 6 }, faccion: 'imperio+20', out: 'Sirves. Es lo que se hace aquí.' },
+        { t: 'Ir a mirar los campos por tu cuenta', fx: { intelecto: 14, cordura: -12 }, flag: 'duda_de_la_deuda', out: 'Los números no cuadran. Nadie más los ha mirado.' },
+        { t: 'Decirlo en voz alta', fx: { alineamiento: 18, reputacion: 10 }, buscado: 45, out: 'Los ancianos te mandan callar. Uno de ellos te busca esa noche.' },
+        { t: 'Irte de Honoghr y no volver', mover: 'cerca', motivo: 'para no deber nada a nadie', fx: { cordura: 8 } }] },
+
+  { id: 'w_gam_clan', mundo: ['Gamorr'], min: 13, max: 200, w: 11,
+    t: 'Empieza la temporada de guerra de clanes. Las matriarcas ya han decidido; los machos solo van.',
+    c: [{ t: 'Ir a la guerra ritual', fx: { fisico: 14, salud: -14, reputacion: 12 }, herida: { n: 'hachazo', sev: 12 }, out: 'Vuelves. Muchos vuelven. Algunos no.' },
+        { t: 'Contratarte de guardaespaldas fuera', fx: { creditos: 12000, fisico: 8 }, mover: 'cerca', motivo: 'contratado como guardaespaldas' },
+        { t: 'Ponerte del lado de las matriarcas y organizar', fx: { intelecto: 10, carisma: 12, reputacion: 14 }, out: 'En Gamorr eso es más raro y más poderoso que un hacha.' },
+        { t: 'No ir', fx: { reputacion: -16, cordura: 6 } }] },
+
+  { id: 'w_cha_oratoria', mundo: ['Champala'], min: 14, max: 200, w: 11,
+    t: 'En Champala las decisiones se toman hablando delante de todo el mundo. Hoy hay un debate y falta quien defienda una postura.',
+    c: [{ t: 'Defender lo que crees', fx: { carisma: 16, intelecto: 10, reputacion: 12 }, habilidad: 'orador' },
+        { t: 'Defender la postura que nadie quiere', fx: { carisma: 20, intelecto: 12, reputacion: 6 }, out: 'Pierdes el debate y ganas fama de valiente.' },
+        { t: 'Aprender de los maestros antes de hablar', fx: { intelecto: 14, carisma: 8 } },
+        { t: 'Callarte', fx: { cordura: 4 } }] },
+
+  { id: 'w_fal_corte', mundo: ['Falleen'], min: 16, max: 200, w: 11,
+    t: 'La Casa falleen te invita a una recepción. Todo el mundo huele demasiado bien y sonríe demasiado.',
+    c: [{ t: 'Jugar el juego', fx: { carisma: 16, creditos: 14000, alineamiento: -8 }, rel: { tipo: 'contacto', afecto: 45 }, out: 'Aprendes a leer una sala en tres minutos.' },
+        { t: 'Marcharte a media velada', fx: { cordura: 8, reputacion: -8 } },
+        { t: 'Averiguar qué se decide de verdad en esa sala', req: function (s) { return s.stats.intelecto > 45; }, fx: { intelecto: 14, notoriedad: 8 }, flag: 'sabe_de_la_casa', out: 'Detrás de la Casa está el Sol Negro. Ya no puedes no saberlo.' },
+        { t: 'Enamorarte de alguien de la Casa', fx: { cordura: 12, carisma: 8 }, nuevaRel: true, out: 'Mala idea con muy buena prensa.' }] },
+
+  { id: 'w_uve_rastro', mundo: ['Uvena Prime'], min: 12, max: 200, w: 11,
+    t: 'Bajo las dos lunas, un rastreador shistavanen te propone enseñarte a seguir un rastro de tres días.',
+    c: [{ t: 'Aprender', fx: { destreza: 14, intelecto: 10, fisico: 8 }, habilidad: 'rastreador', out: 'Después de esto, cualquier bosque de la galaxia te parece fácil.' },
+        { t: 'Aprender y usarlo para cazar gente', fx: { destreza: 12, creditos: 14000, alineamiento: -16, notoriedad: 12 }, habilidad: 'cazarrecompensas' },
+        { t: 'Preferir quedarte en la aldea', fx: { cordura: 8, carisma: 6 } }] },
+
+  { id: 'w_om2_feria', mundo: ['Ord Mantell II'], min: 10, max: 200, w: 11,
+    t: 'La feria flotante lleva tres generaciones sobre el mar. Aquí se gana dinero de nueve maneras y ocho son mentira.',
+    c: [{ t: 'Montar tu propio puesto', fx: { creditos: 6000, carisma: 12, destreza: 6 }, habilidad: 'feriante' },
+        { t: 'Trabajar en el truco de otro', fx: { creditos: 3500, carisma: 8, alineamiento: -6 } },
+        { t: 'Desmontar el truco delante de todos', fx: { reputacion: 10, carisma: 8, alineamiento: 10 }, out: 'El feriante te odia. La gente te invita a beber.' },
+        { t: 'Aprender a pilotar los flotadores', fx: { destreza: 12, intelecto: 8, creditos: 4000 }, habilidad: 'pilotaje' }] },
+
+  { id: 'w_tar_niveles', mundo: ['Taris'], min: 12, max: 200, w: 12,
+    t: 'En Taris se vive por niveles. Abajo hay rakghouls y arriba hay bandas, y nadie baja por gusto.',
+    c: [{ t: 'Bajar a buscar lo que dejó el bombardeo', r: [{ p: 0.45, t: 'Subes con algo que vale una fortuna.', fx: { creditos: 26000, destreza: 8 }, item: true },
+           { p: 0.35, t: 'Subes con las manos vacías y con miedo.', fx: { cordura: -10, destreza: 6 } },
+           { p: 0.2, t: 'Te alcanza uno.', fx: { salud: -30 }, herida: { n: 'zarpazo infectado', sev: 20, cronica: true } }] },
+        { t: 'Quedarte arriba con una banda', fx: { creditos: 6000, notoriedad: 12, alineamiento: -10 } },
+        { t: 'Montar una clínica en la Ciudad Baja', fx: { creditos: -8000, alineamiento: 22, reputacion: 20 }, habilidad: 'medicina' },
+        { t: 'Buscar una nave que te saque de Taris', fx: { creditos: -5000 }, mover: 'cerca', motivo: 'porque aquí no hay futuro' }] },
+
+  { id: 'w_nak_refineria', mundo: ['Nal Kesh'], min: 14, max: 200, w: 11,
+    t: 'En la refinería de Nal Kesh el turno son catorce horas y el vapor te come los pulmones. Se cobra por turno cumplido.',
+    c: [{ t: 'Cumplir los turnos', fx: { creditos: 7000, fisico: 6, salud: -14 }, out: 'Cinco años de esto y ya toses distinto.' },
+        { t: 'Organizar a los que están igual', fx: { carisma: 14, reputacion: 16, alineamiento: 14 }, buscado: 25, out: 'El capataz te señala en la lista. Aun así sales adelante.' },
+        { t: 'Escapar al pantano', r: [{ p: 0.55, t: 'Nadie te busca demasiado.', fx: { cordura: 10, fisico: 8 }, mover: 'cerca', motivo: 'escapando de la deuda' },
+           { p: 0.45, t: 'Te encuentran.', fx: { salud: -18, creditos: -4000 }, herida: { n: 'escarmiento', sev: 14 } }] },
+        { t: 'Hacerte capataz tú', fx: { creditos: 14000, alineamiento: -18, reputacion: -14 }, out: 'Se cobra mejor desde este lado. Duele más de lo que esperabas.' }] },
+
+  { id: 'w_ris_escucha', mundo: ['Rishi'], min: 16, max: 200, w: 10,
+    t: 'El puesto de escucha de Rishi: cuatro personas, una roca y todas las señales del sector pasando por tus manos.',
+    c: [{ t: 'Cumplir el destino sin más', fx: { creditos: 5000, cordura: -8, intelecto: 6 }, out: 'Dos años mirando una pantalla y el mar.' },
+        { t: 'Escuchar lo que no te toca', fx: { intelecto: 14, notoriedad: 6 }, flag: 'oyó_algo_en_rishi', out: 'Hay tráfico cifrado que no aparece en ningún registro oficial.' },
+        { t: 'Salir a pescar anguilas con los locales', fx: { fisico: 8, cordura: 12, carisma: 6 } },
+        { t: 'Pedir el traslado', fx: { cordura: 6 }, mover: 'cerca', motivo: 'traslado desde el puesto' }] },
+
+  { id: 'w_fes_esporas', mundo: ['Felucia Sur'], min: 13, max: 200, w: 11,
+    t: 'Las esporas rojas del sur te hablan si respiras el tiempo suficiente. Los chamanes dicen que hay que saber escuchar.',
+    c: [{ t: 'Respirarlas con un chamán al lado', fx: { intelecto: 12, cordura: 8, fuerza: 4 }, out: 'Ves cosas. Algunas resultan ser verdad, años después.' },
+        { t: 'Respirarlas solo', r: [{ p: 0.5, t: 'Vuelves con una idea que cambia lo que haces.', fx: { intelecto: 16, cordura: -6 } },
+           { p: 0.5, t: 'Pierdes tres días y parte de algo más.', fx: { cordura: -20, salud: -10 } }] },
+        { t: 'Recolectarlas y venderlas fuera', fx: { creditos: 22000, alineamiento: -12, notoriedad: 10 }, buscado: 15 },
+        { t: 'No tocarlas', fx: { cordura: 5 } }] },
+
+  { id: 'w_chal_cantina', mundo: ['Chalmun'], min: 14, max: 200, w: 12,
+    t: 'La cantina es del tamaño de un pueblo. En la barra hay contratos, en el reservado hay problemas y en el escenario hay una banda bith.',
+    c: [{ t: 'Coger un contrato de la barra', fx: { creditos: 9000, notoriedad: 8 }, generar: 'accion' },
+        { t: 'Ponerte a servir copas y escuchar', fx: { creditos: 3000, intelecto: 12, carisma: 10 }, flag: 'oreja_en_la_barra', out: 'Aquí se entera uno de todo antes que en ningún otro sitio del Borde.' },
+        { t: 'Meterte en la pelea del fondo', combate: { dif: 45, botin: 2000 }, fx: { fisico: 6 } },
+        { t: 'Quedarte a escuchar a la banda', fx: { cordura: 12, carisma: 6 } }] },
+
+  { id: 'w_cra_sal', mundo: ['Crait'], min: 12, max: 200, w: 10,
+    t: 'La costra blanca de Crait se rompe bajo tus pies y debajo hay sal roja. Los vulptex de cristal te miran desde la mina vieja.',
+    c: [{ t: 'Meterte en la mina abandonada', r: [{ p: 0.55, t: 'Encuentras material que alguien dejó con prisa.', fx: { creditos: 12000 }, item: true },
+           { p: 0.45, t: 'Se hunde un tramo detrás de ti.', fx: { salud: -18 }, herida: { n: 'aplastamiento', sev: 14 } }] },
+        { t: 'Llevarte un vulptex', fx: { cordura: 12, creditos: -1000 }, mascota: true },
+        { t: 'Sacar sal y venderla', fx: { creditos: 5000, fisico: 6, salud: -5 } },
+        { t: 'Quedarte a mirar el rastro rojo hasta el horizonte', fx: { cordura: 14 } }] },
+
+  { id: 'w_ajk_base', mundo: ['Ajan Kloss'], min: 15, max: 200, w: 10,
+    t: 'Bajo las lianas de Ajan Kloss hay una base que oficialmente no existe. Buscan manos y no preguntan por tu pasado.',
+    c: [{ t: 'Quedarte a trabajar', fx: { creditos: 2000, destreza: 10, intelecto: 8, alineamiento: 12 }, faccion: 'rebelion+25', habilidad: 'mecánico' },
+        { t: 'Entrenar con ellos', fx: { fisico: 12, destreza: 10, cordura: 8 } },
+        { t: 'Vender la ubicación', fx: { creditos: 40000, alineamiento: -30, notoriedad: 20 }, buscado: 50, out: 'Cobras. No vuelves a dormir bien.' },
+        { t: 'Irte y no decir nada', fx: { alineamiento: 6, cordura: 4 }, mover: 'cerca', motivo: 'sin decir dónde has estado' }] },
+
+  { id: 'w_pas_festival', mundo: ['Pasaana'], min: 8, max: 200, w: 11,
+    t: 'El Festival de los Ancestros solo se celebra cada cuarenta y dos años. Está pasando ahora y te ha tocado vivirlo.',
+    c: [{ t: 'Vivirlo entero', fx: { cordura: 20, carisma: 10, salud: 4 }, out: 'Hay quien no lo ve nunca y quien lo ve una vez.' },
+        { t: 'Aprender a tejer con los aki-aki', fx: { destreza: 12, carisma: 8, cordura: 10 }, habilidad: 'artesano' },
+        { t: 'Aprovechar el gentío para lo tuyo', fx: { creditos: 14000, alineamiento: -10, notoriedad: 8 } },
+        { t: 'Cruzar el mar de arenas movedizas', r: [{ p: 0.5, t: 'Llegas al otro lado y encuentras las cuevas.', fx: { intelecto: 10, cordura: 10 }, item: true },
+           { p: 0.5, t: 'La arena tira de ti y alguien te saca a tiempo.', fx: { salud: -16, cordura: -8 } }] }] },
+
+  { id: 'w_nei_nidada', mundo: ['Neimoidia'], min: 12, max: 200, w: 11,
+    t: 'En Neimoidia los críos se crían solos en los criaderos hasta los siete años. Los que salen, salen con hambre de por vida.',
+    c: [{ t: 'Sobrevivir al criadero acumulando', fx: { intelecto: 10, creditos: 3000, alineamiento: -8, cordura: -8 }, flag: 'criado_en_nidada' },
+        { t: 'Sobrevivir haciendo alianzas', fx: { carisma: 14, intelecto: 8 }, rel: { tipo: 'contacto', afecto: 55 } },
+        { t: 'Entrar a trabajar en la Federación de Comercio', fx: { creditos: 12000, intelecto: 10, alineamiento: -6 }, faccion: 'federacion+20' },
+        { t: 'Renegar de todo esto', fx: { alineamiento: 14, cordura: 10, reputacion: -10 }, mover: 'cerca', motivo: 'para no ser un neimoidiano más' }] },
+
+  { id: 'w_cla_musica', mundo: ['Clak\'dor VII'], min: 12, max: 200, w: 11,
+    t: 'En Clak\'dor VII dos ciudades-cúpula se hicieron la guerra por una discusión musical. La atmósfera de fuera sigue sin poder respirarse.',
+    c: [{ t: 'Entrar en una banda', fx: { carisma: 14, destreza: 10, cordura: 12 }, habilidad: 'música', out: 'De aquí salen las mejores bandas del Borde y no es casualidad.' },
+        { t: 'Estudiar química de precisión', fx: { intelecto: 16 }, habilidad: 'químico' },
+        { t: 'Salir fuera de la cúpula con filtro', fx: { cordura: 10, salud: -8, intelecto: 6 }, out: 'Ves lo que hicieron. No se te olvida.' },
+        { t: 'Montar el negocio de los filtros', fx: { creditos: 18000, intelecto: 8 } }] },
+
+  { id: 'w_kub_datos', mundo: ['Kubindi'], min: 14, max: 200, w: 10,
+    t: 'Los kubaz no venden insectos: venden lo que han visto. En Kubindi el mercado de datos es más grande que el de comida.',
+    c: [{ t: 'Aprender a informar', fx: { intelecto: 14, carisma: 8, creditos: 7000 }, habilidad: 'informador' },
+        { t: 'Comprar un informe sobre alguien', coste: 9000, fx: { intelecto: 8, notoriedad: 4 }, flag: 'tiene_un_informe' },
+        { t: 'Trabajar en los criaderos', fx: { creditos: 4000, destreza: 6 } },
+        { t: 'Probar la cocina local en serio', fx: { salud: 6, cordura: 8, carisma: 4 }, out: 'Cien preparaciones distintas y todas de bicho. Está buenísimo.' }] },
+
+  { id: 'w_ort_musica', mundo: ['Orto'], min: 8, max: 200, w: 10,
+    t: 'En Orto todo suena a algo: los tejados con la lluvia, la torre con el viento, la gente al trabajar.',
+    c: [{ t: 'Aprender un instrumento del gremio', fx: { destreza: 12, carisma: 12, cordura: 12 }, habilidad: 'música' },
+        { t: 'Hacerte luthier', fx: { destreza: 14, intelecto: 10, creditos: 6000 }, habilidad: 'artesano' },
+        { t: 'Salir de Orto a tocar por la galaxia', fx: { carisma: 14, creditos: 9000 }, mover: 'cerca', motivo: 'de gira' },
+        { t: 'Quedarte a escuchar y ya', fx: { cordura: 12 } }] },
+
+  { id: 'w_yuz_bosque', mundo: ['Yuzzem'], min: 10, max: 200, w: 10,
+    t: 'En el bosque colosal de Yuzzem nadie levanta la voz dos veces. Una compañía maderera acaba de hacerlo.',
+    c: [{ t: 'Ponerte del lado del bosque', fx: { alineamiento: 18, reputacion: 14, fisico: 8 }, buscado: 15 },
+        { t: 'Trabajar para la compañía', fx: { creditos: 12000, fisico: 10, alineamiento: -12, reputacion: -14 } },
+        { t: 'Mediar', req: function (s) { return s.stats.carisma > 45; }, fx: { carisma: 16, reputacion: 12, creditos: 6000, alineamiento: 8 } },
+        { t: 'Aprender a moverte por las copas', fx: { destreza: 14, fisico: 8 }, habilidad: 'trepador' }] },
+
+  { id: 'w_dev_matriarcas', mundo: ['Devaron'], min: 12, max: 200, w: 11,
+    t: 'En Devaron los hombres se van al espacio y las mujeres gobiernan los valles. Te toca decidir de qué lado de eso estás.',
+    c: [{ t: 'Irte al espacio como se espera', fx: { intelecto: 8, cordura: 6, creditos: 3000 }, mover: 'cerca', motivo: 'como todos los hombres de Devaron' },
+        { t: 'Quedarte y trabajar las terrazas', fx: { fisico: 10, reputacion: 8, cordura: 8, creditos: 4000 } },
+        { t: 'Entrar en el consejo del valle', req: function (s) { return s.stats.carisma > 45; }, fx: { carisma: 14, reputacion: 16, intelecto: 8 }, out: 'Cuesta. Se puede.' },
+        { t: 'Hacerte guardián del templo excavado', fx: { cordura: 14, intelecto: 10, fuerza: 4 } }] }
+
+  ]);
+
   for (let i = 0; i < SW.EVENTOS_MUNDO.length; i++) SW.EVENTOS.push(SW.EVENTOS_MUNDO[i]);
 
 })(window);
@@ -6261,7 +6523,7 @@ body.en-juego::before {
     { id: 'ac_menu', min: 12, max: 200, w: 12, t: 'Hay maneras de buscarse problemas a propósito.', c: [{ t: 'Buscar acción', accionMenu: true, out: '' }] },
     {
       id: 'ac_arena', min: 14, max: 200, w: 8, slots: { p: 'mundo', c: 'criatura' },
-      t: 'La arena de {p} ofrece 12.000 créditos por tres asaltos contra un {c}.',
+      t: 'La arena de {p} ofrece 12.000 créditos por tres asaltos contra {c}.',
       c: [
         { t: 'Aceptar el combate', combate: { dif: 60, botin: 12000, bestia: true }, out: '' },
         { t: 'Aceptar y amañarlo', fx: { creditos: 6000, alineamiento: -8, notoriedad: 6 }, out: 'Pierdes de forma convincente. Cobras por los dos lados.' },
@@ -7080,7 +7342,7 @@ body.en-juego::before {
                { p: 0.45, t: 'Bajas a la mitad y te dejas algo arriba.', fx: { alineamiento: 18, salud: -24, cordura: -10 }, herida: { n: 'congelación en dos dedos', sev: 12 } }] },
           { t: 'Organizar el rescate desde abajo', fx: { intelecto: 12, carisma: 10, alineamiento: 12 }, out: 'Coordinas a seis equipos. Salen todos.' },
           { t: 'No es tu problema', fx: { cordura: -8 }, out: 'Se habla de ello en el pueblo durante años.' }] },
-    { id: 'a3_prueba_valor', min: 14, max: 200, w: 7, slots: { c: 'criatura' }, t: 'Un reto local: pasar la noche donde duerme un {c}.',
+    { id: 'a3_prueba_valor', min: 14, max: 200, w: 7, slots: { c: 'criatura' }, t: 'Un reto local: pasar la noche donde duerme {c}.',
       c: [{ t: 'Aceptar', r: [{ p: 0.6, t: 'Aguantas. Al amanecer sales entero.', fx: { fisico: 8, reputacion: 12, cordura: 8 } },
                { p: 0.4, t: 'No aguantas ni dos horas.', fx: { reputacion: -8, cordura: -6, destreza: 5 } }] },
           { t: 'Aceptar y hacer trampas', fx: { intelecto: 10, reputacion: 8, alineamiento: -6 }, out: 'Duermes en una cornisa. Nadie lo comprueba.' },
@@ -7601,7 +7863,7 @@ body.en-juego::before {
   /* ================= ERA PERDIDA ================= */
   {
     id: 'ep_deriva', min: 10, max: 200, w: 14, era: ['era_perdida'], slots: { p: 'mundo', c: 'criatura' },
-    t: 'Las cartas de navegación no coinciden con el cielo. En {p} nadie sabe qué año es y hay un {c} adorado como dios local.',
+    t: 'Las cartas de navegación no coinciden con el cielo. En {p} nadie sabe qué año es y hay {c} adorado como dios local.',
     c: [
       { t: 'Aceptar el sinsentido y vivir aquí', fx: { cordura: 14, suerte: 10, intelecto: -4 }, out: 'Es más fácil que discutir con el cielo.' },
       { t: 'Intentar reconstruir el calendario', fx: { intelecto: 18, cordura: -10 }, flag: 'calendario', out: 'Llegas a tres fechas posibles. Ninguna cuadra con la anterior.' },
@@ -7945,6 +8207,9 @@ body.en-juego::before {
 
   /* ---------------- Estado ---------------- */
   function nuevoEstado(cfg, rng) {
+    // sin mundo elegido, se nace donde nace la gente de tu especie
+    const hogar = cfg.mundo || (cfg.especie && cfg.especie.home && cfg.especie.home.length
+      ? rng.pick(cfg.especie.home) : 'Coruscant');
     const esp = cfg.especie;
     const era = cfg.era;
     const s = {
@@ -7959,11 +8224,11 @@ body.en-juego::before {
       vidaEspecie: esp.vida,
       era: era.id,
       eraN: era.n,
-      mundo: cfg.mundo,
-      mundoNatal: cfg.mundo,
+      mundo: hogar,
+      mundoNatal: hogar,
       rasgo: cfg.rasgo.id,
       rasgoN: cfg.rasgo.n,
-      apariencia: cfg.apariencia,
+      apariencia: Object.assign({ especie: esp.id }, cfg.apariencia || {}),
       edad: 0,
       edadBio: 0,
       muerto: false,
@@ -7992,7 +8257,7 @@ body.en-juego::before {
       faccionRep: {},
       bando: null,
       contadores: { mundosVisitados: 1, cazas: 0, derribos: 0, rutas: 0, duelos: 0, crimenes: 0, años: 0, batallas: 0 },
-      mundosVistos: [cfg.mundo],
+      mundosVistos: [hogar],
       trabajo: null, rango: null, sueldo: 0, rendimiento: 50, añosEnTrabajo: 0,
       nave: null, naveNombre: null, naveEstado: 100,
       sable: null, kyber: null, forma: null,
@@ -8097,7 +8362,9 @@ body.en-juego::before {
         case 'mundoCerca': slots[k] = this.mundoCercano(); break;
         case 'mundoAqui': slots[k] = this.s.mundo; break;
         case 'mundoNatal': slots[k] = this.s.mundoNatal; break;
-        case 'criatura': slots[k] = rng.pick(SW.CRIATURAS); break;
+        // un sarlacc en un mundo de lagos no pega: la fauna es la de aquí
+        case 'criatura': { const d = this.dosier(); slots[k] = d.criCorto && d.criCorto.length ? rng.pick(d.criCorto) : rng.pick(SW.CRIATURAS); break; }
+        case 'criaturaGalaxia': slots[k] = rng.pick(SW.CRIATURAS); break;
         case 'lugar': slots[k] = rng.pick(SW.lugaresDe ? SW.lugaresDe(this.s.mundo) : SW.LUGARES); break;
         case 'lugarLejos': { const m = rng.pick(SW.MUNDO_NOMBRES); slots[k] = rng.pick(SW.lugaresDe(m)) + ' de ' + m; break; }
         case 'oficio': slots[k] = rng.pick(SW.oficiosDe ? SW.oficiosDe(this.s.mundo) : ['mecánico']); break;
@@ -8106,10 +8373,29 @@ body.en-juego::before {
         case 'faccion': { const f = rng.pick(SW.faccionesDeEra(this.s.era)); slots[k] = f.n; slots['_faccion'] = f.id; break; }
         case 'rumor': slots[k] = rng.pick(SW.RUMORES); break;
         case 'nave': slots[k] = rng.pick(SW.NAVES).n; break;
+        /* ---- dosier del mundo en el que estás ahora mismo ---- */
+        case 'bicho': slots[k] = rng.pick(this.dosier().cri); break;
+        case 'peligro': slots[k] = rng.pick(this.dosier().pel); break;
+        case 'banda': slots[k] = rng.pick(this.dosier().fac); break;
+        case 'hito': slots[k] = rng.pick(this.dosier().hit); break;
+        case 'mercancia': slots[k] = rng.pick(this.dosier().bie); break;
+        case 'mandamas': slots[k] = this.dosier().aut; break;
+        case 'tiempo': slots[k] = rng.pick(this.dosier().cli); break;
+        case 'comida': slots[k] = rng.pick(this.dosier().com); break;
+        case 'paisanos': slots[k] = rng.pick(this.dosier().gen); break;
         default: slots[k] = def[k];
       }
     }
     return slots;
+  };
+
+  /** el dosier del mundo donde estás, cacheado mientras no te muevas */
+  Game.prototype.dosier = function () {
+    if (!this._dos || this._dosMundo !== this.s.mundo) {
+      this._dosMundo = this.s.mundo;
+      this._dos = SW.dosierDe ? SW.dosierDe(this.s.mundo) : { cri: ['un animal'], pel: ['un peligro'], fac: ['una banda'], hit: ['un sitio'], bie: ['mercancía'], aut: 'quien mande', cli: ['mal tiempo'], com: ['comida'], gen: ['gente'] };
+    }
+    return this._dos;
   };
 
   /** un mundo de la misma región: los viajes cortos tienen sentido */
@@ -9017,7 +9303,10 @@ body.en-juego::before {
   /* ---------------- Movimiento ---------------- */
   Game.prototype.mover = function (destino, motivo) {
     const s = this.s, rng = this.rng;
-    const d = destino || rng.pick(SW.MUNDO_NOMBRES.filter(function (m) { return m !== s.mundo; }));
+    // a Exegol o a Dagobah no se muda uno por casualidad: hay que ir a propósito
+    const d = destino || (SW.mundoAleatorioNormal
+      ? SW.mundoAleatorioNormal(rng, s.mundo)
+      : rng.pick(SW.MUNDO_NOMBRES.filter(function (m) { return m !== s.mundo; })));
     if (d === s.mundo) { this.log('Te quedas en ' + s.mundo + '.', 'viaje'); return; }
     const m = SW.mundo(d);
     const anterior = s.mundo;
@@ -9857,8 +10146,18 @@ body.en-juego::before {
   const SW = (global.SW = global.SW || {});
   const U = SW.U;
 
-  /* ---------------- RETRATO SVG ---------------- */
-  SW.retrato = function (ap, tam) {
+  /* ---------------- RETRATO ----------------
+     El de verdad lo dibuja pixelart-retrato.js en 64×64. Esto de
+     abajo es el SVG viejo, que queda como red de seguridad si el
+     navegador no deja usar canvas. */
+  SW.retrato = function (ap, tam, especie) {
+    if (SW.retratoPixel) {
+      try { return SW.retratoPixel(ap, tam, especie || (ap && ap.especie)); } catch (e) { /* al SVG */ }
+    }
+    return SW.retratoSVG(ap, tam);
+  };
+
+  SW.retratoSVG = function (ap, tam) {
     const t = tam || 160;
     const piel = ap.piel, ojos = ap.ojos, pelo = ap.pelo;
     const cabeza = ap.forma || 0;
@@ -9950,6 +10249,7 @@ body.en-juego::before {
       sa: s.sable ? [s.sable.color, s.sable.forma] : null,
       na: s.nave ? (s.naveNombre ? '"' + s.naveNombre + '" (' + s.nave.n + ')' : s.nave.n) : null,
       ap: s.apariencia,
+      esp: s.especie,
       ct: s.contadores,
       ra: s.rasgoN,
       sem: s.semilla
@@ -10013,7 +10313,7 @@ body.en-juego::before {
     if (d.se !== false) stats.push(['✦ La Fuerza', st[1]]);
     let h = '<div class="card-vida">';
     h += '<div class="cv-head">';
-    h += '<div class="cv-retrato">' + SW.retrato(d.ap, 130) + '</div>';
+    h += '<div class="cv-retrato">' + SW.retrato(d.ap, 130, d.esp) + '</div>';
     h += '<div class="cv-id"><h2>' + U.esc(d.n) + '</h2>';
     h += '<p class="cv-sub">' + U.esc(d.e) + ' · ' + U.esc(d.ra || '') + '</p>';
     h += '<p class="cv-sub">' + U.esc(d.er) + ' · nacid@ en ' + U.esc(d.m) + '</p>';
@@ -10309,7 +10609,7 @@ body.en-juego::before {
     h += '<div class="crear-grid">';
 
     h += '<div class="col-retrato">';
-    h += '<div class="holo-marco">' + SW.retrato(c.apariencia, 190) + '</div>';
+    h += '<div class="holo-marco">' + SW.retrato(c.apariencia, 190, c.especie) + '</div>';
     h += '<button class="btn mini bloque" data-a="rand-cara">⟳ generar aspecto</button>';
     h += '<div class="ap-controles">';
 
@@ -10588,7 +10888,7 @@ body.en-juego::before {
   };
 
   UI.htmlPanel = function (s) {
-    let h = '<div class="holo-mini">' + SW.retrato(s.apariencia, 116) + '</div>';
+    let h = '<div class="holo-mini">' + SW.retrato(s.apariencia, 116, s.especie) + '</div>';
 
     h += '<div class="stats">';
     [['salud', 'Salud'], ['fisico', 'Físico'], ['destreza', 'Destreza'], ['intelecto', 'Intelecto'],

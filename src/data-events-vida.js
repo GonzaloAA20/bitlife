@@ -26,7 +26,7 @@
   },
   {
     id: 'inf_juguete', min: 2, max: 5, w: 9, slots: { o: 'objeto', c: 'criatura' },
-    t: 'Tu juguete favorito es un {c} de trapo con un ojo de menos.',
+    t: 'Tu juguete favorito es {c} de trapo con un ojo de menos.',
     c: [
       { t: 'Dormir abrazado a él cada noche', fx: { cordura: 6, destreza: -2 }, out: 'Te dura años. Aún lo tienes en algún cajón.' },
       { t: 'Desmontarlo para ver qué hay dentro', fx: { intelecto: 7, cordura: -3 }, out: 'Serrín. Y una decepción temprana con el universo.' },
@@ -78,7 +78,7 @@
   },
   {
     id: 'inf_mascota', min: 3, max: 8, w: 8, slots: { c: 'criatura' },
-    t: 'Encuentras un {c} bebé herido detrás de casa.',
+    t: 'Encuentras {c} recién nacido y herido detrás de casa.',
     c: [
       { t: 'Curarlo y quedártelo', fx: { cordura: 8, creditos: -200 }, mascota: true, out: 'Te sigue a todas partes. Le pones un nombre ridículo.' },
       { t: 'Venderlo en el mercado', fx: { creditos: 600, alineamiento: -6 }, out: 'Pagan bien. No duermes bien.' },
@@ -146,7 +146,7 @@
   {
     id: 'nin_sueño', min: 6, max: 16, w: 6, req: function (s) { return s.stats.fuerza > 15; },
     slots: { p: 'mundo', c: 'criatura' },
-    t: 'Sueñas con {p}, un planeta que nunca has visto, y con un {c} enorme que dice tu nombre.',
+    t: 'Sueñas con {p}, un planeta que nunca has visto, y con {c} enorme que dice tu nombre.',
     c: [
       { t: 'Anotarlo todo en un datapad', fx: { intelecto: 6, fuerza: 8 }, flag: 'diario_visiones', out: 'El cuaderno crecerá durante décadas.' },
       { t: 'Contárselo a alguien', r: [
@@ -426,7 +426,7 @@
   },
   {
     id: 'adu_bestia', min: 14, max: 80, w: 7, slots: { c: 'criatura', p: 'mundo' },
-    t: 'Un {c} adulto bloquea el único paso hacia el asentamiento en {p}.',
+    t: '{C} adulto bloquea el único paso hacia el asentamiento en {p}.',
     c: [
       { t: 'Enfrentarlo', combate: { dif: 55, bestia: true }, out: '' },
       { t: 'Rodearlo por el desfiladero (dos días más)', fx: { salud: -6, cordura: -3, intelecto: 4 }, out: 'Llegas tarde y entero. Suele ser buen trato.' },
@@ -704,7 +704,7 @@
   {
     id: 'com_despertar', min: 9, max: 60, w: 3, req: function (s) { return !s.sensible && s.especie !== 'droide'; },
     slots: { l: 'lugar', c: 'criatura' },
-    t: 'En {l}, un {c} se abalanza sobre ti. Levantas la mano por instinto y el animal se detiene en el aire.',
+    t: 'En {l}, {c} se abalanza sobre ti. Levantas la mano por instinto y el animal se detiene en el aire.',
     c: [
       { t: 'Mirarte la mano en silencio', despertar: true, fx: { cordura: -6, intelecto: 4 }, out: 'Tardarás años en atreverte a repetirlo.' },
       { t: 'Probar otra vez, ahora mismo', despertar: true, fx: { fuerza: 8, salud: -6 }, out: 'Funciona. Te sangra la nariz, pero funciona.' },

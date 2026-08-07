@@ -462,7 +462,7 @@
     { id: 'ac_menu', min: 12, max: 200, w: 12, t: 'Hay maneras de buscarse problemas a propósito.', c: [{ t: 'Buscar acción', accionMenu: true, out: '' }] },
     {
       id: 'ac_arena', min: 14, max: 200, w: 8, slots: { p: 'mundo', c: 'criatura' },
-      t: 'La arena de {p} ofrece 12.000 créditos por tres asaltos contra un {c}.',
+      t: 'La arena de {p} ofrece 12.000 créditos por tres asaltos contra {c}.',
       c: [
         { t: 'Aceptar el combate', combate: { dif: 60, botin: 12000, bestia: true }, out: '' },
         { t: 'Aceptar y amañarlo', fx: { creditos: 6000, alineamiento: -8, notoriedad: 6 }, out: 'Pierdes de forma convincente. Cobras por los dos lados.' },

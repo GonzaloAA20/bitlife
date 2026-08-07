@@ -140,7 +140,7 @@
                { p: 0.45, t: 'Bajas a la mitad y te dejas algo arriba.', fx: { alineamiento: 18, salud: -24, cordura: -10 }, herida: { n: 'congelación en dos dedos', sev: 12 } }] },
           { t: 'Organizar el rescate desde abajo', fx: { intelecto: 12, carisma: 10, alineamiento: 12 }, out: 'Coordinas a seis equipos. Salen todos.' },
           { t: 'No es tu problema', fx: { cordura: -8 }, out: 'Se habla de ello en el pueblo durante años.' }] },
-    { id: 'a3_prueba_valor', min: 14, max: 200, w: 7, slots: { c: 'criatura' }, t: 'Un reto local: pasar la noche donde duerme un {c}.',
+    { id: 'a3_prueba_valor', min: 14, max: 200, w: 7, slots: { c: 'criatura' }, t: 'Un reto local: pasar la noche donde duerme {c}.',
       c: [{ t: 'Aceptar', r: [{ p: 0.6, t: 'Aguantas. Al amanecer sales entero.', fx: { fisico: 8, reputacion: 12, cordura: 8 } },
                { p: 0.4, t: 'No aguantas ni dos horas.', fx: { reputacion: -8, cordura: -6, destreza: 5 } }] },
           { t: 'Aceptar y hacer trampas', fx: { intelecto: 10, reputacion: 8, alineamiento: -6 }, out: 'Duermes en una cornisa. Nadie lo comprueba.' },

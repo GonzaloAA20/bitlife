@@ -29,6 +29,9 @@
 
   /* ---------------- Estado ---------------- */
   function nuevoEstado(cfg, rng) {
+    // sin mundo elegido, se nace donde nace la gente de tu especie
+    const hogar = cfg.mundo || (cfg.especie && cfg.especie.home && cfg.especie.home.length
+      ? rng.pick(cfg.especie.home) : 'Coruscant');
     const esp = cfg.especie;
     const era = cfg.era;
     const s = {
@@ -43,11 +46,11 @@
       vidaEspecie: esp.vida,
       era: era.id,
       eraN: era.n,
-      mundo: cfg.mundo,
-      mundoNatal: cfg.mundo,
+      mundo: hogar,
+      mundoNatal: hogar,
       rasgo: cfg.rasgo.id,
       rasgoN: cfg.rasgo.n,
-      apariencia: cfg.apariencia,
+      apariencia: Object.assign({ especie: esp.id }, cfg.apariencia || {}),
       edad: 0,
       edadBio: 0,
       muerto: false,
@@ -76,7 +79,7 @@
       faccionRep: {},
       bando: null,
       contadores: { mundosVisitados: 1, cazas: 0, derribos: 0, rutas: 0, duelos: 0, crimenes: 0, años: 0, batallas: 0 },
-      mundosVistos: [cfg.mundo],
+      mundosVistos: [hogar],
       trabajo: null, rango: null, sueldo: 0, rendimiento: 50, añosEnTrabajo: 0,
       nave: null, naveNombre: null, naveEstado: 100,
       sable: null, kyber: null, forma: null,
@@ -181,7 +184,9 @@
         case 'mundoCerca': slots[k] = this.mundoCercano(); break;
         case 'mundoAqui': slots[k] = this.s.mundo; break;
         case 'mundoNatal': slots[k] = this.s.mundoNatal; break;
-        case 'criatura': slots[k] = rng.pick(SW.CRIATURAS); break;
+        // un sarlacc en un mundo de lagos no pega: la fauna es la de aquí
+        case 'criatura': { const d = this.dosier(); slots[k] = d.criCorto && d.criCorto.length ? rng.pick(d.criCorto) : rng.pick(SW.CRIATURAS); break; }
+        case 'criaturaGalaxia': slots[k] = rng.pick(SW.CRIATURAS); break;
         case 'lugar': slots[k] = rng.pick(SW.lugaresDe ? SW.lugaresDe(this.s.mundo) : SW.LUGARES); break;
         case 'lugarLejos': { const m = rng.pick(SW.MUNDO_NOMBRES); slots[k] = rng.pick(SW.lugaresDe(m)) + ' de ' + m; break; }
         case 'oficio': slots[k] = rng.pick(SW.oficiosDe ? SW.oficiosDe(this.s.mundo) : ['mecánico']); break;
@@ -190,10 +195,29 @@
         case 'faccion': { const f = rng.pick(SW.faccionesDeEra(this.s.era)); slots[k] = f.n; slots['_faccion'] = f.id; break; }
         case 'rumor': slots[k] = rng.pick(SW.RUMORES); break;
         case 'nave': slots[k] = rng.pick(SW.NAVES).n; break;
+        /* ---- dosier del mundo en el que estás ahora mismo ---- */
+        case 'bicho': slots[k] = rng.pick(this.dosier().cri); break;
+        case 'peligro': slots[k] = rng.pick(this.dosier().pel); break;
+        case 'banda': slots[k] = rng.pick(this.dosier().fac); break;
+        case 'hito': slots[k] = rng.pick(this.dosier().hit); break;
+        case 'mercancia': slots[k] = rng.pick(this.dosier().bie); break;
+        case 'mandamas': slots[k] = this.dosier().aut; break;
+        case 'tiempo': slots[k] = rng.pick(this.dosier().cli); break;
+        case 'comida': slots[k] = rng.pick(this.dosier().com); break;
+        case 'paisanos': slots[k] = rng.pick(this.dosier().gen); break;
         default: slots[k] = def[k];
       }
     }
     return slots;
+  };
+
+  /** el dosier del mundo donde estás, cacheado mientras no te muevas */
+  Game.prototype.dosier = function () {
+    if (!this._dos || this._dosMundo !== this.s.mundo) {
+      this._dosMundo = this.s.mundo;
+      this._dos = SW.dosierDe ? SW.dosierDe(this.s.mundo) : { cri: ['un animal'], pel: ['un peligro'], fac: ['una banda'], hit: ['un sitio'], bie: ['mercancía'], aut: 'quien mande', cli: ['mal tiempo'], com: ['comida'], gen: ['gente'] };
+    }
+    return this._dos;
   };
 
   /** un mundo de la misma región: los viajes cortos tienen sentido */
@@ -1101,7 +1125,10 @@
   /* ---------------- Movimiento ---------------- */
   Game.prototype.mover = function (destino, motivo) {
     const s = this.s, rng = this.rng;
-    const d = destino || rng.pick(SW.MUNDO_NOMBRES.filter(function (m) { return m !== s.mundo; }));
+    // a Exegol o a Dagobah no se muda uno por casualidad: hay que ir a propósito
+    const d = destino || (SW.mundoAleatorioNormal
+      ? SW.mundoAleatorioNormal(rng, s.mundo)
+      : rng.pick(SW.MUNDO_NOMBRES.filter(function (m) { return m !== s.mundo; })));
     if (d === s.mundo) { this.log('Te quedas en ' + s.mundo + '.', 'viaje'); return; }
     const m = SW.mundo(d);
     const anterior = s.mundo;
