@@ -265,23 +265,31 @@
 
     /* ---- 3bis. pelaje: va ANTES de la cara, o taparía los ojos ---- */
     if (fam === 'peludo' || fam === 'peludo_capucha' || fam === 'peludo_fino') {
+      /* Pelaje en tres capas de mechones cortos, como se dibuja el pelo
+         en pixel art: cada capa un tono y desplazada. Antes era un halo
+         de rayos que no parecía pelo. */
       const f = peloC ? peloC : oscurecer(pielBase, 0.25);
       const F = rampa(f);
-      const largo = fam === 'peludo_fino' ? 2 : 4;
-      lz.elipse(cx, cy + 1, rx + largo, ry + largo, F.som1);
-      lz.elipse(cx, cy, rx + largo - 1, ry + largo - 1, F.base);
-      lz.mediaElipse(cx - 2, cy - 2, rx + largo - 3, ry + largo - 3, F.luz1, 'arriba');
-      // mechones: dientes de sierra en el borde, no rayos
-      for (let a = 0; a < 360; a += 11) {
-        const r = (a * Math.PI) / 180;
-        const m = 1 + ((a / 11) % 3);
-        lz.linea(cx + Math.cos(r) * (rx + largo - 1), cy + Math.sin(r) * (ry + largo - 1),
-                 cx + Math.cos(r) * (rx + largo + m), cy + Math.sin(r) * (ry + largo + m),
-                 (a % 22 < 11) ? F.base : F.som2, 1);
+      const largo = fam === 'peludo_fino' ? 3 : 5;
+      lz.elipse(cx, cy + 1, rx + largo, ry + largo, F.som2);
+      lz.elipse(cx, cy, rx + largo - 1, ry + largo - 1, F.som1);
+      lz.mediaElipse(cx - 1, cy - 1, rx + largo - 2, ry + largo - 2, F.base, 'arriba');
+      lz.mediaElipse(cx - 3, cy - 3, rx + largo - 5, ry + largo - 5, F.luz1, 'arriba');
+      // mechones: tramos cortos siguiendo el contorno, en dos tonos
+      for (let capa = 0; capa < 3; capa++) {
+        const rr = rx + largo - capa * 2, rr2 = ry + largo - capa * 2;
+        const tono = capa === 0 ? F.som2 : capa === 1 ? F.base : F.luz1;
+        for (let a = 0; a < 360; a += 9) {
+          const r = ((a + capa * 5) * Math.PI) / 180;
+          const x0 = cx + Math.cos(r) * rr, y0 = cy + Math.sin(r) * rr2;
+          const x1 = cx + Math.cos(r) * (rr - 2.2), y1 = cy + Math.sin(r) * (rr2 - 2.2);
+          if ((a + capa * 13) % 27 < 14) lz.linea(x0, y0, x1, y1, tono, 1);
+        }
       }
-      // la cara, despejada dentro del pelo
+      // la cara, despejada dentro del pelo, con el morro más claro
       lz.elipse(cx, cy + 2, rx - 2, ry - 4, P.base);
       lz.mediaElipse(cx - 2, cy, rx - 4, ry - 6, P.luz1, 'arriba');
+      lz.elipse(cx, cy + Math.round(ry * 0.45), 7, 6, P.luz2);
       lz.mediaElipse(cx, cy + ry - 3, rx - 4, 3, P.som1, 'abajo');
     } else if (fam === 'talz') {
       lz.elipse(cx, cy + 1, rx + 5, ry + 5, '#c8ccd8');
@@ -393,30 +401,67 @@
 
     /* ---------- 7. anatomía propia de la especie ---------- */
     switch (fam) {
-      case 'twilek': {                                   // dos lekku por delante de los hombros
-        const l = P.som1;
-        for (let i = 0; i < 26; i++) {
-          const w = Math.max(2, 5 - Math.floor(i / 7));
-          lz.rect(cx - rx - 1 - Math.floor(i / 9), arriba + 9 + i, w, 1, i % 6 < 3 ? l : P.som2);
-          lz.rect(cx + rx - 2 + Math.floor(i / 9), arriba + 9 + i, w, 1, i % 6 < 3 ? P.som2 : oscurecer(l, 0.12));
+      case 'twilek': {
+        /* Los lekku son dos colas carnosas y GRUESAS que caen por
+           delante de los hombros, no dos hilos. Se estrechan hacia la
+           punta y llevan las bandas de piel más oscura. */
+        const T = rampa(pielBase);
+        for (let lado = -1; lado <= 1; lado += 2) {
+          const base = cx + lado * (rx - 2);
+          for (let i = 0; i < 34; i++) {
+            const w = Math.max(3, 7 - Math.floor(i / 8));           // se afina al bajar
+            const desp = lado * (Math.floor(i / 5));                 // se abre hacia fuera
+            const x0 = base + desp - (lado < 0 ? w - 1 : 0);
+            const y = arriba + 8 + i;
+            if (y >= N) break;
+            // volumen: luz en el borde interior, sombra en el exterior
+            for (let k = 0; k < w; k++) {
+              const t = lado < 0 ? k / (w - 1) : 1 - k / (w - 1);
+              lz.set(x0 + k, y, t < 0.3 ? T.luz1 : t < 0.7 ? T.base : T.som2);
+            }
+            if (i % 7 === 3) for (let k = 0; k < w; k++) lz.set(x0 + k, y, T.som2);  // banda
+          }
+          // el arranque, pegado al cráneo
+          lz.elipse(base + lado * 1, arriba + 9, 4, 5, T.som1);
         }
-        for (let i = 0; i < 26; i += 5) {                // bandas de piel
-          lz.hlin(cx - rx - 1, arriba + 10 + i, 4, P.linea);
-          lz.hlin(cx + rx - 2, arriba + 10 + i, 4, P.linea);
-        }
+        // gorro de cuero entre los dos lekku, como suelen llevar
+        lz.mediaElipse(cx, arriba + 6, rx, 7, oscurecer(pielBase, 0.55), 'arriba');
+        lz.mediaElipse(cx, arriba + 5, rx - 3, 6, oscurecer(pielBase, 0.42), 'arriba');
         break;
       }
-      case 'togruta': {                                  // montrales + tres lekku
-        lz.linea(cx - 8, arriba + 2, cx - 13, arriba - 7, P.base, 4);
-        lz.linea(cx + 8, arriba + 2, cx + 13, arriba - 7, P.som1, 4);
-        lz.linea(cx - 12, arriba - 6, cx - 13, arriba - 9, P.luz1, 2);
-        lz.linea(cx + 12, arriba - 6, cx + 13, arriba - 9, P.som2, 2);
-        for (let i = 0; i < 22; i++) {
-          lz.rect(cx - rx, arriba + 12 + i, 4, 1, i % 7 < 4 ? P.som1 : '#f0eae0');
-          lz.rect(cx + rx - 3, arriba + 12 + i, 4, 1, i % 7 < 4 ? P.som2 : '#e0dad0');
+      case 'togruta': {
+        /* Dos montrales huecos que salen hacia arriba y afuera, y los
+           lekku a bandas blancas y azules cayendo por los lados. */
+        const T = rampa(pielBase);
+        const BL = '#f2ece0', AZ = oscurecer(pielBase, 0.5);
+        for (let lado = -1; lado <= 1; lado += 2) {
+          // montral: cono grueso
+          for (let i = 0; i < 13; i++) {
+            const w = Math.max(2, 7 - Math.floor(i / 2));
+            const x0 = cx + lado * (7 + i) - (lado < 0 ? w - 1 : 0);
+            const y = arriba + 3 - i;
+            for (let k = 0; k < w; k++) lz.set(x0 + k, y, k === 0 ? T.luz1 : (k > w - 2 ? T.som2 : T.base));
+            if (i % 4 === 1) for (let k = 0; k < w; k++) lz.set(x0 + k, y, BL);
+          }
+          // lekku lateral, a bandas
+          for (let i = 0; i < 28; i++) {
+            const w = Math.max(3, 6 - Math.floor(i / 9));
+            const x0 = cx + lado * (rx - 1) - (lado < 0 ? w - 1 : 0);
+            const y = arriba + 12 + i;
+            if (y >= N) break;
+            const banda = (i % 8) < 3;
+            for (let k = 0; k < w; k++) {
+              lz.set(x0 + k, y, banda ? (k === 0 ? '#ffffff' : BL) : (k === 0 ? T.luz1 : T.base));
+            }
+            if ((i % 8) === 3) for (let k = 0; k < w; k++) lz.set(x0 + k, y, AZ);
+          }
         }
-        lz.rect(cx - 3, arriba - 3, 7, 6, '#f0eae0');    // marca blanca de la frente
-        lz.rect(cx - 2, arriba - 2, 5, 4, '#ffffff');
+        // el central, por detrás: solo se ve el arranque
+        lz.mediaElipse(cx, arriba + 2, 5, 4, T.som1, 'arriba');
+        // marcas blancas de la frente
+        lz.rect(cx - 4, arriba + 1, 9, 5, BL);
+        lz.rect(cx - 3, arriba + 2, 7, 3, '#ffffff');
+        lz.set(cx - 6, arriba + 3, BL); lz.set(cx + 6, arriba + 3, BL);
         break;
       }
       case 'zabrak': {                                   // corona de cuernos

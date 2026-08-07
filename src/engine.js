@@ -38,7 +38,7 @@
       version: 2,
       semilla: rng.seedStr,
       nombre: cfg.nombre,
-      pronombre: cfg.pronombre || 'elle',
+      pronombre: cfg.pronombre || 'él',
       especie: esp.id,
       especieN: esp.n,
       ritmo: esp.ritmo || 1,                       // años biológicos por año jugado
@@ -53,6 +53,7 @@
       apariencia: Object.assign({ especie: esp.id }, cfg.apariencia || {}),
       peligro: 0,                                  // cuánto has tentado a la suerte
       mejorasNave: [],
+      contrato: null,
       puestoGuerra: null,
       edad: 0,
       edadBio: 0,
@@ -194,7 +195,14 @@
         case 'lugarLejos': { const m = rng.pick(SW.MUNDO_NOMBRES); slots[k] = rng.pick(SW.lugaresDe(m)) + ' de ' + m; break; }
         case 'oficio': slots[k] = rng.pick(SW.oficiosDe ? SW.oficiosDe(this.s.mundo) : ['mecánico']); break;
         case 'objeto': slots[k] = rng.pick(SW.OBJETOS).n; break;
-        case 'nombre': slots[k] = SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'rodiano', 'duros'])); break;
+        /* gente que YA conoces: sin esto, cada evento inventaba a alguien
+           nuevo y tu hermano no volvía a aparecer en toda la partida */
+        case 'conocido': { const r = this.relacionCualquiera(); slots[k] = r ? r.nombre : SW.genNombreCompleto(rng, 'humano', rng.chance(0.5) ? 'm' : 'f'); if (r) slots['_rel'] = r.nombre; break; }
+        case 'hermano': { const r = this.relacionDe(['hermano', 'hermana', 'hermano de lote']); slots[k] = r ? r.nombre : 'tu hermano'; if (r) slots['_rel'] = r.nombre; break; }
+        case 'amigo': { const r = this.relacionDe(['amigo', 'contacto', 'socio']); slots[k] = r ? r.nombre : 'alguien de confianza'; if (r) slots['_rel'] = r.nombre; break; }
+        case 'pareja': { const r = this.relacionDe(['pareja', 'cónyuge']); slots[k] = r ? r.nombre : 'la persona con la que vives'; if (r) slots['_rel'] = r.nombre; break; }
+        case 'rivalN': { const r = this.relacionDe(['rival']); slots[k] = r ? r.nombre : 'alguien que te tiene ganas'; if (r) slots['_rel'] = r.nombre; break; }
+        case 'nombre': slots[k] = SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'rodiano', 'duros']), rng.chance(0.5) ? 'm' : 'f'); break;
         case 'faccion': { const f = rng.pick(SW.faccionesDeEra(this.s.era)); slots[k] = f.n; slots['_faccion'] = f.id; break; }
         case 'rumor': slots[k] = rng.pick(SW.RUMORES); break;
         case 'nave': slots[k] = rng.pick(SW.NAVES).n; break;
@@ -212,6 +220,29 @@
       }
     }
     return slots;
+  };
+
+  /** una relación de los tipos pedidos, la de más peso */
+  Game.prototype.relacionDe = function (tipos) {
+    const rs = this.s.relaciones.filter(function (r) { return tipos.indexOf(r.tipo) >= 0; });
+    if (!rs.length) return null;
+    return rs.sort(function (a, b) { return Math.abs(b.afecto) - Math.abs(a.afecto); })[0];
+  };
+  /** cualquiera de tu vida, con preferencia por los que te importan */
+  Game.prototype.relacionCualquiera = function () {
+    const rs = this.s.relaciones;
+    if (!rs.length) return null;
+    return this.rng.weighted(rs, function (r) { return 1 + Math.abs(r.afecto) / 20; });
+  };
+  /** mueve el afecto de UNA persona concreta y lo deja escrito */
+  Game.prototype.afectoCon = function (nombre, delta, nota) {
+    const r = this.s.relaciones.filter(function (x) { return x.nombre === nombre; })[0];
+    if (!r) return;
+    r.afecto = U.clamp(r.afecto + delta, -100, 100);
+    r.historia = r.historia || [];
+    if (nota) r.historia.push({ edad: this.s.edad, txt: nota });
+    this.log((delta >= 0 ? 'Te acercas a ' : 'Se enfría lo tuyo con ') + '<b>' + r.nombre + '</b>' +
+             (nota ? ': ' + nota : '') + '.', delta >= 0 ? 'rel' : 'mal');
   };
 
   /** el dosier del mundo donde estás, cacheado mientras no te muevas */
@@ -237,8 +268,10 @@
     const out = [];
     for (let i = 0; i < pool.length; i++) {
       const e = pool[i];
-      // ya lo viviste: no vuelve hasta que se agote todo lo demás
-      if (!permitirVistos && s.vistos[e.id]) continue;
+      // ya lo viviste: no vuelve hasta que se agote todo lo demás.
+      // Salvo los marcados `repetible`: el tablón del Gremio o la mesa
+      // de juego tienen que poder salir más de una vez en una vida.
+      if (!permitirVistos && s.vistos[e.id] && !e.repetible) continue;
       if (e.min != null && s.edadBio < e.min) continue;
       if (e.max != null && s.edadBio > e.max) continue;
       if (e.era && e.era.indexOf(s.era) < 0) continue;
@@ -257,6 +290,7 @@
 
   /** peso efectivo: lo ya visto pesa mucho menos */
   Game.prototype.peso = function (ev) {
+    if (ev.repetible) return ev.w == null ? 1 : ev.w;
     let base = ev.w == null ? 1 : ev.w;
     if (ev.mundo) base *= 2.2;   // lo que pasa aquí pasa más que lo genérico
     const visto = this.s.vistos[ev.id] || 0;
@@ -351,6 +385,12 @@
       const ev = guion.sort(function (a, b) { return (b.prio || 0) - (a.prio || 0); })[0];
       const inst = this.prepararEvento(ev);
       if (inst) this.cola.push(inst);
+    }
+
+    // un contrato en marcha manda sobre lo demás: es lo que estás haciendo
+    if (s.contrato && SW.pasoCaza) {
+      const paso = SW.pasoCaza(this);
+      if (paso) this.cola.push(this.prepararGen(paso));
     }
 
     // encuentro con alguien conocido: muy raro, y más si eres un don nadie
@@ -516,6 +556,9 @@
   Game.prototype.aplicarFx = function (fx, slots) {
     if (!fx) return;
     const s = this.s;
+    // foto de antes: así se puede enseñar el cambio REAL, no el nominal
+    const antes = {};
+    for (const kk in fx) if (s.stats[kk] != null) antes[kk] = s.stats[kk];
     for (const k in fx) {
       let v = fx[k];
       if (s.stats[k] == null) continue;
@@ -543,6 +586,38 @@
       s.stats[k] += v;
     }
     clampStats(s);
+    // lo que ha cambiado se acumula para enseñarlo junto tras la elección
+    if (this.cambios) {
+      for (const k in antes) {
+        const d = Math.round(s.stats[k] - antes[k]);
+        if (d) this.cambios[k] = (this.cambios[k] || 0) + d;
+      }
+    }
+  };
+
+  /** nombres legibles de cada estadística, para el resumen de efectos */
+  const ETIQ = {
+    salud: 'salud', fisico: 'físico', destreza: 'destreza', intelecto: 'intelecto',
+    carisma: 'carisma', cordura: 'cordura', suerte: 'suerte', fuerza: 'la Fuerza',
+    reputacion: 'reputación', notoriedad: 'notoriedad', alineamiento: 'alineamiento',
+    creditos: 'créditos'
+  };
+
+  /** convierte lo acumulado en una línea legible bajo el resultado */
+  Game.prototype.volcarCambios = function () {
+    const c = this.cambios;
+    this.cambios = null;
+    if (!c) return;
+    const partes = [];
+    Object.keys(c).forEach(function (k) {
+      const v = c[k];
+      if (!v) return;
+      const txt = k === 'creditos'
+        ? (v > 0 ? '+' : '−') + U.cr(Math.abs(v)).replace(' cr', '') + ' cr'
+        : (v > 0 ? '+' : '−') + Math.abs(v) + ' ' + (ETIQ[k] || k);
+      partes.push('<i class="fx ' + (v > 0 ? 'fx-mas' : 'fx-menos') + '">' + txt + '</i>');
+    });
+    if (partes.length) this.log(partes.join(' '), 'efectos');
   };
 
   Game.prototype.despertar = function () {
@@ -589,8 +664,10 @@
     if (d.tactica) { this.log('› ' + op.txt, 'eleccion'); this.resolverTactica(d.tactica); return; }
     if (d.tacticaN) { this.log('› ' + op.txt, 'eleccion'); this.resolverTacticaNave(d.tacticaN); return; }
     if (d.carreraLinea) { this.log('› ' + op.txt, 'eleccion'); SW.resolverCarrera(this, d.carreraLinea); return; }
+    this.cambios = {};
     this.elegir(inst, i);
     if (this.aplicarExtra) this.aplicarExtra(d);
+    this.volcarCambios();
   };
 
   Game.prototype.aplicarNodo = function (d, slots, inst, soloBase) {
@@ -625,6 +702,7 @@
     if (d.relTodas) s.relaciones.forEach(function (r) { r.afecto = U.clamp(r.afecto + d.relTodas, -100, 100); });
     if (d.relHijos) s.relaciones.forEach(function (r) { if (r.tipo === 'hijo') r.afecto = U.clamp(r.afecto + d.relHijos, -100, 100); });
     if (d.relPareja) s.relaciones.forEach(function (r) { if (r.tipo === 'pareja' || r.tipo === 'cónyuge') r.afecto = U.clamp(r.afecto + d.relPareja, -100, 100); });
+    if (d.conEsa != null && slots._rel) this.afectoCon(slots._rel, d.conEsa, d.notaRel ? U.fill(d.notaRel, slots) : null);
     if (d.relRival) s.relaciones.forEach(function (r) { if (r.tipo === 'rival') r.afecto = U.clamp(r.afecto + d.relRival, -100, 100); });
     if (d.convertirRival) {
       const r = s.relaciones.filter(function (x) { return x.tipo === 'rival'; })[0];
@@ -675,6 +753,20 @@
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
     if (d.taller && SW.menuTaller && s.nave) this.cola.unshift(this.prepararGen(SW.menuTaller(this)));
     if (d.carrera && SW.iniciarCarrera) SW.iniciarCarrera(this, d.circuito);
+    if (d.tomarContrato && inst && inst.ref && inst.ref.contrato) {
+      s.contrato = inst.ref.contrato;
+      if (d.pistaExtra) s.contrato.rastro = 1;
+      this.log('Contrato aceptado: ' + s.contrato.nombre + ', en ' + s.contrato.destino + '.', 'bien');
+    }
+    if (d.cazaAvanza && s.contrato) { if (d.rastro) s.contrato.rastro = U.clamp((s.contrato.rastro || 0) + d.rastro, 0, 3); }
+    if (d.cazaBusca && SW.resolverBusqueda) SW.resolverBusqueda(this, d.cazaBusca);
+    if (d.cazaCaptura && SW.resolverCaptura) SW.resolverCaptura(this, d.cazaCaptura);
+    if (d.cazaEntrega && SW.resolverEntrega) SW.resolverEntrega(this, d.cazaEntrega);
+    if (d.cazaAbandona) {
+      this.log('Dejas el contrato a medias. En el Gremio eso se recuerda.', 'mal');
+      s.flags.gremio_desconfia = true; s.contrato = null;
+      this.aplicarFx({ reputacion: -10, cordura: -5 }, {});
+    }
     if (d.ojo && SW.GEN.atencionFuerza) this.cola.unshift(this.prepararGen(SW.GEN.atencionFuerza(rng, s)));
     if (d.flag2) s.flags[U.fill(d.flag2, slots)] = true;
     if (d.quitarRuido) { s.stats.notoriedad = Math.max(0, s.stats.notoriedad - 10); }
@@ -701,6 +793,10 @@
     if (d.naveGana) this.darNave(rng.pick(SW.NAVES));
     if (d.navePierde) { s.nave = null; s.naveNombre = null; this.log('Pierdes tu nave.', 'mal'); }
     if (d.naveEstado) s.naveEstado = U.clamp(s.naveEstado + d.naveEstado, 0, 100);
+    // apostar ya no se resuelve a ciegas: se abre la mesa y se juega
+    if (d.mesa && SW.iniciarApuesta && s.stats.creditos > 400) {
+      this.cola.unshift(this.prepararGen(SW.iniciarApuesta(this, { juego: d.mesa === true ? null : d.mesa })));
+    }
     if (d.apuesta === 'gana') { const g = Math.round(Math.max(1000, s.stats.creditos * 0.5)); s.stats.creditos += g; this.log('Ganas ' + U.cr(g) + '.', 'cr'); }
     if (d.apuesta === 'pierde') { const g = Math.round(Math.max(0, s.stats.creditos) * 0.5); s.stats.creditos -= g; this.log('Pierdes ' + U.cr(g) + '.', 'mal'); }
     if (d.legado) { s.legado = d.legado; this.hito('Deja un legado: ' + d.legado); }
@@ -771,12 +867,15 @@
         return ya.nombre;
       }
     }
-    const n = esCanon ? nombre : this.nombreLibre(nombre || SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'togruta', 'duros'])));
+    const gen = SW.generoPara ? SW.generoPara(rng, tipo, s.pronombre) : (rng.chance(0.5) ? 'm' : 'f');
     const esp = rng.pick(SW.ESPECIES);
+    const n = esCanon ? nombre : this.nombreLibre(nombre ||
+      SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'togruta', 'duros']), gen));
     const desc = quien || (esCanon ? '' : rng.pick(OFICIOS));
     s.relaciones.push({
       nombre: n, tipo: tipo, afecto: U.clamp(afecto || 20, -100, 100),
-      especie: esCanon ? '' : esp.n, quien: desc, canon: !!esCanon, desde: s.edad
+      especie: esCanon ? '' : esp.n, quien: desc, canon: !!esCanon, desde: s.edad,
+      gen: gen, historia: []
     });
     this.log('Nueva relación: <b>' + n + '</b> — ' + tipo + (desc ? ', ' + desc : '') + '.', 'rel');
     if (tipo === 'cónyuge' || tipo === 'pareja') this.hito(U.titleCase(tipo) + ': ' + n);
@@ -1873,6 +1972,11 @@
       else if (id === 'salud') this.cola.push(this.prepararGen(this.menuClinica()));
       else if (id === 'fuerza') this.cola.push(this.prepararGen(this.menuFuerza()));
       else if (id === 'taller' && SW.menuTaller && s.nave) this.cola.push(this.prepararGen(SW.menuTaller(this)));
+      else if (id === 'gremio' && SW.GEN.contratoCaza) {
+        // si ya hay contrato en marcha se sigue por donde iba
+        const paso = s.contrato && SW.pasoCaza ? SW.pasoCaza(this) : null;
+        this.cola.push(this.prepararGen(paso || SW.GEN.contratoCaza(rng, s)));
+      }
       else this.cola.push(this.prepararGen(this.rellenoActividad(id)));
     } else {
       const ev = this.elegirEvento(posibles);

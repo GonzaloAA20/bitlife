@@ -4,11 +4,13 @@
    ============================================================ */
 
 :root {
-  --bg:        #04070c;
-  --bg2:       #070d15;
-  --panel:     #0a121c;
-  --panel2:    #0d1826;
-  --linea:     #17334a;
+  /* Las superficies son gris carbón neutro, no azul: el azul lo pone
+     el cian de acento y el fondo del planeta, no el panel entero. */
+  --bg:        #06070a;
+  --bg2:       #0b0d11;
+  --panel:     #101317;
+  --panel2:    #15181e;
+  --linea:     #2b3138;
   --cian:      #3ad6ff;
   --cian-tenue:#1d7fa0;
   --ambar:     #ffb03a;
@@ -16,9 +18,9 @@
   --rojo:      #ff4d5e;
   --verde:     #6aff8a;
   --morado:    #c98aff;
-  --txt:       #cfe8f5;
-  --txt-dim:   #6f93a8;
-  --sombra:    0 0 0 1px #12283a, 0 8px 30px rgba(0,0,0,.75);
+  --txt:       #dde3e8;
+  --txt-dim:   #8a9298;
+  --sombra:    0 0 0 1px #232a31, 0 8px 30px rgba(0,0,0,.75);
   --mono: "SFMono-Regular", "SF Mono", "Roboto Mono", "DejaVu Sans Mono", "Courier New", monospace;
   --disp: "Impact", "Haettenschweiler", "Arial Narrow Bold", "Oswald", sans-serif;
 }
@@ -54,8 +56,8 @@ body::marker { content: ""; }
 #app::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(4,7,12,.30) 0%, rgba(4,7,12,.10) 34%, rgba(4,7,12,.58) 100%),
-    radial-gradient(140% 95% at 50% 44%, transparent 40%, rgba(2,4,8,.50) 100%);
+    linear-gradient(180deg, rgba(6,7,10,.34) 0%, rgba(6,7,10,.12) 34%, rgba(6,7,10,.62) 100%),
+    radial-gradient(140% 95% at 50% 44%, transparent 40%, rgba(4,5,7,.52) 100%);
 }
 /* líneas de barrido CRT */
 body::after {
@@ -238,7 +240,7 @@ select:focus, input:focus { outline: none; border-color: var(--cian); box-shadow
 
 /* ---------- consola ---------- */
 .consola {
-  background: linear-gradient(180deg, rgba(5,9,15,.90), rgba(4,7,12,.94));
+  background: linear-gradient(180deg, rgba(14,17,21,.94), rgba(10,12,15,.97));
   padding: 16px 20px; overflow-y: auto; overscroll-behavior: contain; min-height: 0;
   background:
     linear-gradient(180deg, rgba(58,214,255,.03), transparent 120px),
@@ -750,9 +752,9 @@ body.en-juego::before {
 @media (max-width: 900px) {
   .panel { width: min(340px, 88vw); top: 0; bottom: 0; padding-top: 12px; }
   .panel-cab { display: flex; }
-  body.panel-abierto::after {
-    content: ""; position: fixed; inset: 0; z-index: 299; background: rgba(2,5,9,.6);
-  }
+  /* la ficha se desliza encima; no se oscurece el resto (molestaba y no
+     aportaba nada: el panel ya tiene fondo propio y borde) */
+  body.panel-abierto::after { content: none; }
 }
 
 /* ============================================================
@@ -802,3 +804,75 @@ body.en-juego::before {
 @media (max-width: 380px) {
   .tb-mundo span, .tb-cr span, .tb-edad span { display: none; }
 }
+
+
+/* ============================================================
+   ESCENA DEL PLANETA: la franja de ambientación sobre el registro
+   ============================================================ */
+.escena {
+  position: relative;
+  height: clamp(120px, 22vh, 230px);
+  flex: 0 0 auto;
+  background-image: var(--fondo-escena, none);
+  background-size: cover;
+  background-position: center 62%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  border-bottom: 1px solid var(--linea);
+  overflow: hidden;
+  filter: saturate(1.18) brightness(1.35);
+}
+/* solo el último tercio se funde con el log: arriba se ve la escena limpia */
+.escena::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg,
+    transparent 0%, transparent 58%,
+    color-mix(in srgb, var(--panel) 55%, transparent) 82%,
+    var(--panel) 100%);
+}
+.escena-pie {
+  position: absolute; left: 0; right: 0; bottom: 6px; z-index: 2;
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 0 16px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  text-shadow: 0 1px 0 #000, 0 0 8px rgba(0,0,0,.9);
+}
+.escena-pie b { color: var(--acento); font-size: 12px; }
+.escena-pie span { color: #9fc2d4; font-size: 10px; letter-spacing: .08em; text-transform: none; font-style: italic; }
+@media (max-width: 900px) { .escena { height: clamp(96px, 16vh, 150px); } }
+
+
+/* ============================================================
+   EFECTOS DE UNA DECISIÓN
+   Lo que te ha cambiado de verdad, debajo del resultado: sin esto
+   el juego parecía un formulario y no se veía qué aportaba elegir.
+   ============================================================ */
+.l-efectos { padding: 2px 0 8px 14px; display: flex; flex-wrap: wrap; gap: 5px; }
+.l-efectos .fx {
+  font-style: normal; font-size: 11px; letter-spacing: .04em;
+  padding: 1px 7px; border-radius: 2px; border: 1px solid;
+}
+.fx-mas   { color: #7ce8a0; border-color: #234c33; background: #10231a; }
+.fx-menos { color: #ff8a8a; border-color: #4c2626; background: #231313; }
+
+
+/* ============================================================
+   MESA DE JUEGO
+   ============================================================ */
+.azar-overlay {
+  position: fixed; inset: 0; z-index: 820; display: flex;
+  align-items: center; justify-content: center; padding: 18px;
+  background: rgba(3,5,8,.82);
+}
+.azar-marco {
+  background: var(--panel2); border: 1px solid var(--cian-tenue);
+  box-shadow: var(--sombra); padding: 16px; max-width: 460px; width: 100%;
+  text-align: center;
+}
+.azar-marco h3 {
+  margin: 0 0 12px; font-size: 12px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--acento);
+}
+.azar-lienzo { display: flex; justify-content: center; }
+.azar-lienzo canvas { image-rendering: pixelated; image-rendering: crisp-edges; border: 1px solid var(--linea); }
+.azar-pie { margin: 12px 0 0; font-size: 11px; color: var(--txt-dim); letter-spacing: .1em; }

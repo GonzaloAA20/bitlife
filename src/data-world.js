@@ -143,19 +143,43 @@
     droide: ['R', 'C', 'BD', 'K', 'IG', 'HK', 'T', 'L', 'AZ', 'QT', 'ZX', 'D', 'U', 'V']
   };
 
-  SW.genNombre = function (rng, especie) {
+  /* Terminaciones con género, para que un nombre suene a él o a ella.
+     Antes todos los nombres eran neutros y las parejas parecían todas
+     iguales. Los droides siguen sin género. */
+  SW.NOMBRES.sufM = ['ek', 'is', 'oon', 'ath', 'ix', 'en', 'ol', 'ur', 'oth', 'ian',
+                     'us', 'ir', 'om', 'ux', 'in', 'ov', 'ash', 'el', 'or', 'ar', 'ed', 'un'];
+  SW.NOMBRES.sufF = ['ra', 'ara', 'a', 'ea', 'ia', 'ka', 'ana', 'ila', 'ena', 'ora',
+                     'isa', 'ya', 'esa', 'una', 'ala', 'ira', 'sha', 'nia', 'eia', 'ava'];
+
+  SW.genNombre = function (rng, especie, genero) {
     if (especie === 'droide') {
       return SW.NOMBRES.droide[Math.floor(rng.next() * SW.NOMBRES.droide.length)] +
         '-' + rng.int(1, 9) + String.fromCharCode(65 + rng.int(0, 25)) + rng.int(0, 9);
     }
-    let n = rng.pick(SW.NOMBRES.pre) + rng.pick(SW.NOMBRES.suf);
-    if (rng.chance(0.25)) n += "'" + rng.pick(['a', 'ka', 'ir', 'oth', 'en']);
+    const suf = genero === 'f' ? SW.NOMBRES.sufF
+              : genero === 'm' ? SW.NOMBRES.sufM
+              : SW.NOMBRES.suf;
+    let n = rng.pick(SW.NOMBRES.pre) + rng.pick(suf);
+    if (rng.chance(genero ? 0.16 : 0.25)) n += "'" + rng.pick(['a', 'ka', 'ir', 'oth', 'en']);
     return SW.U.titleCase(n);
   };
   SW.genApellido = function (rng) { return rng.pick(SW.NOMBRES.ape); };
-  SW.genNombreCompleto = function (rng, especie) {
-    const n = SW.genNombre(rng, especie);
+  SW.genNombreCompleto = function (rng, especie, genero) {
+    const n = SW.genNombre(rng, especie, genero);
     return especie === 'droide' ? n : n + ' ' + SW.genApellido(rng);
+  };
+
+  /* ---------- GÉNERO DE LA GENTE QUE TE ENCUENTRAS ----------
+     Para parejas se mira el tratamiento del personaje: la mayoría de
+     los emparejamientos son heterosexuales porque es lo más común,
+     y el resto sale con normalidad y sin comentarlo. */
+  SW.generoPara = function (rng, tipo, pronombreJugador) {
+    if (tipo === 'pareja' || tipo === 'cónyuge' || tipo === 'amante' || tipo === 'romance') {
+      const yo = pronombreJugador === 'ella' ? 'f' : 'm';
+      const opuesto = yo === 'f' ? 'm' : 'f';
+      return rng.chance(0.88) ? opuesto : yo;
+    }
+    return rng.chance(0.5) ? 'm' : 'f';
   };
 
   /* ---------- CRIATURAS ---------- */

@@ -13,11 +13,13 @@
    ============================================================ */
 
 :root {
-  --bg:        #04070c;
-  --bg2:       #070d15;
-  --panel:     #0a121c;
-  --panel2:    #0d1826;
-  --linea:     #17334a;
+  /* Las superficies son gris carbón neutro, no azul: el azul lo pone
+     el cian de acento y el fondo del planeta, no el panel entero. */
+  --bg:        #06070a;
+  --bg2:       #0b0d11;
+  --panel:     #101317;
+  --panel2:    #15181e;
+  --linea:     #2b3138;
   --cian:      #3ad6ff;
   --cian-tenue:#1d7fa0;
   --ambar:     #ffb03a;
@@ -25,9 +27,9 @@
   --rojo:      #ff4d5e;
   --verde:     #6aff8a;
   --morado:    #c98aff;
-  --txt:       #cfe8f5;
-  --txt-dim:   #6f93a8;
-  --sombra:    0 0 0 1px #12283a, 0 8px 30px rgba(0,0,0,.75);
+  --txt:       #dde3e8;
+  --txt-dim:   #8a9298;
+  --sombra:    0 0 0 1px #232a31, 0 8px 30px rgba(0,0,0,.75);
   --mono: "SFMono-Regular", "SF Mono", "Roboto Mono", "DejaVu Sans Mono", "Courier New", monospace;
   --disp: "Impact", "Haettenschweiler", "Arial Narrow Bold", "Oswald", sans-serif;
 }
@@ -63,8 +65,8 @@ body::marker { content: ""; }
 #app::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(4,7,12,.30) 0%, rgba(4,7,12,.10) 34%, rgba(4,7,12,.58) 100%),
-    radial-gradient(140% 95% at 50% 44%, transparent 40%, rgba(2,4,8,.50) 100%);
+    linear-gradient(180deg, rgba(6,7,10,.34) 0%, rgba(6,7,10,.12) 34%, rgba(6,7,10,.62) 100%),
+    radial-gradient(140% 95% at 50% 44%, transparent 40%, rgba(4,5,7,.52) 100%);
 }
 /* líneas de barrido CRT */
 body::after {
@@ -247,7 +249,7 @@ select:focus, input:focus { outline: none; border-color: var(--cian); box-shadow
 
 /* ---------- consola ---------- */
 .consola {
-  background: linear-gradient(180deg, rgba(5,9,15,.90), rgba(4,7,12,.94));
+  background: linear-gradient(180deg, rgba(14,17,21,.94), rgba(10,12,15,.97));
   padding: 16px 20px; overflow-y: auto; overscroll-behavior: contain; min-height: 0;
   background:
     linear-gradient(180deg, rgba(58,214,255,.03), transparent 120px),
@@ -759,9 +761,9 @@ body.en-juego::before {
 @media (max-width: 900px) {
   .panel { width: min(340px, 88vw); top: 0; bottom: 0; padding-top: 12px; }
   .panel-cab { display: flex; }
-  body.panel-abierto::after {
-    content: ""; position: fixed; inset: 0; z-index: 299; background: rgba(2,5,9,.6);
-  }
+  /* la ficha se desliza encima; no se oscurece el resto (molestaba y no
+     aportaba nada: el panel ya tiene fondo propio y borde) */
+  body.panel-abierto::after { content: none; }
 }
 
 /* ============================================================
@@ -811,6 +813,78 @@ body.en-juego::before {
 @media (max-width: 380px) {
   .tb-mundo span, .tb-cr span, .tb-edad span { display: none; }
 }
+
+
+/* ============================================================
+   ESCENA DEL PLANETA: la franja de ambientación sobre el registro
+   ============================================================ */
+.escena {
+  position: relative;
+  height: clamp(120px, 22vh, 230px);
+  flex: 0 0 auto;
+  background-image: var(--fondo-escena, none);
+  background-size: cover;
+  background-position: center 62%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  border-bottom: 1px solid var(--linea);
+  overflow: hidden;
+  filter: saturate(1.18) brightness(1.35);
+}
+/* solo el último tercio se funde con el log: arriba se ve la escena limpia */
+.escena::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg,
+    transparent 0%, transparent 58%,
+    color-mix(in srgb, var(--panel) 55%, transparent) 82%,
+    var(--panel) 100%);
+}
+.escena-pie {
+  position: absolute; left: 0; right: 0; bottom: 6px; z-index: 2;
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 0 16px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  text-shadow: 0 1px 0 #000, 0 0 8px rgba(0,0,0,.9);
+}
+.escena-pie b { color: var(--acento); font-size: 12px; }
+.escena-pie span { color: #9fc2d4; font-size: 10px; letter-spacing: .08em; text-transform: none; font-style: italic; }
+@media (max-width: 900px) { .escena { height: clamp(96px, 16vh, 150px); } }
+
+
+/* ============================================================
+   EFECTOS DE UNA DECISIÓN
+   Lo que te ha cambiado de verdad, debajo del resultado: sin esto
+   el juego parecía un formulario y no se veía qué aportaba elegir.
+   ============================================================ */
+.l-efectos { padding: 2px 0 8px 14px; display: flex; flex-wrap: wrap; gap: 5px; }
+.l-efectos .fx {
+  font-style: normal; font-size: 11px; letter-spacing: .04em;
+  padding: 1px 7px; border-radius: 2px; border: 1px solid;
+}
+.fx-mas   { color: #7ce8a0; border-color: #234c33; background: #10231a; }
+.fx-menos { color: #ff8a8a; border-color: #4c2626; background: #231313; }
+
+
+/* ============================================================
+   MESA DE JUEGO
+   ============================================================ */
+.azar-overlay {
+  position: fixed; inset: 0; z-index: 820; display: flex;
+  align-items: center; justify-content: center; padding: 18px;
+  background: rgba(3,5,8,.82);
+}
+.azar-marco {
+  background: var(--panel2); border: 1px solid var(--cian-tenue);
+  box-shadow: var(--sombra); padding: 16px; max-width: 460px; width: 100%;
+  text-align: center;
+}
+.azar-marco h3 {
+  margin: 0 0 12px; font-size: 12px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--acento);
+}
+.azar-lienzo { display: flex; justify-content: center; }
+.azar-lienzo canvas { image-rendering: pixelated; image-rendering: crisp-edges; border: 1px solid var(--linea); }
+.azar-pie { margin: 12px 0 0; font-size: 11px; color: var(--txt-dim); letter-spacing: .1em; }
 
 </style>
 </head>
@@ -1188,19 +1262,43 @@ body.en-juego::before {
     droide: ['R', 'C', 'BD', 'K', 'IG', 'HK', 'T', 'L', 'AZ', 'QT', 'ZX', 'D', 'U', 'V']
   };
 
-  SW.genNombre = function (rng, especie) {
+  /* Terminaciones con género, para que un nombre suene a él o a ella.
+     Antes todos los nombres eran neutros y las parejas parecían todas
+     iguales. Los droides siguen sin género. */
+  SW.NOMBRES.sufM = ['ek', 'is', 'oon', 'ath', 'ix', 'en', 'ol', 'ur', 'oth', 'ian',
+                     'us', 'ir', 'om', 'ux', 'in', 'ov', 'ash', 'el', 'or', 'ar', 'ed', 'un'];
+  SW.NOMBRES.sufF = ['ra', 'ara', 'a', 'ea', 'ia', 'ka', 'ana', 'ila', 'ena', 'ora',
+                     'isa', 'ya', 'esa', 'una', 'ala', 'ira', 'sha', 'nia', 'eia', 'ava'];
+
+  SW.genNombre = function (rng, especie, genero) {
     if (especie === 'droide') {
       return SW.NOMBRES.droide[Math.floor(rng.next() * SW.NOMBRES.droide.length)] +
         '-' + rng.int(1, 9) + String.fromCharCode(65 + rng.int(0, 25)) + rng.int(0, 9);
     }
-    let n = rng.pick(SW.NOMBRES.pre) + rng.pick(SW.NOMBRES.suf);
-    if (rng.chance(0.25)) n += "'" + rng.pick(['a', 'ka', 'ir', 'oth', 'en']);
+    const suf = genero === 'f' ? SW.NOMBRES.sufF
+              : genero === 'm' ? SW.NOMBRES.sufM
+              : SW.NOMBRES.suf;
+    let n = rng.pick(SW.NOMBRES.pre) + rng.pick(suf);
+    if (rng.chance(genero ? 0.16 : 0.25)) n += "'" + rng.pick(['a', 'ka', 'ir', 'oth', 'en']);
     return SW.U.titleCase(n);
   };
   SW.genApellido = function (rng) { return rng.pick(SW.NOMBRES.ape); };
-  SW.genNombreCompleto = function (rng, especie) {
-    const n = SW.genNombre(rng, especie);
+  SW.genNombreCompleto = function (rng, especie, genero) {
+    const n = SW.genNombre(rng, especie, genero);
     return especie === 'droide' ? n : n + ' ' + SW.genApellido(rng);
+  };
+
+  /* ---------- GÉNERO DE LA GENTE QUE TE ENCUENTRAS ----------
+     Para parejas se mira el tratamiento del personaje: la mayoría de
+     los emparejamientos son heterosexuales porque es lo más común,
+     y el resto sale con normalidad y sin comentarlo. */
+  SW.generoPara = function (rng, tipo, pronombreJugador) {
+    if (tipo === 'pareja' || tipo === 'cónyuge' || tipo === 'amante' || tipo === 'romance') {
+      const yo = pronombreJugador === 'ella' ? 'f' : 'm';
+      const opuesto = yo === 'f' ? 'm' : 'f';
+      return rng.chance(0.88) ? opuesto : yo;
+    }
+    return rng.chance(0.5) ? 'm' : 'f';
   };
 
   /* ---------- CRIATURAS ---------- */
@@ -1528,6 +1626,8 @@ body.en-juego::before {
     { id: 'nave', n: 'Hangar', ico: '⛭', desc: 'Comprar naves, mejorarlas, hacer rutas.', min: 16 },
     { id: 'taller', n: 'Taller', ico: '⚙', desc: 'Mejoras que cambian lo que tu nave te deja hacer.', min: 14,
       req: function (s) { return !!s.nave; } },
+    { id: 'gremio', n: 'Gremio', ico: '✵', desc: 'Contratos de caza: buscar, seguir, capturar y entregar.', min: 16,
+      req: function (s) { return !!s.flags.en_el_gremio; } },
     { id: 'viaje', n: 'Viajar', ico: '✈', desc: 'Saltar a otro mundo. Todo cambia.', min: 10 },
     { id: 'fuerza', n: 'La Fuerza', ico: '✦', desc: 'Poderes, sables, holocrones, visiones.', min: 6, req: function (s) { return s.stats.fuerza > 5; } },
     { id: 'mercado', n: 'Mercado', ico: '⌂', desc: 'Objetos, médicos, cirugía, apuestas.', min: 10 },
@@ -3355,23 +3455,31 @@ body.en-juego::before {
 
     /* ---- 3bis. pelaje: va ANTES de la cara, o taparía los ojos ---- */
     if (fam === 'peludo' || fam === 'peludo_capucha' || fam === 'peludo_fino') {
+      /* Pelaje en tres capas de mechones cortos, como se dibuja el pelo
+         en pixel art: cada capa un tono y desplazada. Antes era un halo
+         de rayos que no parecía pelo. */
       const f = peloC ? peloC : oscurecer(pielBase, 0.25);
       const F = rampa(f);
-      const largo = fam === 'peludo_fino' ? 2 : 4;
-      lz.elipse(cx, cy + 1, rx + largo, ry + largo, F.som1);
-      lz.elipse(cx, cy, rx + largo - 1, ry + largo - 1, F.base);
-      lz.mediaElipse(cx - 2, cy - 2, rx + largo - 3, ry + largo - 3, F.luz1, 'arriba');
-      // mechones: dientes de sierra en el borde, no rayos
-      for (let a = 0; a < 360; a += 11) {
-        const r = (a * Math.PI) / 180;
-        const m = 1 + ((a / 11) % 3);
-        lz.linea(cx + Math.cos(r) * (rx + largo - 1), cy + Math.sin(r) * (ry + largo - 1),
-                 cx + Math.cos(r) * (rx + largo + m), cy + Math.sin(r) * (ry + largo + m),
-                 (a % 22 < 11) ? F.base : F.som2, 1);
+      const largo = fam === 'peludo_fino' ? 3 : 5;
+      lz.elipse(cx, cy + 1, rx + largo, ry + largo, F.som2);
+      lz.elipse(cx, cy, rx + largo - 1, ry + largo - 1, F.som1);
+      lz.mediaElipse(cx - 1, cy - 1, rx + largo - 2, ry + largo - 2, F.base, 'arriba');
+      lz.mediaElipse(cx - 3, cy - 3, rx + largo - 5, ry + largo - 5, F.luz1, 'arriba');
+      // mechones: tramos cortos siguiendo el contorno, en dos tonos
+      for (let capa = 0; capa < 3; capa++) {
+        const rr = rx + largo - capa * 2, rr2 = ry + largo - capa * 2;
+        const tono = capa === 0 ? F.som2 : capa === 1 ? F.base : F.luz1;
+        for (let a = 0; a < 360; a += 9) {
+          const r = ((a + capa * 5) * Math.PI) / 180;
+          const x0 = cx + Math.cos(r) * rr, y0 = cy + Math.sin(r) * rr2;
+          const x1 = cx + Math.cos(r) * (rr - 2.2), y1 = cy + Math.sin(r) * (rr2 - 2.2);
+          if ((a + capa * 13) % 27 < 14) lz.linea(x0, y0, x1, y1, tono, 1);
+        }
       }
-      // la cara, despejada dentro del pelo
+      // la cara, despejada dentro del pelo, con el morro más claro
       lz.elipse(cx, cy + 2, rx - 2, ry - 4, P.base);
       lz.mediaElipse(cx - 2, cy, rx - 4, ry - 6, P.luz1, 'arriba');
+      lz.elipse(cx, cy + Math.round(ry * 0.45), 7, 6, P.luz2);
       lz.mediaElipse(cx, cy + ry - 3, rx - 4, 3, P.som1, 'abajo');
     } else if (fam === 'talz') {
       lz.elipse(cx, cy + 1, rx + 5, ry + 5, '#c8ccd8');
@@ -3483,30 +3591,67 @@ body.en-juego::before {
 
     /* ---------- 7. anatomía propia de la especie ---------- */
     switch (fam) {
-      case 'twilek': {                                   // dos lekku por delante de los hombros
-        const l = P.som1;
-        for (let i = 0; i < 26; i++) {
-          const w = Math.max(2, 5 - Math.floor(i / 7));
-          lz.rect(cx - rx - 1 - Math.floor(i / 9), arriba + 9 + i, w, 1, i % 6 < 3 ? l : P.som2);
-          lz.rect(cx + rx - 2 + Math.floor(i / 9), arriba + 9 + i, w, 1, i % 6 < 3 ? P.som2 : oscurecer(l, 0.12));
+      case 'twilek': {
+        /* Los lekku son dos colas carnosas y GRUESAS que caen por
+           delante de los hombros, no dos hilos. Se estrechan hacia la
+           punta y llevan las bandas de piel más oscura. */
+        const T = rampa(pielBase);
+        for (let lado = -1; lado <= 1; lado += 2) {
+          const base = cx + lado * (rx - 2);
+          for (let i = 0; i < 34; i++) {
+            const w = Math.max(3, 7 - Math.floor(i / 8));           // se afina al bajar
+            const desp = lado * (Math.floor(i / 5));                 // se abre hacia fuera
+            const x0 = base + desp - (lado < 0 ? w - 1 : 0);
+            const y = arriba + 8 + i;
+            if (y >= N) break;
+            // volumen: luz en el borde interior, sombra en el exterior
+            for (let k = 0; k < w; k++) {
+              const t = lado < 0 ? k / (w - 1) : 1 - k / (w - 1);
+              lz.set(x0 + k, y, t < 0.3 ? T.luz1 : t < 0.7 ? T.base : T.som2);
+            }
+            if (i % 7 === 3) for (let k = 0; k < w; k++) lz.set(x0 + k, y, T.som2);  // banda
+          }
+          // el arranque, pegado al cráneo
+          lz.elipse(base + lado * 1, arriba + 9, 4, 5, T.som1);
         }
-        for (let i = 0; i < 26; i += 5) {                // bandas de piel
-          lz.hlin(cx - rx - 1, arriba + 10 + i, 4, P.linea);
-          lz.hlin(cx + rx - 2, arriba + 10 + i, 4, P.linea);
-        }
+        // gorro de cuero entre los dos lekku, como suelen llevar
+        lz.mediaElipse(cx, arriba + 6, rx, 7, oscurecer(pielBase, 0.55), 'arriba');
+        lz.mediaElipse(cx, arriba + 5, rx - 3, 6, oscurecer(pielBase, 0.42), 'arriba');
         break;
       }
-      case 'togruta': {                                  // montrales + tres lekku
-        lz.linea(cx - 8, arriba + 2, cx - 13, arriba - 7, P.base, 4);
-        lz.linea(cx + 8, arriba + 2, cx + 13, arriba - 7, P.som1, 4);
-        lz.linea(cx - 12, arriba - 6, cx - 13, arriba - 9, P.luz1, 2);
-        lz.linea(cx + 12, arriba - 6, cx + 13, arriba - 9, P.som2, 2);
-        for (let i = 0; i < 22; i++) {
-          lz.rect(cx - rx, arriba + 12 + i, 4, 1, i % 7 < 4 ? P.som1 : '#f0eae0');
-          lz.rect(cx + rx - 3, arriba + 12 + i, 4, 1, i % 7 < 4 ? P.som2 : '#e0dad0');
+      case 'togruta': {
+        /* Dos montrales huecos que salen hacia arriba y afuera, y los
+           lekku a bandas blancas y azules cayendo por los lados. */
+        const T = rampa(pielBase);
+        const BL = '#f2ece0', AZ = oscurecer(pielBase, 0.5);
+        for (let lado = -1; lado <= 1; lado += 2) {
+          // montral: cono grueso
+          for (let i = 0; i < 13; i++) {
+            const w = Math.max(2, 7 - Math.floor(i / 2));
+            const x0 = cx + lado * (7 + i) - (lado < 0 ? w - 1 : 0);
+            const y = arriba + 3 - i;
+            for (let k = 0; k < w; k++) lz.set(x0 + k, y, k === 0 ? T.luz1 : (k > w - 2 ? T.som2 : T.base));
+            if (i % 4 === 1) for (let k = 0; k < w; k++) lz.set(x0 + k, y, BL);
+          }
+          // lekku lateral, a bandas
+          for (let i = 0; i < 28; i++) {
+            const w = Math.max(3, 6 - Math.floor(i / 9));
+            const x0 = cx + lado * (rx - 1) - (lado < 0 ? w - 1 : 0);
+            const y = arriba + 12 + i;
+            if (y >= N) break;
+            const banda = (i % 8) < 3;
+            for (let k = 0; k < w; k++) {
+              lz.set(x0 + k, y, banda ? (k === 0 ? '#ffffff' : BL) : (k === 0 ? T.luz1 : T.base));
+            }
+            if ((i % 8) === 3) for (let k = 0; k < w; k++) lz.set(x0 + k, y, AZ);
+          }
         }
-        lz.rect(cx - 3, arriba - 3, 7, 6, '#f0eae0');    // marca blanca de la frente
-        lz.rect(cx - 2, arriba - 2, 5, 4, '#ffffff');
+        // el central, por detrás: solo se ve el arranque
+        lz.mediaElipse(cx, arriba + 2, 5, 4, T.som1, 'arriba');
+        // marcas blancas de la frente
+        lz.rect(cx - 4, arriba + 1, 9, 5, BL);
+        lz.rect(cx - 3, arriba + 2, 7, 3, '#ffffff');
+        lz.set(cx - 6, arriba + 3, BL); lz.set(cx + 6, arriba + 3, BL);
         break;
       }
       case 'zabrak': {                                   // corona de cuernos
@@ -3881,6 +4026,313 @@ body.en-juego::before {
   };
 
   SW.RETRATO_LADO = N;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== src/azar.js ===== */
+/* ============================================================
+   HOLOVIDA :: JUEGOS DE AZAR EN PIXEL ART
+   Apostar era una línea de texto: "ganas / pierdes". Aquí se ve.
+   Tres juegos dibujados a mano y animados en canvas:
+     · dados    — dos dados que ruedan y paran
+     · sabacc   — dos cartas que se voltean
+     · ruleta   — una rueda que gira y frena
+   El motor solo pide el resultado; la animación la lleva la
+   interfaz, y el desenlace lo decide el RNG con semilla, así que
+   una partida compartida sale igual.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+
+  /* ---------- paleta ---------- */
+  const P = {
+    hueso: ['#f4efe2', '#d8d0bd', '#a89e88', '#6b6354'],
+    fieltro: ['#1c4a34', '#153a28', '#0e2a1c', '#08180f'],
+    carta: ['#f2ecdc', '#d6cdb8', '#9d9481', '#5e574a'],
+    rojo: ['#ff7a6a', '#e0452f', '#a02a1c', '#5c1610'],
+    oro: ['#ffe9a8', '#e0bd5a', '#a8842e', '#5e4818'],
+    metal: ['#dfe7f0', '#a3b0be', '#6a7684', '#3a434e']
+  };
+
+  /* ============================================================
+     QUÉ SE JUEGA
+     ============================================================ */
+  SW.JUEGOS_AZAR = {
+    dados: {
+      n: 'Dados de chance-cube',
+      regla: 'Sacas más que la casa y cobras. Empate, gana la casa.',
+      // devuelve {gana, mio, suyo, texto}
+      tirar: function (rng, ventaja) {
+        const d = function () { return rng.int(1, 6); };
+        let mio = d() + d();
+        const suyo = d() + d();
+        // la maña con los dados (o la Fuerza) empuja un poco
+        if (ventaja > 0 && rng.chance(ventaja)) mio = Math.min(12, mio + rng.int(1, 3));
+        return { gana: mio > suyo, mio: mio, suyo: suyo,
+                 texto: 'Tú ' + mio + ' · la casa ' + suyo };
+      }
+    },
+    sabacc: {
+      n: 'Mano de sabacc',
+      regla: 'Gana quien se acerque más a 23 sin pasarse. Pasarse es perder.',
+      tirar: function (rng, ventaja) {
+        const carta = function () { return rng.int(1, 11) * (rng.chance(0.18) ? -1 : 1); };
+        let mio = Math.abs(carta() + carta());
+        let suyo = Math.abs(carta() + carta());
+        if (ventaja > 0 && rng.chance(ventaja)) mio = Math.min(23, mio + rng.int(2, 6));
+        const dMio = mio > 23 ? 99 : 23 - mio;
+        const dSuyo = suyo > 23 ? 99 : 23 - suyo;
+        return { gana: dMio < dSuyo, mio: mio, suyo: suyo,
+                 texto: 'Tú ' + mio + ' · la casa ' + suyo + (mio > 23 ? ' (te pasas)' : '') };
+      }
+    },
+    ruleta: {
+      n: 'Rueda de Cantonica',
+      regla: 'Doce casillas. Eliges color: la roja paga doble, la dorada paga cinco.',
+      tirar: function (rng, ventaja, apuestaColor) {
+        const casilla = rng.int(0, 11);
+        const color = casilla === 0 ? 'oro' : (casilla % 2 === 0 ? 'rojo' : 'negro');
+        const col = apuestaColor || 'rojo';
+        const gana = color === col;
+        return { gana: gana, casilla: casilla, color: color, mult: col === 'oro' ? 5 : 2,
+                 texto: 'Sale ' + (color === 'oro' ? 'la dorada' : color === 'rojo' ? 'roja' : 'negra') +
+                        ' (casilla ' + casilla + ')' };
+      }
+    }
+  };
+
+  /* ============================================================
+     DIBUJO
+     Todo a 64×40 lógicos, escalado con los píxeles a la vista.
+     ============================================================ */
+  const AW = 96, AH = 56;
+
+  function lienzo(escala) {
+    const c = global.document.createElement('canvas');
+    c.width = AW * escala; c.height = AH * escala;
+    c.style.imageRendering = 'pixelated';
+    c.style.width = '100%';
+    c.style.maxWidth = (AW * escala) + 'px';
+    return c;
+  }
+  function pin(g, e, x, y, w, h, col) { g.fillStyle = col; g.fillRect(x * e, y * e, w * e, h * e); }
+
+  /** fondo de tapete, común a los tres */
+  function tapete(g, e) {
+    pin(g, e, 0, 0, AW, AH, P.fieltro[1]);
+    for (let y = 0; y < AH; y += 2) for (let x = (y / 2) % 2; x < AW; x += 2) pin(g, e, x, y, 1, 1, P.fieltro[2]);
+    pin(g, e, 0, 0, AW, 1, P.fieltro[0]);
+    pin(g, e, 0, AH - 1, AW, 1, P.fieltro[3]);
+  }
+
+  /* --- un dado con su cara --- */
+  const CARAS = {
+    1: [[2, 2]],
+    2: [[1, 1], [3, 3]],
+    3: [[1, 1], [2, 2], [3, 3]],
+    4: [[1, 1], [3, 1], [1, 3], [3, 3]],
+    5: [[1, 1], [3, 1], [2, 2], [1, 3], [3, 3]],
+    6: [[1, 1], [3, 1], [1, 2], [3, 2], [1, 3], [3, 3]]
+  };
+  function dado(g, e, x, y, cara, resaltado) {
+    const s = 15;
+    pin(g, e, x, y, s, s, P.hueso[3]);            // contorno
+    pin(g, e, x + 1, y + 1, s - 2, s - 2, P.hueso[1]);
+    pin(g, e, x + 1, y + 1, s - 3, s - 3, P.hueso[0]);   // cara, luz arriba-izq
+    pin(g, e, x + 2, y + 2, s - 5, 1, '#ffffff');       // brillo del canto
+    const pts = CARAS[cara] || CARAS[1];
+    pts.forEach(function (p) {
+      const px = x + 2 + p[0] * 3, py = y + 2 + p[1] * 3;
+      pin(g, e, px, py, 2, 2, resaltado ? P.rojo[1] : P.hueso[3]);
+    });
+  }
+
+  /* --- una carta --- */
+  function carta(g, e, x, y, valor, boca) {
+    const w = 20, h = 28;
+    pin(g, e, x, y, w, h, P.carta[3]);
+    pin(g, e, x, y, w - 1, h - 1, P.carta[1]);
+    if (!boca) {                                   // dorso
+      pin(g, e, x + 2, y + 2, w - 5, h - 5, P.fieltro[0]);
+      for (let j = 3; j < h - 3; j += 3) for (let i = 3; i < w - 3; i += 3) pin(g, e, x + i, y + j, 1, 1, P.oro[1]);
+      return;
+    }
+    pin(g, e, x, y, w - 2, h - 2, P.carta[0]);
+    const neg = valor < 0;
+    const v = Math.abs(valor);
+    const col = neg ? P.rojo[1] : P.fieltro[0];
+    // el número, en bloques
+    const dig = String(v);
+    let cx = x + 3;
+    for (let k = 0; k < dig.length; k++) { numero(g, e, cx, y + 3, parseInt(dig[k], 10), col); cx += 6; }
+    for (let k = 0; k < dig.length; k++) { numero(g, e, x + w - 9 + k * 6, y + h - 11, parseInt(dig[k], 10), col); }
+    if (neg) pin(g, e, x + 3, y + 13, w - 8, 2, P.rojo[2]);
+  }
+
+  /* dígitos de 4×7 en bloques */
+  const DIG = {
+    0: ['111', '101', '101', '101', '101', '101', '111'],
+    1: ['010', '110', '010', '010', '010', '010', '111'],
+    2: ['111', '001', '001', '111', '100', '100', '111'],
+    3: ['111', '001', '001', '111', '001', '001', '111'],
+    4: ['101', '101', '101', '111', '001', '001', '001'],
+    5: ['111', '100', '100', '111', '001', '001', '111'],
+    6: ['111', '100', '100', '111', '101', '101', '111'],
+    7: ['111', '001', '001', '010', '010', '010', '010'],
+    8: ['111', '101', '101', '111', '101', '101', '111'],
+    9: ['111', '101', '101', '111', '001', '001', '111']
+  };
+  function numero(g, e, x, y, d, col) {
+    const m = DIG[d] || DIG[0];
+    for (let j = 0; j < m.length; j++) for (let i = 0; i < m[j].length; i++) {
+      if (m[j][i] === '1') pin(g, e, x + i, y + j, 1, 1, col);
+    }
+  }
+
+  /* --- la rueda --- */
+  function rueda(g, e, giro, resaltada) {
+    const cx = AW / 2, cy = AH / 2 + 2, R = 22;
+    for (let a = 0; a < 12; a++) {
+      const col = a === 0 ? P.oro[1] : (a % 2 === 0 ? P.rojo[1] : '#1a1a20');
+      const ini = (a / 12) * Math.PI * 2 + giro;
+      const fin = ((a + 1) / 12) * Math.PI * 2 + giro;
+      g.fillStyle = (resaltada === a) ? '#ffffff' : col;
+      g.beginPath();
+      g.moveTo(cx * e, cy * e);
+      g.arc(cx * e, cy * e, R * e, ini, fin);
+      g.closePath(); g.fill();
+    }
+    g.fillStyle = P.metal[2];
+    g.beginPath(); g.arc(cx * e, cy * e, 5 * e, 0, Math.PI * 2); g.fill();
+    g.fillStyle = P.metal[0];
+    g.beginPath(); g.arc(cx * e, cy * e, 3 * e, 0, Math.PI * 2); g.fill();
+    // la aguja, arriba
+    pin(g, e, cx - 1, cy - R - 5, 2, 6, P.oro[0]);
+  }
+
+  /* ============================================================
+     ANIMACIÓN
+     `alTerminar(res)` se llama cuando para.
+     ============================================================ */
+  SW.animarAzar = function (contenedor, juego, res, alTerminar) {
+    const e = 4;
+    const c = lienzo(e);
+    contenedor.innerHTML = '';
+    contenedor.appendChild(c);
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+
+    let t = 0;
+    const DUR = 46;                 // fotogramas hasta parar
+    let raf = 0;
+    const parar = function () {
+      if (raf) global.cancelAnimationFrame(raf);
+      raf = 0;
+      if (alTerminar) alTerminar(res);
+    };
+
+    const paso = function () {
+      t++;
+      const p = Math.min(1, t / DUR);
+      const frenando = p * p;                        // desacelera al final
+      tapete(g, e);
+
+      if (juego === 'dados') {
+        const a = p < 1 ? ((Math.random() * 6) | 0) + 1 : Math.max(1, res.mio - 6 > 0 ? 6 : res.mio - 1);
+        const b = p < 1 ? ((Math.random() * 6) | 0) + 1 : Math.max(1, res.mio - (res.mio - 6 > 0 ? 6 : res.mio - 1));
+        dado(g, e, 18, 18, p < 1 ? a : Math.max(1, Math.min(6, res.mio - Math.min(6, res.mio - 1))), p >= 1 && res.gana);
+        dado(g, e, 46, 18, p < 1 ? b : Math.max(1, Math.min(6, Math.min(6, res.mio - 1))), p >= 1 && res.gana);
+      } else if (juego === 'sabacc') {
+        const abierta1 = p > 0.55, abierta2 = p > 0.85;
+        carta(g, e, 16, 14, res.mio > 11 ? 11 : res.mio, abierta1);
+        carta(g, e, 44, 14, res.mio > 11 ? res.mio - 11 : 0, abierta2);
+      } else {
+        const vel = (1 - frenando) * 0.55 + 0.004;
+        rueda(g, e, t * vel, p >= 1 ? res.casilla : -1);
+      }
+
+      // marcador
+      if (p >= 1) {
+        pin(g, e, 0, AH - 9, AW, 9, 'rgba(0,0,0,.72)');
+        g.fillStyle = res.gana ? '#7ce8a0' : '#ff8a8a';
+        g.font = (5 * e) + 'px monospace';
+        g.textAlign = 'center';
+        g.fillText(res.gana ? 'GANAS' : 'PIERDES', (AW / 2) * e, (AH - 2.5) * e);
+      }
+
+      if (p >= 1) { global.setTimeout(parar, 620); return; }
+      raf = global.requestAnimationFrame(paso);
+    };
+    raf = global.requestAnimationFrame(paso);
+    return { cancelar: function () { if (raf) global.cancelAnimationFrame(raf); raf = 0; } };
+  };
+
+  /* ============================================================
+     ESCENA: la apuesta como decisión de verdad
+     ============================================================ */
+  SW.iniciarApuesta = function (g, cfg) {
+    const s = g.s;
+    cfg = cfg || {};
+    const tipo = cfg.juego || g.rng.pick(['dados', 'sabacc', 'ruleta']);
+    const J = SW.JUEGOS_AZAR[tipo];
+    const tope = Math.max(500, Math.round(s.stats.creditos * 0.6));
+    const apuestas = [
+      { n: 'Poco', v: Math.max(200, Math.round(tope * 0.12)) },
+      { n: 'La mitad de lo que llevas', v: Math.max(500, Math.round(tope * 0.5)) },
+      { n: 'Todo lo que llevas encima', v: tope }
+    ];
+    g.escena = { tipo: 'apuesta', juego: tipo, J: J };
+
+    const c = apuestas.filter(function (a) { return s.stats.creditos >= a.v; }).map(function (a) {
+      return { t: a.n + ' — ' + U.cr(a.v), apostar: a.v, juegoAzar: tipo,
+               sub: 'Si ganas te llevas otro tanto' };
+    });
+    if (tipo === 'ruleta') {
+      c.push({ t: 'A la dorada — ' + U.cr(apuestas[0].v), apostar: apuestas[0].v, juegoAzar: tipo,
+               color: 'oro', sub: 'Paga cinco veces. Sale una de doce.' });
+    }
+    c.push({ t: '◂ No jugar', volver: true });
+
+    return {
+      id: 'escena_apuesta', gen: true, apuesta: true, juegoAzar: tipo,
+      t: '<span class="scene-tag">' + J.n.toUpperCase() + '</span>' +
+         '<p>' + J.regla + '</p>' +
+         '<p class="dim">Llevas ' + U.cr(s.stats.creditos) + '.</p>',
+      c: c
+    };
+  };
+
+  /** resuelve la apuesta; la interfaz enseña la animación antes */
+  SW.resolverApuesta = function (g, cantidad, tipo, color) {
+    const s = g.s;
+    const J = SW.JUEGOS_AZAR[tipo] || SW.JUEGOS_AZAR.dados;
+    // maña: el intelecto y la suerte ayudan un poco; hacer trampa, más
+    let ventaja = U.clamp((s.stats.intelecto - 45) / 260 + (s.stats.suerte - 45) / 300, 0, 0.22);
+    if (s.habilidades.indexOf('tahúr') >= 0) ventaja += 0.14;
+    if (s.sensible && s.stats.fuerza > 40) ventaja += 0.10;
+
+    const res = J.tirar(g.rng, ventaja, color);
+    const mult = res.mult || 2;
+    if (res.gana) {
+      const premio = Math.round(cantidad * (mult - 1));
+      s.stats.creditos += premio;
+      g.log('<b>' + J.n + '</b>: ' + res.texto + '. Ganas ' + U.cr(premio) + '.', 'cr');
+      g.aplicarFx({ carisma: 3, suerte: 2 }, {});
+    } else {
+      s.stats.creditos -= cantidad;
+      g.log('<b>' + J.n + '</b>: ' + res.texto + '. Pierdes ' + U.cr(cantidad) + '.', 'mal');
+      g.aplicarFx({ cordura: -4 }, {});
+      // perder mucho engancha
+      if (cantidad > 8000 && g.rng.chance(0.28)) {
+        s.flags.enganchado_al_juego = true;
+        g.log('Te quedas mirando la mesa más rato del que deberías.', 'mal');
+      }
+    }
+    g.escena = null;
+    return res;
+  };
 
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -9521,9 +9973,7 @@ body.en-juego::before {
 
   E({ id: 'lo_any_apuesta', min: 16, max: 90, w: 9,
     t: 'En {sitio} se apuesta a lo que se apuesta en {aqui}. Hoy hay mucho encima de la mesa.',
-    c: [{ t: 'Apostar fuerte', r: [
-            { p: 0.42, t: 'Ganas.', fx: { suerte: 6, carisma: 6 }, apuesta: 'gana' },
-            { p: 0.58, t: 'Pierdes.', fx: { cordura: -8 }, apuesta: 'pierde' }] },
+    c: [{ t: 'Sentarte a la mesa', mesa: true, sub: 'Se juega de verdad: dados, sabacc o rueda.' },
         { t: 'Apostar poco y mirar', fx: { intelecto: 8, carisma: 5, creditos: 800 } },
         { t: 'Amañarlo', req: function (s) { return s.stats.intelecto > 45; }, r: [
             { p: 0.5, t: 'Cuela.', fx: { creditos: 28000, notoriedad: 12, alineamiento: -14 } },
@@ -10120,6 +10570,199 @@ body.en-juego::before {
   /* --- al pozo global --- */
   SW.EVENTOS = SW.EVENTOS || [];
   for (let i = 0; i < SW.EVENTOS_CUNA.length; i++) SW.EVENTOS.push(SW.EVENTOS_CUNA[i]);
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== src/data-events-gente.js ===== */
+/* ============================================================
+   HOLOVIDA :: LA GENTE VUELVE
+   El problema: decidías si te llevabas bien con tu hermano y no
+   volvías a saber de él en toda la partida. Estos eventos usan a
+   gente que YA está en tu vida ({hermano}, {amigo}, {pareja},
+   {conocido}, {rivalN}) y mueven el afecto de esa persona
+   concreta, no de todas a la vez. Muchos exigen que la relación
+   esté en cierto punto: si te llevas fatal con alguien, sale otra
+   cosa distinta que si os adoráis.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  SW.EVENTOS_GENTE = [];
+
+  const E = function (o) { SW.EVENTOS_GENTE.push(o); };
+  /** ¿tienes a alguien de estos tipos, y con qué afecto? */
+  const con = function (tipos, min, max) {
+    return function (s) {
+      return s.relaciones.some(function (r) {
+        if (tipos.indexOf(r.tipo) < 0) return false;
+        if (min != null && r.afecto < min) return false;
+        if (max != null && r.afecto > max) return false;
+        return true;
+      });
+    };
+  };
+  const HERM = ['hermano', 'hermana', 'hermano de lote'];
+  const AMIG = ['amigo', 'contacto', 'socio'];
+  const PAR = ['pareja', 'cónyuge'];
+
+  /* ══════════════ HERMANOS ══════════════ */
+
+  E({ id: 'gt_herm_favor', min: 10, max: 90, w: 11, slots: { h: 'hermano', p: 'mundoAqui', l: 'lugar' },
+    req: con(HERM, 20, null),
+    t: '{h} te pide algo que no le puede pedir a nadie más. Tú sabes lo que le cuesta pedir.',
+    c: [{ t: 'Hacerlo sin preguntar', fx: { alineamiento: 10, cordura: 6, creditos: -3000 }, conEsa: 22,
+          notaRel: 'le sacaste de un lío sin hacer preguntas' },
+        { t: 'Hacerlo, pero enterarte de todo primero', fx: { intelecto: 8, carisma: 6 }, conEsa: 12,
+          notaRel: 'le ayudaste, pero exigiendo la verdad', out: 'Es peor de lo que contaba. Le ayudas igual.' },
+        { t: 'Decirle que no', fx: { cordura: -6 }, conEsa: -25, notaRel: 'le dijiste que no cuando más lo necesitaba',
+          out: 'No insiste. Eso es lo que más duele.' },
+        { t: 'Decírselo a vuestra familia', fx: { alineamiento: 4 }, conEsa: -18, relTodas: 6,
+          notaRel: 'lo contaste en casa' }] });
+
+  E({ id: 'gt_herm_frio', min: 14, max: 95, w: 10, slots: { h: 'hermano' },
+    req: con(HERM, null, -10),
+    t: 'Llevas años sin hablar con {h}. Alguien de la familia te dice que ha preguntado por ti.',
+    c: [{ t: 'Llamarle', r: [
+            { p: 0.55, t: 'Habláis cuatro horas. Como si no hubiera pasado nada.', fx: { cordura: 16 }, conEsa: 45, notaRel: 'volvisteis a hablar después de años' },
+            { p: 0.45, t: 'Se nota que ya no os conocéis.', fx: { cordura: -6 }, conEsa: 10, notaRel: 'lo intentasteis y no salió' }] },
+        { t: 'Esperar a que llame él', fx: { cordura: -8 }, out: 'No llama. Los dos estáis esperando lo mismo.' },
+        { t: 'Escribirle todo lo que nunca le dijiste', fx: { cordura: 12, carisma: 6 }, conEsa: 25,
+          notaRel: 'le escribiste la carta que llevabas años debiendo' },
+        { t: 'Dejarlo como está', fx: { cordura: -4 } }] });
+
+  E({ id: 'gt_herm_exito', min: 22, max: 95, w: 9, slots: { h: 'hermano', p: 'mundoAqui' },
+    req: con(HERM, null, null),
+    t: 'A {h} le va bien. Mejor que a ti, y no lo disimula.',
+    c: [{ t: 'Alegrarte de verdad', fx: { cordura: 12, alineamiento: 8 }, conEsa: 18, notaRel: 'te alegraste de su suerte' },
+        { t: 'Pedirle ayuda', fx: { creditos: 12000, cordura: -6 }, conEsa: -8, notaRel: 'le pediste dinero' },
+        { t: 'Distanciarte', fx: { cordura: -10, intelecto: 4 }, conEsa: -22, notaRel: 'te apartaste por envidia' },
+        { t: 'Usarlo de empujón', fx: { intelecto: 8, carisma: 8, fisico: 4 }, conEsa: 6, flag: 'motivado_por_su_hermano' }] });
+
+  /* ══════════════ AMIGOS Y CONTACTOS ══════════════ */
+
+  E({ id: 'gt_amigo_deuda', min: 16, max: 95, w: 10, slots: { a: 'amigo', p: 'mundoAqui', k: 'banda' },
+    req: con(AMIG, 25, null),
+    t: '{a} se ha metido en algo con {k} y no tiene con qué salir.',
+    c: [{ t: 'Pagar lo que debe', fx: { creditos: -14000, alineamiento: 12 }, conEsa: 40,
+          notaRel: 'le pagaste la deuda que le iba a costar la vida' },
+        { t: 'Ir a hablar con {k}', req: function (s) { return s.stats.carisma > 45; },
+          fx: { carisma: 14, notoriedad: 8 }, conEsa: 32, notaRel: 'diste la cara por él' },
+        { t: 'Ayudarle a desaparecer', fx: { intelecto: 8, creditos: -4000 }, conEsa: 26, buscado: 12,
+          notaRel: 'le sacaste del planeta' },
+        { t: 'No es tu problema', fx: { cordura: -10 }, conEsa: -35, notaRel: 'miraste para otro lado' }] });
+
+  E({ id: 'gt_amigo_traiciona', min: 18, max: 95, w: 9, slots: { a: 'amigo', p: 'mundoAqui' },
+    req: con(AMIG, 40, null),
+    t: 'Descubres que {a}, en quien confiabas del todo, te ha estado ocultando algo grande.',
+    c: [{ t: 'Preguntárselo a la cara', fx: { carisma: 8, cordura: -6 }, r: [
+            { p: 0.5, t: 'Tenía un motivo. Uno bueno.', fx: { cordura: 10 }, conEsa: 15, notaRel: 'os lo aclarasteis todo' },
+            { p: 0.5, t: 'No tenía ninguno.', fx: { cordura: -14 }, conEsa: -55, notaRel: 'te mintió durante años' }] },
+        { t: 'Callártelo y vigilar', fx: { intelecto: 10, cordura: -8 }, conEsa: -12, notaRel: 'dejaste de fiarte sin decírselo' },
+        { t: 'Cortar por lo sano', fx: { cordura: -8 }, conEsa: -70, notaRel: 'lo cortaste de golpe' },
+        { t: 'Perdonarlo antes de que lo explique', fx: { alineamiento: 12, cordura: 8 }, conEsa: 20,
+          notaRel: 'le perdonaste sin pedir explicaciones' }] });
+
+  E({ id: 'gt_amigo_lejos', min: 18, max: 95, w: 9, slots: { a: 'amigo', x: 'mundoCerca' },
+    req: con(AMIG, 20, null),
+    t: '{a} se va a {x} y no sabe si volverá.',
+    c: [{ t: 'Irte con él', fx: { cordura: 10 }, conEsa: 30, mover: 'cerca', motivo: 'siguiendo a alguien',
+          notaRel: 'os fuisteis juntos' },
+        { t: 'Despedirte bien', fx: { cordura: 8 }, conEsa: 12, notaRel: 'os despedisteis como es debido' },
+        { t: 'No ir a la despedida', fx: { cordura: -10 }, conEsa: -20, notaRel: 'no fuiste a despedirle' },
+        { t: 'Prometerle que le visitarás', fx: { cordura: 6 }, conEsa: 8, flag: 'promesa_visita' }] });
+
+  /* ══════════════ PAREJA ══════════════ */
+
+  E({ id: 'gt_pareja_crisis', min: 20, max: 95, w: 10, slots: { q: 'pareja', p: 'mundoAqui' },
+    req: con(PAR, null, 45),
+    t: 'Con {q} lleváis meses de discusiones por lo mismo.',
+    c: [{ t: 'Ceder tú', fx: { cordura: -8, carisma: 6 }, conEsa: 22, notaRel: 'cediste para salvarlo' },
+        { t: 'Hablarlo de verdad', req: function (s) { return s.stats.carisma > 40; },
+          fx: { carisma: 12, cordura: 12 }, conEsa: 35, notaRel: 'os sentasteis a hablarlo en serio' },
+        { t: 'Dejarlo estar y que se pudra', fx: { cordura: -14 }, conEsa: -30, notaRel: 'dejasteis que se pudriera' },
+        { t: 'Romper', fx: { cordura: -16, intelecto: 6 }, romper: true, notaRel: 'lo dejasteis' }] });
+
+  E({ id: 'gt_pareja_bien', min: 22, max: 95, w: 9, slots: { q: 'pareja', p: 'mundoAqui', h: 'hito' },
+    req: con(PAR, 50, null),
+    t: 'Con {q} las cosas van bien de una forma que no esperabas a estas alturas.',
+    c: [{ t: 'Llevarle a {h}', fx: { cordura: 14, creditos: -2000 }, conEsa: 20, notaRel: 'os llevasteis un día bueno' },
+        { t: 'Proponerle formar familia', fx: { cordura: 10 }, conEsa: 18, hijo: true },
+        { t: 'Comprar algo juntos en {p}', fx: { creditos: -18000, cordura: 12 }, conEsa: 16, flag: 'casa_compartida' },
+        { t: 'No tocar nada, que está bien así', fx: { cordura: 10 }, conEsa: 8 }] });
+
+  /* ══════════════ RIVALES ══════════════ */
+
+  E({ id: 'gt_rival_vuelve', min: 18, max: 95, w: 10, slots: { v: 'rivalN', p: 'mundoAqui', l: 'lugar' },
+    req: con(['rival'], null, -20),
+    t: 'Te cruzas con {v} en {l}. Han pasado años y sigue mirándote igual.',
+    c: [{ t: 'Ir a hablar', r: [
+            { p: 0.45, t: 'Estáis los dos mayores para esto.', fx: { cordura: 14 }, conEsa: 60, notaRel: 'hicisteis las paces' },
+            { p: 0.55, t: 'Sigue igual que el primer día.', fx: { cordura: -6 }, conEsa: -15, notaRel: 'no hubo manera' }] },
+        { t: 'Ignorarle', fx: { cordura: 4 } },
+        { t: 'Provocarle', fx: { notoriedad: 8, fisico: 4 }, conEsa: -25, combate: { dif: 52 } },
+        { t: 'Ofrecerle un trato', req: function (s) { return s.stats.carisma > 50; },
+          fx: { carisma: 12, creditos: 9000 }, conEsa: 35, notaRel: 'acabasteis haciendo negocios' }] });
+
+  E({ id: 'gt_rival_pide', min: 22, max: 95, w: 8, slots: { v: 'rivalN' },
+    req: con(['rival'], null, -10),
+    t: '{v}, que nunca te ha pedido nada, te pide ayuda. Está desesperado.',
+    c: [{ t: 'Ayudarle', fx: { alineamiento: 18, cordura: 12, creditos: -6000 }, conEsa: 70,
+          notaRel: 'le ayudaste cuando podías haberle hundido', convertirRival: 'contacto' },
+        { t: 'Disfrutarlo y negarte', fx: { cordura: -8, alineamiento: -14 }, conEsa: -30,
+          notaRel: 'te reíste en su cara' },
+        { t: 'Ayudarle a cambio de algo', fx: { creditos: 14000, carisma: 8, alineamiento: -4 }, conEsa: 20,
+          notaRel: 'le ayudaste, pero cobrando' }] });
+
+  /* ══════════════ CUALQUIERA DE TU VIDA ══════════════ */
+
+  E({ id: 'gt_conocido_reaparece', min: 16, max: 100, w: 10, slots: { c: 'conocido', p: 'mundoAqui', l: 'lugar' },
+    req: function (s) { return s.relaciones.length >= 2; },
+    t: 'Te encuentras a {c} en {l}, muchos años después.',
+    c: [{ t: 'Sentaros a ponerse al día', fx: { cordura: 12, carisma: 6 }, conEsa: 25, notaRel: 'os pusisteis al día' },
+        { t: 'Saludar y seguir', fx: { cordura: 3 }, conEsa: 4 },
+        { t: 'Hacer como que no le ves', fx: { cordura: -6 }, conEsa: -12, notaRel: 'fingiste no verle' },
+        { t: 'Proponerle trabajar juntos', fx: { creditos: 8000, carisma: 10 }, conEsa: 20,
+          notaRel: 'montasteis algo juntos' }] });
+
+  E({ id: 'gt_conocido_muere', min: 25, max: 110, w: 8, slots: { c: 'conocido', p: 'mundoAqui' },
+    req: function (s) { return s.relaciones.length >= 3; },
+    t: 'Se muere {c}. Te enteras tarde y por otra persona.',
+    c: [{ t: 'Ir al entierro aunque no llegues a tiempo', fx: { cordura: 8, alineamiento: 6 } },
+        { t: 'Ocuparte de lo que deja', fx: { alineamiento: 16, reputacion: 10, creditos: -4000 } },
+        { t: 'Quedarte con algo suyo', fx: { cordura: 10 }, item: true },
+        { t: 'No hacer nada', fx: { cordura: -10 } }] });
+
+  E({ id: 'gt_conocido_pide_favor', min: 18, max: 100, w: 9, slots: { c: 'conocido', p: 'mundoAqui', k: 'banda' },
+    req: function (s) { return s.relaciones.length >= 2; },
+    t: '{c} te recuerda un favor de hace años y viene a cobrárselo.',
+    c: [{ t: 'Pagarlo con creces', fx: { alineamiento: 12, creditos: -8000 }, conEsa: 35, notaRel: 'saldaste con creces' },
+        { t: 'Pagarlo justo', fx: { creditos: -3000 }, conEsa: 12 },
+        { t: 'Negar que le debas nada', fx: { alineamiento: -10 }, conEsa: -45, notaRel: 'negaste una deuda vieja' },
+        { t: 'Pedirle tiempo', fx: { carisma: 6, cordura: -4 }, conEsa: -6 }] });
+
+  /* ══════════════ LA MESA ══════════════ */
+  E({ id: 'gt_mesa', min: 16, max: 100, w: 9, repetible: true, slots: { l: 'lugar', p: 'mundoAqui', c: 'conocido' },
+    req: function (s) { return s.stats.creditos > 1200; },
+    t: 'En {l} hay una partida abierta. Se juega fuerte y hay sitio.',
+    c: [{ t: 'Jugar', mesa: true, sub: 'Dados, sabacc o la rueda. Lo que caiga.' },
+        { t: 'Jugar solo a los dados', mesa: 'dados', sub: 'Rápido y sin vueltas.' },
+        { t: 'Jugar al sabacc', mesa: 'sabacc', sub: 'Se acerca más a 23 sin pasarse.' },
+        { t: 'Mirar y aprender cómo hacen trampa', fx: { intelecto: 10, carisma: 6 },
+          habilidad: 'tahúr', out: 'Tardas seis meses en verlo. Cuando lo ves, ya no puedes no verlo.' },
+        { t: 'No entrar', volver: true }] });
+
+  E({ id: 'gt_mesa_enganche', min: 18, max: 100, w: 10, repetible: true, slots: { l: 'lugar' },
+    req: function (s) { return !!s.flags.enganchado_al_juego && s.stats.creditos > 600; },
+    t: 'Vuelves a {l} sin haberlo decidido. Ya sabes cómo acaba esto y vas igual.',
+    c: [{ t: 'Jugar otra vez', mesa: true, fx: { cordura: -6 } },
+        { t: 'Darte la vuelta en la puerta', fx: { cordura: 12, intelecto: 4 },
+          quitarFlag: 'enganchado_al_juego', out: 'Cuesta más de lo que parece. Lo haces.' },
+        { t: 'Pedir ayuda a alguien', fx: { cordura: 14, alineamiento: 6 }, conEsa: 15,
+          slots2: true, quitarFlag: 'enganchado_al_juego' }] });
+
+  /* --- al pozo global --- */
+  SW.EVENTOS = SW.EVENTOS || [];
+  for (let i = 0; i < SW.EVENTOS_GENTE.length; i++) SW.EVENTOS.push(SW.EVENTOS_GENTE[i]);
 
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -12877,6 +13520,426 @@ body.en-juego::before {
 
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* ===== src/data-cazarrecompensas.js ===== */
+/* ============================================================
+   HOLOVIDA :: EL GREMIO DE CAZARRECOMPENSAS
+   Una cadena larga, rara y con varios pasos, no un evento suelto:
+
+     1. Te ofrecen entrar en el Gremio (hay que pagar y valer).
+     2. Coges un contrato: objetivo, planeta y condiciones.
+     3. Viajas hasta allí. Por el camino pasan cosas.
+     4. Buscas al objetivo en ese mundo, con sus pistas.
+     5. La captura: se puede hacer por la fuerza, con maña o
+        hablando, y cada vía usa tus estadísticas.
+     6. La entrega: vivo paga más, y a veces el objetivo te da
+        una razón para no entregarle.
+
+   Puede ocuparte varios años. Se puede abandonar a medias, y
+   dejar tirado un contrato tiene consecuencias con el Gremio.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+
+  /* ============================================================
+     LOS OBJETIVOS
+     ============================================================ */
+  const TIPOS = [
+    { id: 'desertor', n: 'un desertor', dif: 42, pago: 14000,
+      por: 'Se largó con la caja de su unidad.', vivo: 1.4,
+      pistas: ['bebe en el mismo sitio cada noche', 'ha cambiado de nombre pero no de acento', 'sigue mandando dinero a su familia'] },
+    { id: 'estafador', n: 'un estafador', dif: 48, pago: 22000,
+      por: 'Vendió participaciones de una mina que no existe.', vivo: 1.6,
+      pistas: ['gasta más de lo que dice ganar', 'siempre tiene una historia mejor', 'ha comprado pasaje con tres nombres distintos'] },
+    { id: 'contrabandista', n: 'un contrabandista', dif: 58, pago: 30000,
+      por: 'Se quedó con una carga que no era suya.', vivo: 1.3,
+      pistas: ['su nave tiene la firma cambiada', 'paga sobornos en el puerto', 'nunca duerme dos noches en el mismo sitio'] },
+    { id: 'asesino', n: 'un asesino a sueldo', dif: 72, pago: 55000,
+      por: 'Cobró por un trabajo y lo hizo demasiado bien.', vivo: 1.2,
+      pistas: ['no deja testigos, así que hay pocos', 'usa siempre la misma arma', 'alguien le está escondiendo'] },
+    { id: 'jefe', n: 'un jefe de banda', dif: 68, pago: 48000,
+      por: 'Se le acabó la protección que tenía comprada.', vivo: 1.5,
+      pistas: ['tiene medio barrio de su parte', 'no sale sin cuatro personas detrás', 'su gente cobra los martes'] },
+    { id: 'testigo', n: 'un testigo protegido', dif: 40, pago: 26000,
+      por: 'Alguien con dinero quiere que no llegue a declarar.', vivo: 2.2,
+      pistas: ['le han dado identidad nueva y le queda grande', 'no sabe moverse aquí', 'llama a casa aunque le han dicho que no'] },
+    { id: 'sensible', n: 'alguien sensible a la Fuerza', dif: 78, pago: 70000,
+      por: 'El encargo no dice por qué. Ese es el problema.', vivo: 1.8, oscuro: true,
+      pistas: ['pasan cosas raras donde está', 'los animales se comportan distinto cerca', 'nadie recuerda su cara del todo'] },
+    { id: 'droide', n: 'un droide con memoria intacta', dif: 52, pago: 34000,
+      por: 'Lo que tiene en la memoria vale más que él.', vivo: 3.0,
+      pistas: ['se esconde entre otros droides', 'no puede evitar corregir a la gente', 'necesita repuestos muy concretos'] }
+  ];
+
+  const rangoDe = function (cazas) {
+    if (cazas >= 12) return { n: 'leyenda del Gremio', mult: 2.2 };
+    if (cazas >= 7) return { n: 'cazador veterano', mult: 1.7 };
+    if (cazas >= 3) return { n: 'cazador con nombre', mult: 1.3 };
+    return { n: 'novato del Gremio', mult: 1 };
+  };
+
+  /* ============================================================
+     1. ENTRAR EN EL GREMIO
+     ============================================================ */
+  SW.EVENTOS = SW.EVENTOS || [];
+  SW.EVENTOS.push({
+    id: 'cz_gremio_entrada', min: 18, max: 200, w: 10,
+    slots: { p: 'mundoAqui', l: 'lugar', k: 'banda' },
+    req: function (s) {
+      if (s.flags.en_el_gremio) return false;
+      // ni a cualquiera ni en cualquier sitio: hace falta mano y algo de fama
+      const apto = s.stats.fisico > 38 || s.stats.destreza > 42 || s.stats.notoriedad > 25;
+      const sitio = ['Nevarro', 'Tatooine', 'Nar Shaddaa', 'Ord Mantell', 'Rodia', 'Sriluur',
+                     'Chalmun', 'Batuu', 'Trandosha', 'Nal Hutta', 'Kijimi', 'Corellia', 'Coruscant',
+                     'Bespin', 'Takodana', 'Kessel', 'Cantonica', 'Jakku', 'Lothal', 'Malastare',
+                     'Akiva', 'Taris', 'Vandor', 'Savareen', 'Ando', 'Kintan'].indexOf(s.mundo) >= 0;
+      return apto && (sitio || s.stats.notoriedad > 45);
+    },
+    t: 'En {l} hay una casa del Gremio de Cazarrecompensas. Se entra pagando y demostrando algo.',
+    c: [
+      { t: 'Pagar la cuota y entrar', coste: 9000, fx: { notoriedad: 8, reputacion: 4 },
+        flag: 'en_el_gremio', sub: '9.000 cr y una placa',
+        out: 'Te dan una placa de identificación y una advertencia: los contratos se terminan.' },
+      { t: 'Demostrar que vales en vez de pagar', req: function (s) { return s.stats.fisico > 50 || s.stats.destreza > 55; },
+        combate: { dif: 58 }, flag: 'en_el_gremio', fx: { notoriedad: 10 },
+        sub: 'Una pelea delante de todos', out: 'Te ahorras la cuota. Te ganas la mirada de todos.' },
+      { t: 'Preguntar cómo funciona', fx: { intelecto: 8 },
+        out: 'Cobras por contrato. Vivo paga más. Si dejas uno a medias, no vuelves a coger otro.' },
+      { t: 'No es lo tuyo', volver: true }
+    ]
+  });
+
+  /* ============================================================
+     2. COGER UN CONTRATO
+     ============================================================ */
+  SW.GEN = SW.GEN || {};
+  SW.GEN.contratoCaza = function (rng, s) {
+    const t = rng.pick(TIPOS.filter(function (x) { return !x.oscuro || s.stats.alineamiento < 10; }));
+    // el objetivo está en OTRO mundo: hay que ir
+    const destino = SW.mundoAleatorioNormal ? SW.mundoAleatorioNormal(rng, s.mundo)
+                                            : rng.pick(SW.MUNDO_NOMBRES);
+    const rango = rangoDe(s.contadores.cazas || 0);
+    const pago = Math.round(t.pago * rango.mult * (0.85 + rng.next() * 0.4));
+    const nombre = SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'rodiano', 'duros']),
+                                        rng.chance(0.5) ? 'm' : 'f');
+    const contrato = {
+      tipo: t.id, tipoN: t.n, nombre: nombre, destino: destino, dif: t.dif,
+      pago: pago, vivo: t.vivo, por: t.por, pista: rng.pick(t.pistas),
+      fase: 'viaje', rastro: 0
+    };
+    return {
+      id: 'cz_contrato', gen: true, contrato: contrato,
+      t: '<span class="scene-tag">CONTRATO DEL GREMIO</span>' +
+         '<p>Objetivo: <b>' + nombre + '</b>, ' + t.n + '.</p>' +
+         '<p>' + t.por + '</p>' +
+         '<p>Última posición conocida: <b>' + destino + '</b>.</p>' +
+         '<p class="dim">Paga ' + U.cr(pago) + ' · vivo multiplica por ' + t.vivo + ' · dificultad ' + t.dif + '</p>',
+      c: [
+        { t: 'Aceptar el contrato', tomarContrato: true, fx: { notoriedad: 4 } },
+        { t: 'Pedir más información antes', fx: { intelecto: 6, creditos: -800 },
+          tomarContrato: true, pistaExtra: true, sub: 'Cuesta, pero empiezas con ventaja' },
+        { t: 'Rechazarlo', fx: { reputacion: -2 }, volver: true }
+      ]
+    };
+  };
+
+  /* ============================================================
+     3. EL VIAJE — pasan cosas por el camino
+     ============================================================ */
+  const IMPREVISTOS = [
+    { t: 'A mitad de ruta te para un control. Preguntan a dónde vas y por qué.',
+      c: [{ t: 'Enseñar la placa del Gremio', fx: { carisma: 4 }, out: 'Te dejan pasar. Y queda registrado dónde vas.' },
+          { t: 'Mentir', fx: { carisma: 8, intelecto: 4 }, out: 'Cuela. Nadie sabe que vas.' },
+          { t: 'Dar media vuelta y rodear', fx: { creditos: -2000, intelecto: 6 }, out: 'Pierdes semanas. Nadie te ha visto.' }] },
+    { t: 'Alguien más va a por el mismo objetivo y viaja en tu misma nave.',
+      c: [{ t: 'Proponerle ir a medias', fx: { carisma: 10 }, rastro: 2, out: 'Sabe cosas que tú no. Se reparte.' },
+          { t: 'Deshacerte de él', fx: { alineamiento: -14, notoriedad: 8 }, combate: { dif: 55 } },
+          { t: 'Adelantarle en el puerto', fx: { destreza: 8, intelecto: 6 }, rastro: 1 }] },
+    { t: 'Se te avería algo a mitad de salto y hay que parar.',
+      c: [{ t: 'Arreglarlo tú', fx: { intelecto: 8, destreza: 6 }, naveEstado: -8 },
+          { t: 'Pagar a alguien', fx: { creditos: -6000 } },
+          { t: 'Seguir a medio gas', fx: { naveEstado: -22 }, rastro: -1, out: 'Llegas tarde. El rastro se enfría.' }] },
+    { t: 'En una escala te llega un aviso: alguien ha ofrecido más dinero por que NO entregues al objetivo.',
+      c: [{ t: 'Ignorarlo', fx: { alineamiento: 4 } },
+          { t: 'Escuchar la oferta', fx: { intelecto: 6 }, flag: 'oferta_paralela', out: 'Te dan un nombre y una cifra. La cifra es alta.' },
+          { t: 'Avisar al Gremio', fx: { reputacion: 8 }, faccion: 'gremio+15' }] },
+    { t: 'Reconoces la cara del objetivo en una grabación de un puerto por el que acabas de pasar.',
+      c: [{ t: 'Volver atrás a buscar', fx: { intelecto: 8 }, rastro: 2 },
+          { t: 'Seguir al destino igual', rastro: 0 },
+          { t: 'Comprar la grabación entera', fx: { creditos: -3500, intelecto: 10 }, rastro: 3 }] }
+  ];
+
+  SW.GEN.viajeCaza = function (rng, s) {
+    const c = s.contrato;
+    const im = rng.pick(IMPREVISTOS);
+    return {
+      id: 'cz_viaje', gen: true, cazaPaso: 'viaje',
+      t: '<span class="scene-tag">RUMBO A ' + c.destino.toUpperCase() + '</span><p>' + im.t + '</p>',
+      c: im.c.map(function (o) { return Object.assign({ cazaAvanza: true }, o); })
+    };
+  };
+
+  /* ============================================================
+     4. LA BÚSQUEDA — ya en el planeta
+     ============================================================ */
+  SW.GEN.buscarObjetivo = function (rng, s) {
+    const c = s.contrato;
+    const d = SW.dosierDe ? SW.dosierDe(s.mundo) : null;
+    const sitio = d ? rng.pick(d.hit) : 'el puerto';
+    const banda = d ? rng.pick(d.fac) : 'la gente de aquí';
+    return {
+      id: 'cz_buscar', gen: true, cazaPaso: 'buscar',
+      t: '<span class="scene-tag">EN ' + s.mundo.toUpperCase() + '</span>' +
+         '<p>Buscas a <b>' + c.nombre + '</b>. Lo que sabes: ' + c.pista + '.</p>' +
+         '<p class="dim">Rastro: ' + ['frío', 'tibio', 'caliente', 'lo tienes'][U.clamp(c.rastro, 0, 3)] + '</p>',
+      c: [
+        { t: 'Preguntar en ' + sitio, cazaBusca: 'preguntar', sub: 'Depende de tu carisma' },
+        { t: 'Pagar información a ' + banda, cazaBusca: 'pagar', coste: 4000, sub: 'Rápido y caro' },
+        { t: 'Rastrear por tu cuenta', cazaBusca: 'rastrear', sub: 'Depende de tu intelecto y destreza' },
+        { t: 'Montar una trampa y esperar', cazaBusca: 'trampa', sub: 'Lento pero muy efectivo si sale' },
+        { t: 'Abandonar el contrato', cazaAbandona: true, sub: 'El Gremio toma nota' }
+      ]
+    };
+  };
+
+  SW.resolverBusqueda = function (g, modo) {
+    const s = g.s, rng = g.rng, c = s.contrato;
+    if (!c) return;
+    let p, txt;
+    if (modo === 'preguntar') {
+      p = U.clamp(0.28 + (s.stats.carisma - c.dif) / 150, 0.08, 0.8);
+      txt = 'Preguntas sin llamar la atención.';
+    } else if (modo === 'pagar') {
+      p = U.clamp(0.52 + (s.stats.creditos > 20000 ? 0.1 : 0), 0.3, 0.82);
+      txt = 'El dinero abre bocas.';
+    } else if (modo === 'rastrear') {
+      p = U.clamp(0.24 + (s.stats.intelecto + s.stats.destreza - c.dif * 2) / 190, 0.06, 0.82);
+      txt = 'Sigues su rastro como se sigue un rastro.';
+    } else {
+      p = U.clamp(0.36 + (s.stats.intelecto - c.dif) / 150, 0.1, 0.78);
+      txt = 'Montas la trampa y esperas.';
+    }
+    if (s.habilidades.indexOf('rastreador') >= 0) p += 0.12;
+    if (s.habilidades.indexOf('cazarrecompensas') >= 0) p += 0.10;
+    if (SW.naveAbre && SW.naveAbre(s, 'buscar')) p += 0.08;
+
+    if (rng.chance(p)) {
+      c.rastro = Math.min(3, c.rastro + 1);
+      g.log(txt + ' El rastro se calienta.', 'bien');
+      g.aplicarFx({ intelecto: 3, destreza: 2 }, {});
+    } else {
+      c.rastro = Math.max(0, c.rastro - (rng.chance(0.4) ? 1 : 0));
+      g.log(txt + ' No sale nada. Y ahora sabe que le buscan.', 'mal');
+      g.aplicarFx({ cordura: -3 }, {});
+      if (rng.chance(0.22)) {
+        g.log(c.nombre + ' te ha visto primero.', 'mal');
+        g.iniciarCombate({ dif: c.dif, duelo: false });
+        return;
+      }
+    }
+    if (c.rastro >= 3) { c.fase = 'captura'; g.log('Ya sabes dónde duerme. Mañana.', 'bien'); }
+  };
+
+  /* ============================================================
+     5. LA CAPTURA
+     ============================================================ */
+  SW.GEN.capturar = function (rng, s) {
+    const c = s.contrato;
+    return {
+      id: 'cz_captura', gen: true, cazaPaso: 'captura',
+      t: '<span class="scene-tag">LA CAPTURA</span>' +
+         '<p>Tienes a <b>' + c.nombre + '</b> localizado. A partir de aquí solo hay una oportunidad.</p>' +
+         '<p class="dim">Vivo paga ×' + c.vivo + '. Muerto, el contrato base.</p>',
+      c: [
+        { t: 'Entrar por la fuerza', cazaCaptura: 'fuerza', sub: 'Combate. Rápido y sucio.' },
+        { t: 'Aturdirle y llevártelo', cazaCaptura: 'aturdir', sub: 'Necesitas pulso. Paga mucho más.' },
+        { t: 'Hablar con él antes', cazaCaptura: 'hablar', sub: 'Puede entregarse. O engañarte.' },
+        { t: 'Esperar a que salga solo', cazaCaptura: 'esperar', sub: 'Paciencia. Depende de tu intelecto.' }
+      ]
+    };
+  };
+
+  SW.resolverCaptura = function (g, modo) {
+    const s = g.s, rng = g.rng, c = s.contrato;
+    if (!c) return;
+
+    if (modo === 'fuerza') {
+      g.log('Entras por la puerta y no hay conversación.', 'res');
+      c.fase = 'entrega'; c.estado = 'muerto';
+      g.iniciarCombate({ dif: c.dif, contrato: true, botin: 0 });
+      c.pendienteCombate = true;
+      return;
+    }
+    if (modo === 'aturdir') {
+      const p = U.clamp(0.30 + (s.stats.destreza - c.dif) / 130, 0.08, 0.85);
+      if (rng.chance(p)) {
+        g.log('Un disparo de aturdimiento limpio. Ni se entera.', 'bien');
+        c.estado = 'vivo'; c.fase = 'entrega';
+      } else {
+        g.log('Fallas el primer disparo y se acabó lo fácil.', 'mal');
+        c.estado = 'muerto'; c.fase = 'entrega';
+        g.iniciarCombate({ dif: c.dif + 10, contrato: true });
+        c.pendienteCombate = true;
+      }
+      return;
+    }
+    if (modo === 'hablar') {
+      const p = U.clamp(0.26 + (s.stats.carisma - c.dif) / 140, 0.06, 0.8);
+      if (rng.chance(p)) {
+        g.log('Le convences de que contigo tiene más futuro que huyendo.', 'bien');
+        c.estado = 'vivo'; c.fase = 'entrega'; c.hablado = true;
+        g.aplicarFx({ carisma: 8 }, {});
+      } else {
+        g.log('Te da conversación mientras alcanza algo debajo de la mesa.', 'mal');
+        c.estado = 'muerto'; c.fase = 'entrega';
+        g.iniciarCombate({ dif: c.dif + 6, contrato: true });
+        c.pendienteCombate = true;
+      }
+      return;
+    }
+    // esperar
+    const p = U.clamp(0.34 + (s.stats.intelecto - c.dif) / 140, 0.08, 0.85);
+    if (rng.chance(p)) {
+      g.log('Sale solo, de madrugada, como llevabas semanas viendo.', 'bien');
+      c.estado = 'vivo'; c.fase = 'entrega';
+    } else {
+      g.log('Sale acompañado. Cuatro personas y ninguna amable.', 'mal');
+      c.estado = 'muerto'; c.fase = 'entrega';
+      g.iniciarCombate({ dif: c.dif + 14, contrato: true });
+      c.pendienteCombate = true;
+    }
+  };
+
+  /* ============================================================
+     6. LA ENTREGA — la última decisión es moral
+     ============================================================ */
+  SW.GEN.entregar = function (rng, s) {
+    const c = s.contrato;
+    const vivo = c.estado === 'vivo';
+    const pago = Math.round(c.pago * (vivo ? c.vivo : 1));
+    const razones = [
+      'Dice que el que paga por él es el que hizo lo que le achacan.',
+      'Tiene una hija en el planeta de al lado y no ha podido despedirse.',
+      'Jura que el Gremio ya sabe que el contrato es falso.',
+      'Te ofrece el doble de lo que cobras por soltarle.',
+      'No dice nada. Eso es peor que si dijera algo.'
+    ];
+    const c2 = [
+      { t: 'Entregarlo y cobrar', cazaEntrega: 'entregar', sub: U.cr(pago) },
+      { t: 'Entregarlo y no preguntar nada más', cazaEntrega: 'entregar', sub: 'Se duerme mejor así, dicen' }
+    ];
+    if (vivo) {
+      c2.push({ t: 'Soltarlo', cazaEntrega: 'soltar', sub: 'No cobras. El Gremio se entera.' });
+      c2.push({ t: 'Comprobar si dice la verdad', cazaEntrega: 'comprobar', sub: 'Depende de tu intelecto' });
+    }
+    return {
+      id: 'cz_entrega', gen: true, cazaPaso: 'entrega',
+      t: '<span class="scene-tag">LA ENTREGA</span>' +
+         '<p>Tienes a <b>' + c.nombre + '</b> ' + (vivo ? 'vivo y esposado' : 'y ya no habla') + '.</p>' +
+         (vivo ? '<p>' + rng.pick(razones) + '</p>' : '') +
+         '<p class="dim">Cobras ' + U.cr(pago) + '</p>',
+      c: c2
+    };
+  };
+
+  SW.resolverEntrega = function (g, modo) {
+    const s = g.s, rng = g.rng, c = s.contrato;
+    if (!c) return;
+    const vivo = c.estado === 'vivo';
+    const pago = Math.round(c.pago * (vivo ? c.vivo : 1));
+
+    if (modo === 'entregar') {
+      s.stats.creditos += pago;
+      s.contadores.cazas = (s.contadores.cazas || 0) + 1;
+      const r = rangoDe(s.contadores.cazas);
+      g.log('Contrato cerrado. Cobras ' + U.cr(pago) + '. Ahora eres ' + r.n + '.', 'cr');
+      g.aplicarFx({ notoriedad: 8, reputacion: 4, alineamiento: vivo ? -2 : -8 }, {});
+      g.hito('Cierra un contrato: ' + c.nombre);
+      if (!vivo) g.aplicarFx({ cordura: -6 }, {});
+    } else if (modo === 'soltar') {
+      g.log('Le quitas las esposas y le dices por dónde no hay control.', 'res');
+      g.aplicarFx({ alineamiento: 20, cordura: 10, reputacion: -10 }, {});
+      s.faccionRep = s.faccionRep || {};
+      s.faccionRep.gremio = (s.faccionRep.gremio || 0) - 30;
+      g.añadirRelacion('contacto', 55, c.nombre, 'te debe la vida');
+      if (rng.chance(0.4)) { s.flags.gremio_desconfia = true; g.log('En el Gremio se enteran. Toman nota.', 'mal'); }
+    } else {
+      const p = U.clamp(0.3 + (s.stats.intelecto - 45) / 120, 0.1, 0.85);
+      if (rng.chance(p)) {
+        g.log('Compruebas su historia. Es cierta.', 'bien');
+        g.aplicarFx({ intelecto: 10 }, {});
+        s.contrato.verdad = true;
+        // se vuelve a preguntar, ahora sabiendo
+        g.cola.unshift(g.prepararGen({
+          id: 'cz_entrega2', gen: true, cazaPaso: 'entrega',
+          t: '<p>Es verdad: el contrato lo puso quien hizo lo que le achacan.</p>',
+          c: [{ t: 'Entregarlo igual: es tu trabajo', cazaEntrega: 'entregar' },
+              { t: 'Soltarlo', cazaEntrega: 'soltar' },
+              { t: 'Ir a por quien puso el contrato', cazaEntrega: 'vengar' }]
+        }));
+        return;
+      }
+      g.log('No consigues comprobar nada. Se te acaba el tiempo.', 'mal');
+      g.cola.unshift(g.prepararGen(SW.GEN.entregar(rng, s)));
+      return;
+    }
+    if (modo === 'vengar') {
+      g.log('Vas a por el que puso el contrato.', 'res');
+      g.aplicarFx({ alineamiento: 12, notoriedad: 16 }, {});
+      g.iniciarCombate({ dif: c.dif + 12, botin: Math.round(pago * 1.5) });
+    }
+    s.contrato = null;
+  };
+
+  /* ============================================================
+     EL CICLO: se comprueba cada año si hay contrato en marcha
+     ============================================================ */
+  SW.pasoCaza = function (g) {
+    const s = g.s;
+    const c = s.contrato;
+    if (!c) return null;
+    if (c.pendienteCombate) { c.pendienteCombate = false; }
+    if (c.fase === 'viaje') {
+      // hay que llegar: con nave es más rápido
+      c.viajes = (c.viajes || 0) + 1;
+      const listo = s.mundo === c.destino || c.viajes >= (s.nave ? 2 : 3);
+      if (listo) {
+        if (s.mundo !== c.destino) g.mover(c.destino, 'siguiendo un contrato');
+        c.fase = 'buscar';
+        g.log('Llegas a ' + c.destino + '. Ahora hay que encontrarle.', 'res');
+        return SW.GEN.buscarObjetivo(g.rng, s);
+      }
+      return SW.GEN.viajeCaza(g.rng, s);
+    }
+    if (c.fase === 'buscar') return SW.GEN.buscarObjetivo(g.rng, s);
+    if (c.fase === 'captura') return SW.GEN.capturar(g.rng, s);
+    if (c.fase === 'entrega') return SW.GEN.entregar(g.rng, s);
+    return null;
+  };
+
+  /* la puerta de entrada a un contrato nuevo */
+  SW.EVENTOS.push({
+    id: 'cz_hay_trabajo', min: 18, max: 200, w: 26, repetible: true,
+    slots: { l: 'lugar' },
+    req: function (s) { return !!s.flags.en_el_gremio && !s.contrato && !s.flags.gremio_desconfia; },
+    t: 'Hay contratos nuevos en el tablón del Gremio.',
+    c: [{ t: 'Mirar qué hay', generar: 'contratoCaza' },
+        { t: 'Este año no', volver: true }]
+  });
+  SW.EVENTOS.push({
+    id: 'cz_gremio_frio', min: 18, max: 200, w: 14, repetible: true,
+    slots: { l: 'lugar' },
+    req: function (s) { return !!s.flags.gremio_desconfia && !s.contrato; },
+    t: 'En el Gremio ya no te dan lo bueno. Alguien se acuerda de aquel contrato que soltaste.',
+    c: [{ t: 'Pagar una multa y limpiar tu nombre', coste: 15000, quitarFlag: 'gremio_desconfia',
+          fx: { reputacion: 4 }, out: 'Vuelves a estar en la lista.' },
+        { t: 'Coger lo que sobra', generar: 'contratoCaza', fx: { reputacion: -2 } },
+        { t: 'Dejar el Gremio', quitarFlag: 'en_el_gremio', fx: { cordura: 8 },
+          out: 'Devuelves la placa. No hacen preguntas.' }] });
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== src/data-fuerza.js ===== */
 /* ============================================================
    HOLOVIDA :: el camino de la Fuerza
@@ -13408,7 +14471,7 @@ body.en-juego::before {
       version: 2,
       semilla: rng.seedStr,
       nombre: cfg.nombre,
-      pronombre: cfg.pronombre || 'elle',
+      pronombre: cfg.pronombre || 'él',
       especie: esp.id,
       especieN: esp.n,
       ritmo: esp.ritmo || 1,                       // años biológicos por año jugado
@@ -13423,6 +14486,7 @@ body.en-juego::before {
       apariencia: Object.assign({ especie: esp.id }, cfg.apariencia || {}),
       peligro: 0,                                  // cuánto has tentado a la suerte
       mejorasNave: [],
+      contrato: null,
       puestoGuerra: null,
       edad: 0,
       edadBio: 0,
@@ -13564,7 +14628,14 @@ body.en-juego::before {
         case 'lugarLejos': { const m = rng.pick(SW.MUNDO_NOMBRES); slots[k] = rng.pick(SW.lugaresDe(m)) + ' de ' + m; break; }
         case 'oficio': slots[k] = rng.pick(SW.oficiosDe ? SW.oficiosDe(this.s.mundo) : ['mecánico']); break;
         case 'objeto': slots[k] = rng.pick(SW.OBJETOS).n; break;
-        case 'nombre': slots[k] = SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'rodiano', 'duros'])); break;
+        /* gente que YA conoces: sin esto, cada evento inventaba a alguien
+           nuevo y tu hermano no volvía a aparecer en toda la partida */
+        case 'conocido': { const r = this.relacionCualquiera(); slots[k] = r ? r.nombre : SW.genNombreCompleto(rng, 'humano', rng.chance(0.5) ? 'm' : 'f'); if (r) slots['_rel'] = r.nombre; break; }
+        case 'hermano': { const r = this.relacionDe(['hermano', 'hermana', 'hermano de lote']); slots[k] = r ? r.nombre : 'tu hermano'; if (r) slots['_rel'] = r.nombre; break; }
+        case 'amigo': { const r = this.relacionDe(['amigo', 'contacto', 'socio']); slots[k] = r ? r.nombre : 'alguien de confianza'; if (r) slots['_rel'] = r.nombre; break; }
+        case 'pareja': { const r = this.relacionDe(['pareja', 'cónyuge']); slots[k] = r ? r.nombre : 'la persona con la que vives'; if (r) slots['_rel'] = r.nombre; break; }
+        case 'rivalN': { const r = this.relacionDe(['rival']); slots[k] = r ? r.nombre : 'alguien que te tiene ganas'; if (r) slots['_rel'] = r.nombre; break; }
+        case 'nombre': slots[k] = SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'rodiano', 'duros']), rng.chance(0.5) ? 'm' : 'f'); break;
         case 'faccion': { const f = rng.pick(SW.faccionesDeEra(this.s.era)); slots[k] = f.n; slots['_faccion'] = f.id; break; }
         case 'rumor': slots[k] = rng.pick(SW.RUMORES); break;
         case 'nave': slots[k] = rng.pick(SW.NAVES).n; break;
@@ -13582,6 +14653,29 @@ body.en-juego::before {
       }
     }
     return slots;
+  };
+
+  /** una relación de los tipos pedidos, la de más peso */
+  Game.prototype.relacionDe = function (tipos) {
+    const rs = this.s.relaciones.filter(function (r) { return tipos.indexOf(r.tipo) >= 0; });
+    if (!rs.length) return null;
+    return rs.sort(function (a, b) { return Math.abs(b.afecto) - Math.abs(a.afecto); })[0];
+  };
+  /** cualquiera de tu vida, con preferencia por los que te importan */
+  Game.prototype.relacionCualquiera = function () {
+    const rs = this.s.relaciones;
+    if (!rs.length) return null;
+    return this.rng.weighted(rs, function (r) { return 1 + Math.abs(r.afecto) / 20; });
+  };
+  /** mueve el afecto de UNA persona concreta y lo deja escrito */
+  Game.prototype.afectoCon = function (nombre, delta, nota) {
+    const r = this.s.relaciones.filter(function (x) { return x.nombre === nombre; })[0];
+    if (!r) return;
+    r.afecto = U.clamp(r.afecto + delta, -100, 100);
+    r.historia = r.historia || [];
+    if (nota) r.historia.push({ edad: this.s.edad, txt: nota });
+    this.log((delta >= 0 ? 'Te acercas a ' : 'Se enfría lo tuyo con ') + '<b>' + r.nombre + '</b>' +
+             (nota ? ': ' + nota : '') + '.', delta >= 0 ? 'rel' : 'mal');
   };
 
   /** el dosier del mundo donde estás, cacheado mientras no te muevas */
@@ -13607,8 +14701,10 @@ body.en-juego::before {
     const out = [];
     for (let i = 0; i < pool.length; i++) {
       const e = pool[i];
-      // ya lo viviste: no vuelve hasta que se agote todo lo demás
-      if (!permitirVistos && s.vistos[e.id]) continue;
+      // ya lo viviste: no vuelve hasta que se agote todo lo demás.
+      // Salvo los marcados `repetible`: el tablón del Gremio o la mesa
+      // de juego tienen que poder salir más de una vez en una vida.
+      if (!permitirVistos && s.vistos[e.id] && !e.repetible) continue;
       if (e.min != null && s.edadBio < e.min) continue;
       if (e.max != null && s.edadBio > e.max) continue;
       if (e.era && e.era.indexOf(s.era) < 0) continue;
@@ -13627,6 +14723,7 @@ body.en-juego::before {
 
   /** peso efectivo: lo ya visto pesa mucho menos */
   Game.prototype.peso = function (ev) {
+    if (ev.repetible) return ev.w == null ? 1 : ev.w;
     let base = ev.w == null ? 1 : ev.w;
     if (ev.mundo) base *= 2.2;   // lo que pasa aquí pasa más que lo genérico
     const visto = this.s.vistos[ev.id] || 0;
@@ -13721,6 +14818,12 @@ body.en-juego::before {
       const ev = guion.sort(function (a, b) { return (b.prio || 0) - (a.prio || 0); })[0];
       const inst = this.prepararEvento(ev);
       if (inst) this.cola.push(inst);
+    }
+
+    // un contrato en marcha manda sobre lo demás: es lo que estás haciendo
+    if (s.contrato && SW.pasoCaza) {
+      const paso = SW.pasoCaza(this);
+      if (paso) this.cola.push(this.prepararGen(paso));
     }
 
     // encuentro con alguien conocido: muy raro, y más si eres un don nadie
@@ -13886,6 +14989,9 @@ body.en-juego::before {
   Game.prototype.aplicarFx = function (fx, slots) {
     if (!fx) return;
     const s = this.s;
+    // foto de antes: así se puede enseñar el cambio REAL, no el nominal
+    const antes = {};
+    for (const kk in fx) if (s.stats[kk] != null) antes[kk] = s.stats[kk];
     for (const k in fx) {
       let v = fx[k];
       if (s.stats[k] == null) continue;
@@ -13913,6 +15019,38 @@ body.en-juego::before {
       s.stats[k] += v;
     }
     clampStats(s);
+    // lo que ha cambiado se acumula para enseñarlo junto tras la elección
+    if (this.cambios) {
+      for (const k in antes) {
+        const d = Math.round(s.stats[k] - antes[k]);
+        if (d) this.cambios[k] = (this.cambios[k] || 0) + d;
+      }
+    }
+  };
+
+  /** nombres legibles de cada estadística, para el resumen de efectos */
+  const ETIQ = {
+    salud: 'salud', fisico: 'físico', destreza: 'destreza', intelecto: 'intelecto',
+    carisma: 'carisma', cordura: 'cordura', suerte: 'suerte', fuerza: 'la Fuerza',
+    reputacion: 'reputación', notoriedad: 'notoriedad', alineamiento: 'alineamiento',
+    creditos: 'créditos'
+  };
+
+  /** convierte lo acumulado en una línea legible bajo el resultado */
+  Game.prototype.volcarCambios = function () {
+    const c = this.cambios;
+    this.cambios = null;
+    if (!c) return;
+    const partes = [];
+    Object.keys(c).forEach(function (k) {
+      const v = c[k];
+      if (!v) return;
+      const txt = k === 'creditos'
+        ? (v > 0 ? '+' : '−') + U.cr(Math.abs(v)).replace(' cr', '') + ' cr'
+        : (v > 0 ? '+' : '−') + Math.abs(v) + ' ' + (ETIQ[k] || k);
+      partes.push('<i class="fx ' + (v > 0 ? 'fx-mas' : 'fx-menos') + '">' + txt + '</i>');
+    });
+    if (partes.length) this.log(partes.join(' '), 'efectos');
   };
 
   Game.prototype.despertar = function () {
@@ -13959,8 +15097,10 @@ body.en-juego::before {
     if (d.tactica) { this.log('› ' + op.txt, 'eleccion'); this.resolverTactica(d.tactica); return; }
     if (d.tacticaN) { this.log('› ' + op.txt, 'eleccion'); this.resolverTacticaNave(d.tacticaN); return; }
     if (d.carreraLinea) { this.log('› ' + op.txt, 'eleccion'); SW.resolverCarrera(this, d.carreraLinea); return; }
+    this.cambios = {};
     this.elegir(inst, i);
     if (this.aplicarExtra) this.aplicarExtra(d);
+    this.volcarCambios();
   };
 
   Game.prototype.aplicarNodo = function (d, slots, inst, soloBase) {
@@ -13995,6 +15135,7 @@ body.en-juego::before {
     if (d.relTodas) s.relaciones.forEach(function (r) { r.afecto = U.clamp(r.afecto + d.relTodas, -100, 100); });
     if (d.relHijos) s.relaciones.forEach(function (r) { if (r.tipo === 'hijo') r.afecto = U.clamp(r.afecto + d.relHijos, -100, 100); });
     if (d.relPareja) s.relaciones.forEach(function (r) { if (r.tipo === 'pareja' || r.tipo === 'cónyuge') r.afecto = U.clamp(r.afecto + d.relPareja, -100, 100); });
+    if (d.conEsa != null && slots._rel) this.afectoCon(slots._rel, d.conEsa, d.notaRel ? U.fill(d.notaRel, slots) : null);
     if (d.relRival) s.relaciones.forEach(function (r) { if (r.tipo === 'rival') r.afecto = U.clamp(r.afecto + d.relRival, -100, 100); });
     if (d.convertirRival) {
       const r = s.relaciones.filter(function (x) { return x.tipo === 'rival'; })[0];
@@ -14045,6 +15186,20 @@ body.en-juego::before {
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
     if (d.taller && SW.menuTaller && s.nave) this.cola.unshift(this.prepararGen(SW.menuTaller(this)));
     if (d.carrera && SW.iniciarCarrera) SW.iniciarCarrera(this, d.circuito);
+    if (d.tomarContrato && inst && inst.ref && inst.ref.contrato) {
+      s.contrato = inst.ref.contrato;
+      if (d.pistaExtra) s.contrato.rastro = 1;
+      this.log('Contrato aceptado: ' + s.contrato.nombre + ', en ' + s.contrato.destino + '.', 'bien');
+    }
+    if (d.cazaAvanza && s.contrato) { if (d.rastro) s.contrato.rastro = U.clamp((s.contrato.rastro || 0) + d.rastro, 0, 3); }
+    if (d.cazaBusca && SW.resolverBusqueda) SW.resolverBusqueda(this, d.cazaBusca);
+    if (d.cazaCaptura && SW.resolverCaptura) SW.resolverCaptura(this, d.cazaCaptura);
+    if (d.cazaEntrega && SW.resolverEntrega) SW.resolverEntrega(this, d.cazaEntrega);
+    if (d.cazaAbandona) {
+      this.log('Dejas el contrato a medias. En el Gremio eso se recuerda.', 'mal');
+      s.flags.gremio_desconfia = true; s.contrato = null;
+      this.aplicarFx({ reputacion: -10, cordura: -5 }, {});
+    }
     if (d.ojo && SW.GEN.atencionFuerza) this.cola.unshift(this.prepararGen(SW.GEN.atencionFuerza(rng, s)));
     if (d.flag2) s.flags[U.fill(d.flag2, slots)] = true;
     if (d.quitarRuido) { s.stats.notoriedad = Math.max(0, s.stats.notoriedad - 10); }
@@ -14071,6 +15226,10 @@ body.en-juego::before {
     if (d.naveGana) this.darNave(rng.pick(SW.NAVES));
     if (d.navePierde) { s.nave = null; s.naveNombre = null; this.log('Pierdes tu nave.', 'mal'); }
     if (d.naveEstado) s.naveEstado = U.clamp(s.naveEstado + d.naveEstado, 0, 100);
+    // apostar ya no se resuelve a ciegas: se abre la mesa y se juega
+    if (d.mesa && SW.iniciarApuesta && s.stats.creditos > 400) {
+      this.cola.unshift(this.prepararGen(SW.iniciarApuesta(this, { juego: d.mesa === true ? null : d.mesa })));
+    }
     if (d.apuesta === 'gana') { const g = Math.round(Math.max(1000, s.stats.creditos * 0.5)); s.stats.creditos += g; this.log('Ganas ' + U.cr(g) + '.', 'cr'); }
     if (d.apuesta === 'pierde') { const g = Math.round(Math.max(0, s.stats.creditos) * 0.5); s.stats.creditos -= g; this.log('Pierdes ' + U.cr(g) + '.', 'mal'); }
     if (d.legado) { s.legado = d.legado; this.hito('Deja un legado: ' + d.legado); }
@@ -14141,12 +15300,15 @@ body.en-juego::before {
         return ya.nombre;
       }
     }
-    const n = esCanon ? nombre : this.nombreLibre(nombre || SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'togruta', 'duros'])));
+    const gen = SW.generoPara ? SW.generoPara(rng, tipo, s.pronombre) : (rng.chance(0.5) ? 'm' : 'f');
     const esp = rng.pick(SW.ESPECIES);
+    const n = esCanon ? nombre : this.nombreLibre(nombre ||
+      SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'togruta', 'duros']), gen));
     const desc = quien || (esCanon ? '' : rng.pick(OFICIOS));
     s.relaciones.push({
       nombre: n, tipo: tipo, afecto: U.clamp(afecto || 20, -100, 100),
-      especie: esCanon ? '' : esp.n, quien: desc, canon: !!esCanon, desde: s.edad
+      especie: esCanon ? '' : esp.n, quien: desc, canon: !!esCanon, desde: s.edad,
+      gen: gen, historia: []
     });
     this.log('Nueva relación: <b>' + n + '</b> — ' + tipo + (desc ? ', ' + desc : '') + '.', 'rel');
     if (tipo === 'cónyuge' || tipo === 'pareja') this.hito(U.titleCase(tipo) + ': ' + n);
@@ -15243,6 +16405,11 @@ body.en-juego::before {
       else if (id === 'salud') this.cola.push(this.prepararGen(this.menuClinica()));
       else if (id === 'fuerza') this.cola.push(this.prepararGen(this.menuFuerza()));
       else if (id === 'taller' && SW.menuTaller && s.nave) this.cola.push(this.prepararGen(SW.menuTaller(this)));
+      else if (id === 'gremio' && SW.GEN.contratoCaza) {
+        // si ya hay contrato en marcha se sigue por donde iba
+        const paso = s.contrato && SW.pasoCaza ? SW.pasoCaza(this) : null;
+        this.cola.push(this.prepararGen(paso || SW.GEN.contratoCaza(rng, s)));
+      }
       else this.cola.push(this.prepararGen(this.rellenoActividad(id)));
     } else {
       const ev = this.elegirEvento(posibles);
@@ -15854,7 +17021,7 @@ body.en-juego::before {
       era: 'rebelion',
       mundo: rng.pick(esp.home),
       rasgo: 'ninguno',
-      pronombre: 'elle',
+      pronombre: 'él',
       semilla: '',
       apariencia: UI.aparienciaAleatoria(rng)
     };
@@ -15935,7 +17102,7 @@ body.en-juego::before {
     h += '<div class="col-datos">';
     h += '<label class="campo">NOMBRE<div class="fila"><input id="in-nombre" value="' + U.esc(c.nombre) + '" maxlength="34"><button class="btn mini" data-a="rand-nombre">⟳</button></div></label>';
     h += '<label class="campo">TRATAMIENTO<select data-set="pronombre">' +
-      ['elle', 'ella', 'él'].map(function (p) { return '<option value="' + p + '"' + (c.pronombre === p ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select></label>';
+      ['él', 'ella'].map(function (p) { return '<option value="' + p + '"' + (c.pronombre === p ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select></label>';
 
     h += '<div class="campo"><span class="campo-cab">ESPECIE <span class="dim">(' + SW.ESPECIES.length + ')</span>' +
       '<button class="btn mini dado" data-rand="especie">⟳ al azar</button></span><div class="chips">';
@@ -16083,7 +17250,7 @@ body.en-juego::before {
       especie: esp, era: era, mundo: rng.pick(esp.home),
       rasgo: rng.weighted(SW.RASGOS),
       apariencia: UI.aparienciaAleatoria(rng),
-      pronombre: 'elle'
+      pronombre: 'él'
     });
     UI.app.onchange = null;
     UI.renderJuego();
@@ -16119,7 +17286,10 @@ body.en-juego::before {
       '<div class="panel-cab solo-movil"><span>FICHA DE ' + U.esc(s.nombre.toUpperCase()) + '</span>' +
       '<button class="btn mini" data-a="ficha">✕</button></div>' +
       UI.htmlPanel(s) + '<div class="panel-fin">— fin de la ficha —</div></aside>';
-    h += '<main class="consola" id="consola">' + UI.htmlConsola() + '</main>';
+    h += '<main class="consola" id="consola">' +
+         '<div class="escena" id="escena"><div class="escena-pie">' +
+         '<b>' + U.esc(s.mundo) + '</b><span>' + U.esc(SW.mundo(s.mundo).vibe || '') + '</span></div></div>' +
+         UI.htmlConsola() + '</main>';
     h += '</div>';
 
     /* --- barra inferior --- */
@@ -16497,10 +17667,37 @@ body.en-juego::before {
     const d = op.def;
 
     if (d.tactica === 'cancelar') { g.resolverEleccion(inst, i); UI.renderJuego(); return; }
+
+    // apuesta: se ve rodar el dado antes de saber el resultado
+    if (d.apostar && d.juegoAzar && SW.animarAzar) {
+      g.log('› ' + op.txt, 'eleccion');
+      UI.mesaAzar(d, inst);
+      return;
+    }
     g.resolverEleccion(inst, i);
 
     if (!g.cola.length && !g.s.muerto) g.fase = 'menu';
     UI.renderJuego();
+  };
+
+  /** Enseña la tirada y solo después aplica el resultado. */
+  UI.mesaAzar = function (d, inst) {
+    const g = UI.juego;
+    const capa = document.createElement('div');
+    capa.className = 'azar-overlay';
+    capa.innerHTML = '<div class="azar-marco"><h3>' +
+      U.esc((SW.JUEGOS_AZAR[d.juegoAzar] || {}).n || 'Apuesta') + '</h3>' +
+      '<div class="azar-lienzo" id="azar-lienzo"></div>' +
+      '<p class="azar-pie">' + U.cr(d.apostar) + ' sobre la mesa…</p></div>';
+    document.body.appendChild(capa);
+
+    // el resultado se decide con el RNG con semilla; la animación solo lo cuenta
+    const res = SW.resolverApuesta(g, d.apostar, d.juegoAzar, d.color);
+    SW.animarAzar(capa.querySelector('#azar-lienzo'), d.juegoAzar, res, function () {
+      capa.remove();
+      if (!g.cola.length && !g.s.muerto) g.fase = 'menu';
+      UI.renderJuego();
+    });
   };
 
   /* ============================================================

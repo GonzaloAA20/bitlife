@@ -123,7 +123,7 @@
       era: 'rebelion',
       mundo: rng.pick(esp.home),
       rasgo: 'ninguno',
-      pronombre: 'elle',
+      pronombre: 'él',
       semilla: '',
       apariencia: UI.aparienciaAleatoria(rng)
     };
@@ -204,7 +204,7 @@
     h += '<div class="col-datos">';
     h += '<label class="campo">NOMBRE<div class="fila"><input id="in-nombre" value="' + U.esc(c.nombre) + '" maxlength="34"><button class="btn mini" data-a="rand-nombre">⟳</button></div></label>';
     h += '<label class="campo">TRATAMIENTO<select data-set="pronombre">' +
-      ['elle', 'ella', 'él'].map(function (p) { return '<option value="' + p + '"' + (c.pronombre === p ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select></label>';
+      ['él', 'ella'].map(function (p) { return '<option value="' + p + '"' + (c.pronombre === p ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select></label>';
 
     h += '<div class="campo"><span class="campo-cab">ESPECIE <span class="dim">(' + SW.ESPECIES.length + ')</span>' +
       '<button class="btn mini dado" data-rand="especie">⟳ al azar</button></span><div class="chips">';
@@ -352,7 +352,7 @@
       especie: esp, era: era, mundo: rng.pick(esp.home),
       rasgo: rng.weighted(SW.RASGOS),
       apariencia: UI.aparienciaAleatoria(rng),
-      pronombre: 'elle'
+      pronombre: 'él'
     });
     UI.app.onchange = null;
     UI.renderJuego();
@@ -388,7 +388,10 @@
       '<div class="panel-cab solo-movil"><span>FICHA DE ' + U.esc(s.nombre.toUpperCase()) + '</span>' +
       '<button class="btn mini" data-a="ficha">✕</button></div>' +
       UI.htmlPanel(s) + '<div class="panel-fin">— fin de la ficha —</div></aside>';
-    h += '<main class="consola" id="consola">' + UI.htmlConsola() + '</main>';
+    h += '<main class="consola" id="consola">' +
+         '<div class="escena" id="escena"><div class="escena-pie">' +
+         '<b>' + U.esc(s.mundo) + '</b><span>' + U.esc(SW.mundo(s.mundo).vibe || '') + '</span></div></div>' +
+         UI.htmlConsola() + '</main>';
     h += '</div>';
 
     /* --- barra inferior --- */
@@ -766,10 +769,37 @@
     const d = op.def;
 
     if (d.tactica === 'cancelar') { g.resolverEleccion(inst, i); UI.renderJuego(); return; }
+
+    // apuesta: se ve rodar el dado antes de saber el resultado
+    if (d.apostar && d.juegoAzar && SW.animarAzar) {
+      g.log('› ' + op.txt, 'eleccion');
+      UI.mesaAzar(d, inst);
+      return;
+    }
     g.resolverEleccion(inst, i);
 
     if (!g.cola.length && !g.s.muerto) g.fase = 'menu';
     UI.renderJuego();
+  };
+
+  /** Enseña la tirada y solo después aplica el resultado. */
+  UI.mesaAzar = function (d, inst) {
+    const g = UI.juego;
+    const capa = document.createElement('div');
+    capa.className = 'azar-overlay';
+    capa.innerHTML = '<div class="azar-marco"><h3>' +
+      U.esc((SW.JUEGOS_AZAR[d.juegoAzar] || {}).n || 'Apuesta') + '</h3>' +
+      '<div class="azar-lienzo" id="azar-lienzo"></div>' +
+      '<p class="azar-pie">' + U.cr(d.apostar) + ' sobre la mesa…</p></div>';
+    document.body.appendChild(capa);
+
+    // el resultado se decide con el RNG con semilla; la animación solo lo cuenta
+    const res = SW.resolverApuesta(g, d.apostar, d.juegoAzar, d.color);
+    SW.animarAzar(capa.querySelector('#azar-lienzo'), d.juegoAzar, res, function () {
+      capa.remove();
+      if (!g.cola.length && !g.s.muerto) g.fase = 'menu';
+      UI.renderJuego();
+    });
   };
 
   /* ============================================================

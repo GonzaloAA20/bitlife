@@ -482,9 +482,7 @@
 
   E({ id: 'lo_any_apuesta', min: 16, max: 90, w: 9,
     t: 'En {sitio} se apuesta a lo que se apuesta en {aqui}. Hoy hay mucho encima de la mesa.',
-    c: [{ t: 'Apostar fuerte', r: [
-            { p: 0.42, t: 'Ganas.', fx: { suerte: 6, carisma: 6 }, apuesta: 'gana' },
-            { p: 0.58, t: 'Pierdes.', fx: { cordura: -8 }, apuesta: 'pierde' }] },
+    c: [{ t: 'Sentarte a la mesa', mesa: true, sub: 'Se juega de verdad: dados, sabacc o rueda.' },
         { t: 'Apostar poco y mirar', fx: { intelecto: 8, carisma: 5, creditos: 800 } },
         { t: 'Amañarlo', req: function (s) { return s.stats.intelecto > 45; }, r: [
             { p: 0.5, t: 'Cuela.', fx: { creditos: 28000, notoriedad: 12, alineamiento: -14 } },
