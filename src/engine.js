@@ -51,6 +51,9 @@
       rasgo: cfg.rasgo.id,
       rasgoN: cfg.rasgo.n,
       apariencia: Object.assign({ especie: esp.id }, cfg.apariencia || {}),
+      peligro: 0,                                  // cuánto has tentado a la suerte
+      mejorasNave: [],
+      puestoGuerra: null,
       edad: 0,
       edadBio: 0,
       muerto: false,
@@ -335,6 +338,13 @@
     this.envejecer();
     if (s.muerto) return;
 
+    // la guerra se cobra antes que nada
+    if (SW.añoDeGuerra) SW.añoDeGuerra(this);
+    if (s.muerto) return;
+    if (SW.cobrarPeligro) SW.cobrarPeligro(this);
+    if (SW.olvidoAtencion) SW.olvidoAtencion(this);
+    if (s.muerto) return;
+
     // eventos guionizados: los momentos que SÍ o SÍ deben ocurrir
     const guion = this.eventosPosibles(SW.GUION || []);
     if (guion.length) {
@@ -568,10 +578,33 @@
     this.aplicarNodo(res, slots, inst, false);
   };
 
+  /** resuelve una elección venga de donde venga: la interfaz y las
+      pruebas headless pasan las dos por aquí, así que lo que se mide
+      es exactamente lo que se juega. */
+  Game.prototype.resolverEleccion = function (inst, i) {
+    const op = inst && inst.opciones && inst.opciones[i];
+    if (!op) return;
+    const d = op.def;
+    if (d.tactica === 'cancelar') { this.cola.unshift(this.escenaCombateEvento()); return; }
+    if (d.tactica) { this.log('› ' + op.txt, 'eleccion'); this.resolverTactica(d.tactica); return; }
+    if (d.tacticaN) { this.log('› ' + op.txt, 'eleccion'); this.resolverTacticaNave(d.tacticaN); return; }
+    if (d.carreraLinea) { this.log('› ' + op.txt, 'eleccion'); SW.resolverCarrera(this, d.carreraLinea); return; }
+    this.elegir(inst, i);
+    if (this.aplicarExtra) this.aplicarExtra(d);
+  };
+
   Game.prototype.aplicarNodo = function (d, slots, inst, soloBase) {
     const s = this.s, rng = this.rng;
+    // lo temerario se anota: se cobra a final de año
+    if (!soloBase && SW.peligroDe) s.peligro = Math.min(SW.PELIGRO_MAX, (s.peligro || 0) + SW.peligroDe(d));
 
-    if (d.fx) this.aplicarFx(d.fx, slots);
+    if (d.fx) {
+      this.aplicarFx(d.fx, slots);
+      // cada entrenamiento cuenta para el virtuosismo: no basta el nivel
+      if (!soloBase && d.fx.fuerza && d.fx.fuerza > 0 && s.sensible) {
+        s.contadores.entrenosFuerza = (s.contadores.entrenosFuerza || 0) + 1;
+      }
+    }
 
     const texto = soloBase ? null : (d.out || (d.p != null && d.t ? d.t : null));
     if (texto) this.log(U.fill(texto, slots), d.tono || 'res');
@@ -606,7 +639,15 @@
 
     if (d.item) this.darObjeto(typeof d.item === 'string' ? d.item : slots.o);
     if (d.sinMascota) { s.mascota = null; }
-    if (d.venderNave && s.nave) { const v = Math.round(s.nave.p * 0.5); s.stats.creditos += v; this.log('Vendes ' + s.nave.n + ' por ' + U.cr(v) + '.', 'cr'); s.nave = null; s.naveNombre = null; }
+    if (d.venderNave && s.nave) {
+      let v = Math.round(s.nave.p * 0.5);
+      (s.mejorasNave || []).forEach(function (id) {
+        const m = SW.MEJORAS_NAVE && SW.MEJORAS_NAVE.filter(function (x) { return x.id === id; })[0];
+        if (m) v += Math.round(m.p * 0.25);
+      });
+      s.stats.creditos += v; this.log('Vendes ' + s.nave.n + ' por ' + U.cr(v) + '.', 'cr');
+      s.nave = null; s.naveNombre = null; s.mejorasNave = [];
+    }
     if (d.mascota) this.darMascota(slots.c);
     if (d.droide) this.darDroide();
 
@@ -632,6 +673,12 @@
     if (d.venderCarga) this.venderCarga();
     if (d.cargar) this.comprarCarga(d.cargar);
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
+    if (d.taller && SW.menuTaller && s.nave) this.cola.unshift(this.prepararGen(SW.menuTaller(this)));
+    if (d.carrera && SW.iniciarCarrera) SW.iniciarCarrera(this, d.circuito);
+    if (d.ojo && SW.GEN.atencionFuerza) this.cola.unshift(this.prepararGen(SW.GEN.atencionFuerza(rng, s)));
+    if (d.flag2) s.flags[U.fill(d.flag2, slots)] = true;
+    if (d.quitarRuido) { s.stats.notoriedad = Math.max(0, s.stats.notoriedad - 10); }
+    if (d.instalarMejora) this.instalarMejora(d.instalarMejora);
     if (d.viajar) this.abrirMapaViaje = true;
     if (d.fuerzaMenu) this.cola.unshift(this.prepararGen(this.menuFuerza()));
     if (d.clinica) this.cola.unshift(this.prepararGen(this.menuClinica()));
@@ -660,7 +707,16 @@
     if (d.chequeo) this.chequeoMedico();
     if (d.mover) this.mover(d.mover === 'casa' ? s.mundoNatal : (d.mover === 'cerca' ? this.mundoCercano() : null), d.motivo);
     if (d.mueveA) this.mover(U.fill(d.mueveA, slots), d.motivo);
-    if (d.guerra) { s.flags.veterano = true; s.contadores.batallas++; this.hito('Va a la guerra'); }
+    if (d.guerra) {
+      s.flags.veterano = true; s.contadores.batallas++;
+      s.flags.en_el_frente = true;
+      s.puestoGuerra = d.puesto || s.puestoGuerra || 'infanteria';
+      s.añosDeFrenteRestantes = d.campaña || rng.int(2, 5);
+      this.hito('Va a la guerra');
+      this.log('Estás en el frente. A partir de ahora, cada año cuenta.', 'mal');
+    }
+    if (d.puesto) s.puestoGuerra = d.puesto;
+    if (d.dejarFrente) { s.flags.en_el_frente = false; s.añosDeFrenteRestantes = 0; this.log('Te licencian. Se acabó el frente.', 'bien'); }
     if (d.muerte) this.morir(d.muerteTxt || 'Una mala decisión, la última.');
 
     if (d.combate) this.iniciarCombate(d.combate);
@@ -1231,8 +1287,11 @@
       tipo: 'combate',
       cfg: cfg || {},
       ronda: 1,
-      maxRondas: 4,
-      hpEnemigo: 100,
+      maxRondas: 5,
+      // el rival duro AGUANTA más y PEGA más: antes todos tenían 100 de vida
+      hpEnemigo: Math.round(80 + ((cfg && cfg.dif) || 50) * 0.85),
+      hpMaxEnemigo: Math.round(80 + ((cfg && cfg.dif) || 50) * 0.85),
+      golpe: 0.8 + ((cfg && cfg.dif) || 50) / 145,
       aguante: 100,
       poder: this.poderCombate(),
       dif: (cfg && cfg.dif) || 50,
@@ -1289,7 +1348,9 @@
         this.log('Te retiras a tiempo. Sin gloria, con vida.', 'res');
       } else {
         this.log('No consigues salir. Te alcanzan en la espalda.', 'mal');
-        this.aplicarFx({ salud: -16, cordura: -5 }, {});
+        this.aplicarFx({ salud: -Math.round(14 + e.dif / 3), cordura: -8, reputacion: -5 }, {});
+        this.herir('herida en la espalda', Math.round(6 + e.dif / 8), false);
+        if (s.stats.salud <= 0 && !s.muerto) { this.morir('Le alcanzaron mientras huía.'); return; }
       }
       this.escena = null;
       return;
@@ -1304,7 +1365,8 @@
     let dmg = 0, recib = 0, coste = 0, txt = '';
     const skill = e.poder, dif = e.dif;
     const cansado = e.aguante < 35 ? 0.5 : (e.aguante < 65 ? 0.78 : 1);
-    const expuesto = e.aguante < 28 ? 1.35 : 1;   // sin aire, encajas peor
+    // sin aire encajas peor, y un rival duro pega más fuerte siempre
+    const expuesto = (e.aguante < 28 ? 1.35 : 1) * (e.golpe || 1);
 
     if (tac === 'agresivo') {
       coste = 34;
@@ -1357,7 +1419,7 @@
     if (s.stats.salud <= 0) { this.morir(e.cfg.duelo ? 'Cae en un duelo.' : 'Cae en combate.'); this.escena = null; return; }
     if (e.hpEnemigo <= 0) { this.finCombate(true); return; }
     e.ronda++;
-    if (e.ronda > e.maxRondas) { this.finCombate(e.hpEnemigo < 40); return; }
+    if (e.ronda > e.maxRondas) { this.finCombate(e.hpEnemigo < e.hpMaxEnemigo * 0.18); return; }
     // el rival cambia de postura, con tendencia a repetir lo que le funciona
     e.postura = this.rng.pick(['embestida', 'guardia', 'finta']);
     this.cola.unshift(this.escenaCombateEvento());
@@ -1389,10 +1451,15 @@
     if (!e) return;
     // grado: 2 crítico · 1 bien · 0 flojo · -1 fallo
     let dmg = 0, recib = 0, txt = '';
-    if (grado === 2) { dmg = rng.int(70, 100); recib = 0; txt = 'Perfecto. Ni te ha visto moverte.'; s.stats.reputacion += 3; }
-    else if (grado === 1) { dmg = rng.int(38, 58); recib = rng.int(0, 6); txt = 'Limpio. Suficiente.'; }
-    else if (grado === 0) { dmg = rng.int(10, 22); recib = rng.int(10, 20); txt = 'Los dos acertáis a medias.'; }
-    else { dmg = 0; recib = rng.int(24, 40); txt = 'Te precipitas. Y lo pagas entero.'; }
+    const pega = (e.golpe || 1);
+    if (grado === 2) { dmg = rng.int(80, 115); recib = 0; txt = 'Perfecto. Ni te ha visto moverte.'; s.stats.reputacion += 3; }
+    else if (grado === 1) { dmg = rng.int(40, 62); recib = rng.int(0, 8) * pega; txt = 'Limpio. Suficiente.'; }
+    else if (grado === 0) { dmg = rng.int(10, 22); recib = rng.int(16, 30) * pega; txt = 'Los dos acertáis a medias.'; }
+    else {
+      dmg = 0; recib = rng.int(34, 55) * pega; txt = 'Te precipitas. Y lo pagas entero.';
+      // jugártela y fallar puede acabar la pelea de golpe
+      if (rng.chance(0.28)) { this.herir('tajo de la jugada fallida', rng.int(12, 24), false); }
+    }
 
     e.aguante = U.clamp(e.aguante - 18, 0, 100);
     e.hpEnemigo -= dmg;
@@ -1418,6 +1485,9 @@
       if (e.cfg.contrato) s.contadores.cazas = (s.contadores.cazas || 0) + 1;
       if (e.cfg.duelo) { s.contadores.duelos = (s.contadores.duelos || 0) + 1; this.hito('Gana un duelo'); }
     } else {
+      const hp = e.hpEnemigo;
+      this.escena = null;
+      if (SW.consecuenciaDerrota) { SW.consecuenciaDerrota(this, e.cfg, hp); return; }
       this.log('El enemigo aguanta más que tú. Te retiras maltrecho.', 'mal');
       this.aplicarFx({ salud: -10, cordura: -6, reputacion: -4 }, {});
     }
@@ -1592,6 +1662,25 @@
     };
   };
 
+  Game.prototype.instalarMejora = function (id) {
+    const s = this.s;
+    const m = (SW.MEJORAS_NAVE || []).filter(function (x) { return x.id === id; })[0];
+    if (!m || !s.nave) return;
+    s.mejorasNave = s.mejorasNave || [];
+    if (s.mejorasNave.indexOf(id) >= 0) return;
+    // una por ranura: la nueva sustituye a la vieja salvo en extras
+    if (m.cat !== 'extra') {
+      s.mejorasNave = s.mejorasNave.filter(function (otro) {
+        const o = SW.MEJORAS_NAVE.filter(function (x) { return x.id === otro; })[0];
+        return !o || o.cat !== m.cat;
+      });
+    }
+    s.mejorasNave.push(id);
+    this.log('Montado en tu nave: ' + m.n + '. ' + m.d, 'bien');
+    this.popup({ arte: SW.arteMejora ? SW.arteMejora(m) : 'nave_carguero', titulo: m.n, texto: m.sub });
+  };
+
+  /** el hangar ya no vende mejoras: eso es cosa del taller */
   Game.prototype.menuHangar = function () {
     const s = this.s, rng = this.rng;
     const c = [];
@@ -1607,9 +1696,7 @@
       });
     });
     if (s.nave) {
-      c.push({ t: 'Reparar casco — ' + U.cr(12000), req: function (st) { return st.stats.creditos >= 12000; }, fx: { creditos: -12000 }, naveEstado: 100 });
-      c.push({ t: 'Mejorar motores — ' + U.cr(25000), req: function (st) { return st.stats.creditos >= 25000; }, fx: { creditos: -25000 }, mejora: 'vel' });
-      c.push({ t: 'Mejorar armamento — ' + U.cr(30000), req: function (st) { return st.stats.creditos >= 30000; }, fx: { creditos: -30000 }, mejora: 'arm' });
+      c.push({ t: '⚙ Abrir el taller', sub: 'Mejoras que cambian lo que puedes hacer', taller: true });
       c.push({ t: 'Vender tu ' + s.nave.n, venderNave: true });
     }
     c.push({ t: '◂ Salir del hangar', volver: true });
@@ -1785,6 +1872,7 @@
       else if (id === 'mercado') this.cola.push(this.prepararGen(this.menuTienda()));
       else if (id === 'salud') this.cola.push(this.prepararGen(this.menuClinica()));
       else if (id === 'fuerza') this.cola.push(this.prepararGen(this.menuFuerza()));
+      else if (id === 'taller' && SW.menuTaller && s.nave) this.cola.push(this.prepararGen(SW.menuTaller(this)));
       else this.cola.push(this.prepararGen(this.rellenoActividad(id)));
     } else {
       const ev = this.elegirEvento(posibles);

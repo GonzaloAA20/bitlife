@@ -372,6 +372,293 @@
   /* ============================================================
      RENDER
      ============================================================ */
+
+  /* ============================================================
+     MÁS OBJETOS
+     ============================================================ */
+
+  /* --- cristal kyber en bruto, dentro de su geoda --- */
+  S2.geoda = function (L, din) {
+    const c = din || '#8ad8ff';
+    L.elipse(24, 28, 15, 13, PAL.hierro[2]);
+    L.elipse(24, 27, 13, 11, PAL.hierro[1]);
+    L.elipse(24, 28, 10, 9, '#1a2028');
+    for (let i = 0; i < 7; i++) {
+      const a = i * 0.9, x = 24 + Math.cos(a) * 5, y = 28 + Math.sin(a) * 4;
+      L.linea(x, y, x + Math.cos(a) * 3, y - 4 - (i % 3), c, 1);
+      L.set(x, y - 5 - (i % 3), '#ffffff');
+    }
+    L.elipse(24, 28, 3, 3, c); L.elipse(23, 27, 1.5, 1.5, '#ffffff');
+    L.contorno('#0a0d12');
+  };
+
+  /* --- casco de piloto rebelde --- */
+  S2.casco_piloto = function (L, din) {
+    const c = din || '#e8e4d8';
+    L.elipse(24, 22, 13, 12, c);
+    L.elipse(21, 19, 8, 7, '#ffffff');
+    L.rect(11, 22, 26, 12, c);
+    L.rect(13, 23, 22, 7, '#1a2632');           // visera
+    L.rect(14, 24, 9, 4, '#4a90c8');
+    L.set(15, 25, '#bfe4ff');
+    L.rect(18, 32, 12, 6, PAL.negro[1]);        // respirador
+    for (let i = 0; i < 3; i++) L.rect(19 + i * 4, 33, 2, 4, PAL.negro[3]);
+    L.rect(9, 24, 3, 7, PAL.rojo[1]); L.rect(36, 24, 3, 7, PAL.rojo[2]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- bláster pesado de dos manos --- */
+  S2.rifle = function (L, din) {
+    L.rect(6, 24, 32, 5, PAL.hierro[1]);
+    L.rect(6, 24, 32, 1, PAL.hierro[0]);
+    L.rect(6, 28, 32, 1, PAL.hierro[3]);
+    L.rect(34, 25, 8, 3, PAL.hierro[2]);        // cañón
+    L.rect(41, 25, 2, 3, din || '#ff6a4a');
+    L.rect(14, 20, 10, 4, PAL.negro[1]);        // mira
+    L.rect(16, 18, 2, 3, PAL.negro[0]);
+    L.rect(18, 29, 5, 8, PAL.cuero[1]);         // empuñadura
+    L.rect(6, 22, 6, 9, PAL.cuero[2]);          // culata
+    L.rect(26, 29, 8, 4, PAL.negro[2]);         // cargador
+    L.contorno('#0a0d12');
+  };
+
+  /* --- vaina de carreras --- */
+  S2.vaina = function (L, din) {
+    const c = din || '#d8722a';
+    L.cilindro(4, 14, 13, 9, [c, c, PAL.cobre[2], PAL.cobre[3]]);
+    L.cilindro(31, 14, 13, 9, [c, c, PAL.cobre[2], PAL.cobre[3]]);
+    L.elipse(6, 18, 3, 4, PAL.negro[1]); L.elipse(33, 18, 3, 4, PAL.negro[1]);
+    L.rect(4, 22, 13, 2, PAL.rojo[1]); L.rect(31, 22, 13, 2, PAL.rojo[1]);
+    L.linea(16, 18, 22, 32, PAL.hierro[2], 1);  // cables de arrastre
+    L.linea(32, 18, 26, 32, PAL.hierro[2], 1);
+    L.elipse(24, 35, 7, 5, PAL.hierro[1]);      // cabina
+    L.elipse(24, 34, 5, 3, '#2a3a4a');
+    L.elipse(23, 33, 2, 1.5, '#8ad8ff');
+    L.contorno('#0a0d12');
+  };
+
+  /* --- droide astromecánico --- */
+  S2.astromec = function (L, din) {
+    const c = din || '#4a90c8';
+    L.elipse(24, 14, 9, 7, PAL.acero[1]);       // cúpula
+    L.elipse(22, 12, 6, 4, PAL.acero[0]);
+    L.elipse(27, 13, 2.5, 2, '#1a2028');
+    L.set(27, 13, c);
+    L.rect(15, 16, 18, 22, PAL.acero[1]);       // cuerpo
+    L.rect(15, 16, 18, 1, PAL.acero[0]);
+    L.rect(32, 16, 1, 22, PAL.acero[3]);
+    L.rect(18, 20, 5, 6, c); L.rect(26, 20, 4, 4, PAL.hierro[2]);
+    L.rect(18, 29, 12, 3, PAL.hierro[2]);
+    for (let i = 0; i < 4; i++) L.rect(18 + i * 3, 33, 2, 4, PAL.hierro[3]);
+    L.rect(11, 22, 4, 16, PAL.acero[2]);        // patas
+    L.rect(33, 22, 4, 16, PAL.acero[2]);
+    L.rect(10, 37, 6, 4, PAL.negro[1]); L.rect(32, 37, 6, 4, PAL.negro[1]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- casco de scout / soldado --- */
+  S2.casco_soldado = function (L, din) {
+    const c = din || '#e8ecf0';
+    L.elipse(24, 20, 14, 13, c);
+    L.elipse(20, 16, 8, 6, '#ffffff');
+    L.rect(10, 20, 28, 14, c);
+    L.rect(12, 22, 10, 8, '#12181f'); L.rect(26, 22, 10, 8, '#12181f');  // ojos
+    L.rect(13, 23, 4, 3, '#3a4a5a'); L.rect(27, 23, 4, 3, '#3a4a5a');
+    L.rect(19, 27, 10, 9, PAL.hierro[2]);       // filtro central
+    for (let i = 0; i < 3; i++) L.rect(20, 29 + i * 2, 8, 1, PAL.negro[2]);
+    L.rect(10, 34, 28, 3, PAL.hierro[3]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- holomapa / carta estelar --- */
+  S2.holomapa = function (L, din) {
+    const c = din || '#3ad6ff';
+    L.rect(12, 34, 24, 5, PAL.hierro[2]);       // base
+    L.rect(12, 34, 24, 1, PAL.hierro[0]);
+    L.rect(21, 30, 6, 4, PAL.hierro[1]);
+    for (let a = 0; a < 360; a += 12) {         // esfera de puntos
+      const r = (a * Math.PI) / 180;
+      L.set(24 + Math.cos(r) * 12, 20 + Math.sin(r) * 7, c);
+      L.set(24 + Math.cos(r) * 8, 20 + Math.sin(r) * 11, c);
+    }
+    L.elipse(24, 20, 2, 2, '#ffffff');
+    for (let i = 0; i < 6; i++) L.set(14 + i * 4, 12 + (i % 3) * 3, '#ffffff');
+    L.contorno('#0a0d12');
+  };
+
+  /* --- caja de carga / contrabando --- */
+  S2.carga = function (L, din) {
+    L.bloque(9, 16, 30, 22, PAL.verdeMil);
+    L.rect(9, 25, 30, 2, PAL.verdeMil[3]);
+    L.rect(22, 16, 3, 22, PAL.verdeMil[3]);
+    L.rect(12, 19, 8, 4, PAL.negro[2]);         // etiqueta
+    L.rect(13, 20, 6, 2, din || '#ffd23a');
+    L.rect(9, 36, 30, 3, PAL.hierro[3]);
+    L.rect(6, 20, 3, 14, PAL.hierro[2]); L.rect(39, 20, 3, 14, PAL.hierro[2]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- bota de especia / vial --- */
+  S2.especia = function (L, din) {
+    const c = din || '#c86adc';
+    L.rect(18, 10, 12, 4, PAL.hierro[2]);       // tapón
+    L.rect(19, 13, 10, 26, PAL.acero[3]);
+    L.rect(20, 14, 8, 24, c);
+    L.rect(20, 14, 3, 24, '#ffffff');
+    L.rect(20, 14, 8, 3, PAL.negro[3]);
+    for (let i = 0; i < 5; i++) L.set(22 + (i % 3) * 2, 20 + i * 3, '#ffffff');
+    L.rect(18, 38, 12, 3, PAL.hierro[3]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- llave / credencial --- */
+  S2.credencial = function (L, din) {
+    const c = din || '#3ad6ff';
+    L.bloque(12, 14, 24, 22, PAL.hierro);
+    L.rect(15, 17, 18, 8, '#12181f');
+    L.rect(16, 18, 8, 6, c);
+    for (let i = 0; i < 4; i++) L.rect(16, 28 + i, 16 - i * 2, 1, PAL.hierro[3]);
+    L.rect(30, 28, 4, 5, c);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- copa / bebida de cantina --- */
+  S2.copa = function (L, din) {
+    const c = din || '#ffb03a';
+    L.rect(17, 12, 14, 3, PAL.acero[2]);
+    L.rect(18, 15, 12, 12, PAL.acero[1]);
+    L.rect(19, 16, 10, 10, c);
+    L.rect(19, 16, 3, 10, '#ffffff');
+    L.rect(22, 27, 4, 8, PAL.acero[2]);         // pie
+    L.elipse(24, 36, 8, 3, PAL.acero[1]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- herramienta / llave de mecánico --- */
+  S2.herramienta = function (L, din) {
+    L.linea(12, 36, 34, 14, PAL.hierro[1], 3);
+    L.linea(13, 36, 35, 14, PAL.hierro[0], 1);
+    L.rect(30, 8, 10, 10, PAL.hierro[1]);
+    L.rect(33, 8, 4, 6, null);
+    L.rect(33, 8, 4, 6, '#0a0d12');
+    L.rect(8, 32, 10, 10, PAL.cuero[1]);
+    L.rect(9, 33, 8, 8, PAL.cuero[2]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- medalla / condecoración --- */
+  S2.medalla = function (L, din) {
+    const c = din || '#e0bd5a';
+    L.rect(16, 8, 16, 12, PAL.rojo[1]);
+    L.rect(16, 8, 16, 2, PAL.rojo[0]);
+    L.linea(16, 20, 24, 26, PAL.rojo[2], 2);
+    L.linea(32, 20, 24, 26, PAL.rojo[2], 2);
+    L.elipse(24, 32, 10, 10, PAL.oro[2]);
+    L.elipse(24, 31, 8, 8, c);
+    L.elipse(22, 29, 4, 4, PAL.oro[0]);
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      L.set(24 + Math.cos(a) * 5, 31 + Math.sin(a) * 5, PAL.oro[3]);
+    }
+    L.contorno('#0a0d12');
+  };
+
+  /* --- amuleto / talismán de bruja --- */
+  S2.talisman = function (L, din) {
+    const c = din || '#8aff9a';
+    for (let i = 0; i < 12; i++) L.set(24 + (i % 5) - 2, 6 + i, PAL.cuero[2]);
+    L.elipse(24, 28, 11, 12, PAL.cuero[2]);
+    L.elipse(24, 28, 9, 10, PAL.cuero[1]);
+    L.elipse(24, 28, 5, 6, '#1a1420');
+    L.elipse(24, 27, 3, 4, c);
+    L.set(23, 26, '#ffffff');
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3;
+      L.set(24 + Math.cos(a) * 8, 28 + Math.sin(a) * 9, c);
+    }
+    L.contorno('#0a0d12');
+  };
+
+  /* --- datachip / holocrón de datos --- */
+  S2.datachip = function (L, din) {
+    const c = din || '#7fffd0';
+    L.bloque(14, 18, 20, 16, PAL.negro);
+    L.rect(16, 20, 16, 8, '#0e1a18');
+    for (let i = 0; i < 4; i++) L.rect(17, 21 + i * 2, 14 - i * 3, 1, c);
+    for (let i = 0; i < 5; i++) L.rect(15 + i * 4, 34, 2, 4, PAL.oro[1]);
+    L.rect(14, 18, 20, 1, PAL.negro[0]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- bacta / botiquín --- */
+  S2.bacta = function (L, din) {
+    L.bloque(11, 16, 26, 20, PAL.acero);
+    L.rect(22, 20, 4, 12, PAL.rojo[1]);
+    L.rect(17, 24, 14, 4, PAL.rojo[1]);
+    L.rect(22, 20, 2, 12, PAL.rojo[0]);
+    L.rect(11, 34, 26, 2, PAL.acero[3]);
+    L.rect(18, 13, 12, 3, PAL.hierro[2]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- trofeo de caza --- */
+  S2.trofeo = function (L, din) {
+    const c = din || '#c8b89a';
+    L.elipse(24, 22, 11, 10, c);
+    L.elipse(21, 19, 5, 4, '#ffffff');
+    L.elipse(19, 21, 2.5, 2, '#12181f'); L.elipse(29, 21, 2.5, 2, '#12181f');
+    L.linea(14, 16, 8, 6, c, 2); L.linea(34, 16, 40, 6, c, 2);   // cuernos
+    L.rect(20, 30, 8, 4, PAL.cuero[2]);
+    L.rect(12, 34, 24, 6, PAL.cuero[1]);
+    L.rect(12, 34, 24, 1, PAL.cuero[0]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- mejora de motor --- */
+  S2.motor = function (L, din) {
+    const c = din || '#3ad6ff';
+    L.cilindro(10, 16, 28, 16, PAL.hierro);
+    L.rect(10, 16, 28, 1, PAL.hierro[0]);
+    L.rect(10, 31, 28, 1, PAL.hierro[3]);
+    L.elipse(12, 24, 4, 7, PAL.negro[1]);
+    L.elipse(12, 24, 2.5, 5, c);
+    for (let i = 0; i < 5; i++) L.rect(18 + i * 4, 14, 2, 4, PAL.hierro[2]);
+    L.rect(36, 20, 6, 8, PAL.cobre[1]);
+    for (let i = 0; i < 4; i++) L.set(6 - i, 24, c);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- torreta / armamento --- */
+  S2.torreta = function (L, din) {
+    const c = din || '#ff6a4a';
+    L.elipse(24, 32, 13, 8, PAL.hierro[2]);
+    L.elipse(24, 30, 11, 7, PAL.hierro[1]);
+    L.rect(19, 22, 10, 9, PAL.hierro[1]);
+    L.rect(19, 22, 10, 1, PAL.hierro[0]);
+    L.rect(13, 12, 4, 14, PAL.hierro[2]); L.rect(31, 12, 4, 14, PAL.hierro[2]);
+    L.rect(20, 10, 3, 16, PAL.hierro[1]); L.rect(25, 10, 3, 16, PAL.hierro[1]);
+    L.rect(13, 10, 4, 2, c); L.rect(31, 10, 4, 2, c);
+    L.rect(20, 8, 3, 2, c); L.rect(25, 8, 3, 2, c);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- mapa de mejora genérico (sigilo) --- */
+  S2.sigilo = function (L, din) {
+    const c = din || '#8a7ad8';
+    L.elipse(24, 24, 15, 15, '#151a24');
+    for (let a = 0; a < 360; a += 18) {
+      const r = (a * Math.PI) / 180;
+      L.set(24 + Math.cos(r) * 15, 24 + Math.sin(r) * 15, c);
+      L.set(24 + Math.cos(r) * 11, 24 + Math.sin(r) * 11, PAL.negro[0]);
+    }
+    L.elipse(24, 24, 6, 6, PAL.negro[1]);
+    L.elipse(24, 24, 3, 3, c);
+    L.set(23, 23, '#ffffff');
+    L.contorno('#0a0d12');
+  };
+
+
+  /** dibuja `nombre` en un canvas y lo devuelve */
   SW.pixel2 = function (nombre, opts) {
     const o = opts || {};
     const fn = S2[nombre];
@@ -397,6 +684,21 @@
   };
 
   SW.tienePixel2 = function (nombre) { return !!S2[nombre]; };
+  SW.SPRITES2 = Object.keys(S2);
+
+  /** qué sprite le toca a cada mejora de nave */
+  SW.arteMejora = function (m) {
+    if (!m) return 'nave_carguero';
+    if (m.cat === 'motor') return m.id === 'motor_silencio' ? 'sigilo' : 'motor';
+    if (m.cat === 'arma') return 'torreta';
+    if (m.cat === 'casco') return m.id === 'casco_medico' ? 'bacta' : 'carga';
+    if (m.id === 'ex_droide') return 'astromec';
+    if (m.id === 'ex_taller') return 'herramienta';
+    if (m.id === 'sis_nav') return 'holomapa';
+    if (m.id === 'sis_falsa') return 'credencial';
+    if (m.id === 'sis_escaner') return 'holomapa';
+    return 'carga';
+  };
   SW.Lienzo = Lienzo;
   SW.PAL_PIXEL = PAL;
 

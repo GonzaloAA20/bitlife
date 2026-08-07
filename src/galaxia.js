@@ -54,10 +54,13 @@
   };
 
   /** Coste del pasaje según distancia real y riqueza del destino */
-  SW.costeViaje = function (origen, destino, tieneNave) {
+  /** `nave` puede ser el estado del jugador: aplica el descuento de sus mejoras */
+  SW.costeViaje = function (origen, destino, tieneNave, estado) {
     const saltos = SW.saltosEntre(origen, destino);
     const m = SW.mundo(destino);
-    return Math.round((tieneNave ? 320 : 900) * saltos + m.riq * 180);
+    let base = (tieneNave ? 320 : 900) * saltos + m.riq * 180;
+    if (estado && SW.descuentoSalto) base *= (1 - SW.descuentoSalto(estado));
+    return Math.round(base);
   };
 
   /* ============================================================

@@ -36,19 +36,26 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* fondo: estrellas + rejilla + viñeta */
+/* fondo: la escena en pixel art que dibuja src/fondo.js */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: var(--fondo-escena, linear-gradient(#04070c, #060a11));
+  background-size: cover;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  opacity: 1;
+  filter: saturate(1.12) brightness(1.18);
+  transition: opacity .6s;
+}
+/* velo oscuro para que el texto siempre se lea sobre la escena */
+body::marker { content: ""; }
+#app::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(1px 1px at 12% 22%, #cfe8f5 50%, transparent 51%),
-    radial-gradient(1px 1px at 68% 14%, #9fd4ff 50%, transparent 51%),
-    radial-gradient(1px 1px at 34% 71%, #ffffff 50%, transparent 51%),
-    radial-gradient(1px 1px at 82% 63%, #ffd9a0 50%, transparent 51%),
-    radial-gradient(1px 1px at 51% 42%, #cfe8f5 50%, transparent 51%),
-    radial-gradient(1px 1px at 24% 88%, #a0ffe0 50%, transparent 51%),
-    radial-gradient(1400px 700px at 50% -10%, #0d2438 0%, transparent 70%),
-    linear-gradient(#04070c, #060a11);
-  opacity: .95;
+    linear-gradient(180deg, rgba(4,7,12,.30) 0%, rgba(4,7,12,.10) 34%, rgba(4,7,12,.58) 100%),
+    radial-gradient(140% 95% at 50% 44%, transparent 40%, rgba(2,4,8,.50) 100%);
 }
 /* líneas de barrido CRT */
 body::after {
@@ -231,6 +238,7 @@ select:focus, input:focus { outline: none; border-color: var(--cian); box-shadow
 
 /* ---------- consola ---------- */
 .consola {
+  background: linear-gradient(180deg, rgba(5,9,15,.90), rgba(4,7,12,.94));
   padding: 16px 20px; overflow-y: auto; overscroll-behavior: contain; min-height: 0;
   background:
     linear-gradient(180deg, rgba(58,214,255,.03), transparent 120px),
@@ -479,15 +487,13 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
   --niebla: #1d7fa0;
 }
 
+/* en partida manda la escena del planeta; el color de bioma solo tiñe */
 body.en-juego::before {
-  background:
-    radial-gradient(1px 1px at 12% 22%, #cfe8f5 50%, transparent 51%),
-    radial-gradient(1px 1px at 68% 14%, #9fd4ff 50%, transparent 51%),
-    radial-gradient(1px 1px at 34% 71%, #ffffff 50%, transparent 51%),
-    radial-gradient(1px 1px at 82% 63%, #ffd9a0 50%, transparent 51%),
-    radial-gradient(1600px 800px at 50% -12%, var(--cielo) 0%, transparent 72%),
-    linear-gradient(var(--suelo), #05080e);
-  transition: background 1.2s ease;
+  background-image: var(--fondo-escena, linear-gradient(var(--suelo), #05080e));
+  background-size: cover;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  transition: opacity 1.2s ease;
 }
 
 .bioma-punto {

@@ -44,6 +44,7 @@
     r.style.setProperty('--suelo', a.suelo);
     r.style.setProperty('--niebla', a.niebla);
     r.setAttribute('data-bioma', a.id);
+    if (SW.aplicarFondo) SW.aplicarFondo(mundoNombre);
     return a;
   };
 
@@ -573,7 +574,7 @@
       if (!w) { ficha.innerHTML = '<p class="dim">Pulsa un mundo para ver sus datos.</p>'; return; }
       const esAqui = w.n === s.mundo;
       const saltos = SW.saltosEntre(s.mundo, w.n);
-      const coste = SW.costeViaje(s.mundo, w.n, !!s.nave);
+      const coste = SW.costeViaje(s.mundo, w.n, !!s.nave, s);
       const dato = SW.datoMundo(w.n);
       const visto = (s.mundosVistos || []).indexOf(w.n) >= 0;
       let h = '<div class="mf-cab"><b>' + U.esc(w.n) + '</b>' +
@@ -623,7 +624,7 @@
       const via = e.target.closest('[data-viajar]');
       if (via && !via.disabled) {
         const destino = via.dataset.viajar;
-        const coste = SW.costeViaje(s.mundo, destino, !!s.nave);
+        const coste = SW.costeViaje(s.mundo, destino, !!s.nave, s);
         UI.pararMapa();
         g.log('› Viajar a ' + destino, 'eleccion');
         g.aplicarFx({ creditos: -coste }, {});
@@ -764,10 +765,8 @@
     if (!op) return;
     const d = op.def;
 
-    if (d.tactica === 'cancelar') { g.cola.unshift(g.escenaCombateEvento()); UI.renderJuego(); return; }
-    if (d.tactica) { g.log('› ' + op.txt, 'eleccion'); g.resolverTactica(d.tactica); }
-    else if (d.tacticaN) { g.log('› ' + op.txt, 'eleccion'); g.resolverTacticaNave(d.tacticaN); }
-    else { g.elegir(inst, i); g.aplicarExtra(d); }
+    if (d.tactica === 'cancelar') { g.resolverEleccion(inst, i); UI.renderJuego(); return; }
+    g.resolverEleccion(inst, i);
 
     if (!g.cola.length && !g.s.muerto) g.fase = 'menu';
     UI.renderJuego();
@@ -812,14 +811,16 @@
         const ms = Date.now() - st.t0;
         // ventana base 480 ms, que se estrecha con la dificultad del rival
         // y se ensancha con tu pericia. Contra una leyenda es casi imposible.
+        // Un humano reacciona en ~250 ms. La ventana base ronda eso, así
+        // que acertar exige ir de verdad: antes daba 400 ms de margen.
         const pericia = (ref.pericia || 30) / 100;
-        let ventana = 480 * (1.35 - dif / 100) * (0.72 + pericia * 0.6);
-        if (ref.rival === 'leyenda') ventana *= 0.55;
-        ventana = Math.max(90, ventana);
+        let ventana = 300 * (1.25 - dif / 105) * (0.78 + pericia * 0.5);
+        if (ref.rival === 'leyenda') ventana *= 0.5;
+        ventana = Math.max(70, ventana);
         let grado;
-        if (ms < ventana * 0.55) grado = 2;
+        if (ms < ventana * 0.45) grado = 2;
         else if (ms < ventana) grado = 1;
-        else if (ms < ventana * 1.7) grado = 0;
+        else if (ms < ventana * 1.35) grado = 0;
         else grado = -1;
         UI.finMinijuego(grado, 'Reacción: ' + ms + ' ms · ventana ' + Math.round(ventana) + ' ms.');
       };
@@ -828,13 +829,16 @@
 
     /* modo filo: barra en movimiento */
     const pista = $('#filo-pista'), marca = $('#filo-marca'), zonaEl = $('#filo-zona'), btn = $('#filo-golpe');
-    let anchoZona = U.clamp(22 - dif / 4.2 + s.stats.destreza / 16 + (s.sensible ? s.stats.fuerza / 26 : 0), 2.4, 20);
-    if (ref.rival === 'leyenda') anchoZona *= 0.5;
-    const centro = 50;
+    let anchoZona = U.clamp(18 - dif / 7 + s.stats.destreza / 22 + (s.sensible ? s.stats.fuerza / 34 : 0), 4.5, 16);
+    if (ref.rival === 'leyenda') anchoZona *= 0.45;
+    // la zona no siempre está en el centro: hay que mirar, no memorizar
+    const centro = 34 + (ref.semillaZona != null ? ref.semillaZona : Math.random()) * 32;
     zonaEl.style.left = (centro - anchoZona / 2) + '%';
     zonaEl.style.width = anchoZona + '%';
 
-    const st = { pos: 0, dir: 1, raf: 0, terminado: false, vel: 1.1 + dif / 42 };
+    // la barra va más rápido y arranca donde le da la gana
+    const st = { pos: Math.random() * 100, dir: Math.random() < 0.5 ? 1 : -1, raf: 0,
+                 terminado: false, vel: 1.4 + dif / 45 };
     UI.mini = st;
     const paso = function () {
       if (st.terminado) return;
@@ -854,7 +858,7 @@
       let grado;
       if (d < anchoZona / 5) grado = 2;
       else if (d < anchoZona / 2) grado = 1;
-      else if (d < anchoZona * 0.85) grado = 0;
+      else if (d < anchoZona * 0.8) grado = 0;
       else grado = -1;
       UI.finMinijuego(grado, 'Desvío: ' + d.toFixed(1) + '%.');
     };

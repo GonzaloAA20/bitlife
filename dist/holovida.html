@@ -45,19 +45,26 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* fondo: estrellas + rejilla + viñeta */
+/* fondo: la escena en pixel art que dibuja src/fondo.js */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: var(--fondo-escena, linear-gradient(#04070c, #060a11));
+  background-size: cover;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  opacity: 1;
+  filter: saturate(1.12) brightness(1.18);
+  transition: opacity .6s;
+}
+/* velo oscuro para que el texto siempre se lea sobre la escena */
+body::marker { content: ""; }
+#app::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(1px 1px at 12% 22%, #cfe8f5 50%, transparent 51%),
-    radial-gradient(1px 1px at 68% 14%, #9fd4ff 50%, transparent 51%),
-    radial-gradient(1px 1px at 34% 71%, #ffffff 50%, transparent 51%),
-    radial-gradient(1px 1px at 82% 63%, #ffd9a0 50%, transparent 51%),
-    radial-gradient(1px 1px at 51% 42%, #cfe8f5 50%, transparent 51%),
-    radial-gradient(1px 1px at 24% 88%, #a0ffe0 50%, transparent 51%),
-    radial-gradient(1400px 700px at 50% -10%, #0d2438 0%, transparent 70%),
-    linear-gradient(#04070c, #060a11);
-  opacity: .95;
+    linear-gradient(180deg, rgba(4,7,12,.30) 0%, rgba(4,7,12,.10) 34%, rgba(4,7,12,.58) 100%),
+    radial-gradient(140% 95% at 50% 44%, transparent 40%, rgba(2,4,8,.50) 100%);
 }
 /* líneas de barrido CRT */
 body::after {
@@ -240,6 +247,7 @@ select:focus, input:focus { outline: none; border-color: var(--cian); box-shadow
 
 /* ---------- consola ---------- */
 .consola {
+  background: linear-gradient(180deg, rgba(5,9,15,.90), rgba(4,7,12,.94));
   padding: 16px 20px; overflow-y: auto; overscroll-behavior: contain; min-height: 0;
   background:
     linear-gradient(180deg, rgba(58,214,255,.03), transparent 120px),
@@ -488,15 +496,13 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
   --niebla: #1d7fa0;
 }
 
+/* en partida manda la escena del planeta; el color de bioma solo tiñe */
 body.en-juego::before {
-  background:
-    radial-gradient(1px 1px at 12% 22%, #cfe8f5 50%, transparent 51%),
-    radial-gradient(1px 1px at 68% 14%, #9fd4ff 50%, transparent 51%),
-    radial-gradient(1px 1px at 34% 71%, #ffffff 50%, transparent 51%),
-    radial-gradient(1px 1px at 82% 63%, #ffd9a0 50%, transparent 51%),
-    radial-gradient(1600px 800px at 50% -12%, var(--cielo) 0%, transparent 72%),
-    linear-gradient(var(--suelo), #05080e);
-  transition: background 1.2s ease;
+  background-image: var(--fondo-escena, linear-gradient(var(--suelo), #05080e));
+  background-size: cover;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  transition: opacity 1.2s ease;
 }
 
 .bioma-punto {
@@ -1520,6 +1526,8 @@ body.en-juego::before {
     { id: 'social', n: 'Social', ico: '☍', desc: 'Familia, amistades, romance, rivalidades.', min: 4 },
     { id: 'crimen', n: 'Bajos fondos', ico: '☠', desc: 'Robos, contratos, cárteles, mercado negro.', min: 12 },
     { id: 'nave', n: 'Hangar', ico: '⛭', desc: 'Comprar naves, mejorarlas, hacer rutas.', min: 16 },
+    { id: 'taller', n: 'Taller', ico: '⚙', desc: 'Mejoras que cambian lo que tu nave te deja hacer.', min: 14,
+      req: function (s) { return !!s.nave; } },
     { id: 'viaje', n: 'Viajar', ico: '✈', desc: 'Saltar a otro mundo. Todo cambia.', min: 10 },
     { id: 'fuerza', n: 'La Fuerza', ico: '✦', desc: 'Poderes, sables, holocrones, visiones.', min: 6, req: function (s) { return s.stats.fuerza > 5; } },
     { id: 'mercado', n: 'Mercado', ico: '⌂', desc: 'Objetos, médicos, cirugía, apuestas.', min: 10 },
@@ -2747,6 +2755,293 @@ body.en-juego::before {
   /* ============================================================
      RENDER
      ============================================================ */
+
+  /* ============================================================
+     MÁS OBJETOS
+     ============================================================ */
+
+  /* --- cristal kyber en bruto, dentro de su geoda --- */
+  S2.geoda = function (L, din) {
+    const c = din || '#8ad8ff';
+    L.elipse(24, 28, 15, 13, PAL.hierro[2]);
+    L.elipse(24, 27, 13, 11, PAL.hierro[1]);
+    L.elipse(24, 28, 10, 9, '#1a2028');
+    for (let i = 0; i < 7; i++) {
+      const a = i * 0.9, x = 24 + Math.cos(a) * 5, y = 28 + Math.sin(a) * 4;
+      L.linea(x, y, x + Math.cos(a) * 3, y - 4 - (i % 3), c, 1);
+      L.set(x, y - 5 - (i % 3), '#ffffff');
+    }
+    L.elipse(24, 28, 3, 3, c); L.elipse(23, 27, 1.5, 1.5, '#ffffff');
+    L.contorno('#0a0d12');
+  };
+
+  /* --- casco de piloto rebelde --- */
+  S2.casco_piloto = function (L, din) {
+    const c = din || '#e8e4d8';
+    L.elipse(24, 22, 13, 12, c);
+    L.elipse(21, 19, 8, 7, '#ffffff');
+    L.rect(11, 22, 26, 12, c);
+    L.rect(13, 23, 22, 7, '#1a2632');           // visera
+    L.rect(14, 24, 9, 4, '#4a90c8');
+    L.set(15, 25, '#bfe4ff');
+    L.rect(18, 32, 12, 6, PAL.negro[1]);        // respirador
+    for (let i = 0; i < 3; i++) L.rect(19 + i * 4, 33, 2, 4, PAL.negro[3]);
+    L.rect(9, 24, 3, 7, PAL.rojo[1]); L.rect(36, 24, 3, 7, PAL.rojo[2]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- bláster pesado de dos manos --- */
+  S2.rifle = function (L, din) {
+    L.rect(6, 24, 32, 5, PAL.hierro[1]);
+    L.rect(6, 24, 32, 1, PAL.hierro[0]);
+    L.rect(6, 28, 32, 1, PAL.hierro[3]);
+    L.rect(34, 25, 8, 3, PAL.hierro[2]);        // cañón
+    L.rect(41, 25, 2, 3, din || '#ff6a4a');
+    L.rect(14, 20, 10, 4, PAL.negro[1]);        // mira
+    L.rect(16, 18, 2, 3, PAL.negro[0]);
+    L.rect(18, 29, 5, 8, PAL.cuero[1]);         // empuñadura
+    L.rect(6, 22, 6, 9, PAL.cuero[2]);          // culata
+    L.rect(26, 29, 8, 4, PAL.negro[2]);         // cargador
+    L.contorno('#0a0d12');
+  };
+
+  /* --- vaina de carreras --- */
+  S2.vaina = function (L, din) {
+    const c = din || '#d8722a';
+    L.cilindro(4, 14, 13, 9, [c, c, PAL.cobre[2], PAL.cobre[3]]);
+    L.cilindro(31, 14, 13, 9, [c, c, PAL.cobre[2], PAL.cobre[3]]);
+    L.elipse(6, 18, 3, 4, PAL.negro[1]); L.elipse(33, 18, 3, 4, PAL.negro[1]);
+    L.rect(4, 22, 13, 2, PAL.rojo[1]); L.rect(31, 22, 13, 2, PAL.rojo[1]);
+    L.linea(16, 18, 22, 32, PAL.hierro[2], 1);  // cables de arrastre
+    L.linea(32, 18, 26, 32, PAL.hierro[2], 1);
+    L.elipse(24, 35, 7, 5, PAL.hierro[1]);      // cabina
+    L.elipse(24, 34, 5, 3, '#2a3a4a');
+    L.elipse(23, 33, 2, 1.5, '#8ad8ff');
+    L.contorno('#0a0d12');
+  };
+
+  /* --- droide astromecánico --- */
+  S2.astromec = function (L, din) {
+    const c = din || '#4a90c8';
+    L.elipse(24, 14, 9, 7, PAL.acero[1]);       // cúpula
+    L.elipse(22, 12, 6, 4, PAL.acero[0]);
+    L.elipse(27, 13, 2.5, 2, '#1a2028');
+    L.set(27, 13, c);
+    L.rect(15, 16, 18, 22, PAL.acero[1]);       // cuerpo
+    L.rect(15, 16, 18, 1, PAL.acero[0]);
+    L.rect(32, 16, 1, 22, PAL.acero[3]);
+    L.rect(18, 20, 5, 6, c); L.rect(26, 20, 4, 4, PAL.hierro[2]);
+    L.rect(18, 29, 12, 3, PAL.hierro[2]);
+    for (let i = 0; i < 4; i++) L.rect(18 + i * 3, 33, 2, 4, PAL.hierro[3]);
+    L.rect(11, 22, 4, 16, PAL.acero[2]);        // patas
+    L.rect(33, 22, 4, 16, PAL.acero[2]);
+    L.rect(10, 37, 6, 4, PAL.negro[1]); L.rect(32, 37, 6, 4, PAL.negro[1]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- casco de scout / soldado --- */
+  S2.casco_soldado = function (L, din) {
+    const c = din || '#e8ecf0';
+    L.elipse(24, 20, 14, 13, c);
+    L.elipse(20, 16, 8, 6, '#ffffff');
+    L.rect(10, 20, 28, 14, c);
+    L.rect(12, 22, 10, 8, '#12181f'); L.rect(26, 22, 10, 8, '#12181f');  // ojos
+    L.rect(13, 23, 4, 3, '#3a4a5a'); L.rect(27, 23, 4, 3, '#3a4a5a');
+    L.rect(19, 27, 10, 9, PAL.hierro[2]);       // filtro central
+    for (let i = 0; i < 3; i++) L.rect(20, 29 + i * 2, 8, 1, PAL.negro[2]);
+    L.rect(10, 34, 28, 3, PAL.hierro[3]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- holomapa / carta estelar --- */
+  S2.holomapa = function (L, din) {
+    const c = din || '#3ad6ff';
+    L.rect(12, 34, 24, 5, PAL.hierro[2]);       // base
+    L.rect(12, 34, 24, 1, PAL.hierro[0]);
+    L.rect(21, 30, 6, 4, PAL.hierro[1]);
+    for (let a = 0; a < 360; a += 12) {         // esfera de puntos
+      const r = (a * Math.PI) / 180;
+      L.set(24 + Math.cos(r) * 12, 20 + Math.sin(r) * 7, c);
+      L.set(24 + Math.cos(r) * 8, 20 + Math.sin(r) * 11, c);
+    }
+    L.elipse(24, 20, 2, 2, '#ffffff');
+    for (let i = 0; i < 6; i++) L.set(14 + i * 4, 12 + (i % 3) * 3, '#ffffff');
+    L.contorno('#0a0d12');
+  };
+
+  /* --- caja de carga / contrabando --- */
+  S2.carga = function (L, din) {
+    L.bloque(9, 16, 30, 22, PAL.verdeMil);
+    L.rect(9, 25, 30, 2, PAL.verdeMil[3]);
+    L.rect(22, 16, 3, 22, PAL.verdeMil[3]);
+    L.rect(12, 19, 8, 4, PAL.negro[2]);         // etiqueta
+    L.rect(13, 20, 6, 2, din || '#ffd23a');
+    L.rect(9, 36, 30, 3, PAL.hierro[3]);
+    L.rect(6, 20, 3, 14, PAL.hierro[2]); L.rect(39, 20, 3, 14, PAL.hierro[2]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- bota de especia / vial --- */
+  S2.especia = function (L, din) {
+    const c = din || '#c86adc';
+    L.rect(18, 10, 12, 4, PAL.hierro[2]);       // tapón
+    L.rect(19, 13, 10, 26, PAL.acero[3]);
+    L.rect(20, 14, 8, 24, c);
+    L.rect(20, 14, 3, 24, '#ffffff');
+    L.rect(20, 14, 8, 3, PAL.negro[3]);
+    for (let i = 0; i < 5; i++) L.set(22 + (i % 3) * 2, 20 + i * 3, '#ffffff');
+    L.rect(18, 38, 12, 3, PAL.hierro[3]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- llave / credencial --- */
+  S2.credencial = function (L, din) {
+    const c = din || '#3ad6ff';
+    L.bloque(12, 14, 24, 22, PAL.hierro);
+    L.rect(15, 17, 18, 8, '#12181f');
+    L.rect(16, 18, 8, 6, c);
+    for (let i = 0; i < 4; i++) L.rect(16, 28 + i, 16 - i * 2, 1, PAL.hierro[3]);
+    L.rect(30, 28, 4, 5, c);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- copa / bebida de cantina --- */
+  S2.copa = function (L, din) {
+    const c = din || '#ffb03a';
+    L.rect(17, 12, 14, 3, PAL.acero[2]);
+    L.rect(18, 15, 12, 12, PAL.acero[1]);
+    L.rect(19, 16, 10, 10, c);
+    L.rect(19, 16, 3, 10, '#ffffff');
+    L.rect(22, 27, 4, 8, PAL.acero[2]);         // pie
+    L.elipse(24, 36, 8, 3, PAL.acero[1]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- herramienta / llave de mecánico --- */
+  S2.herramienta = function (L, din) {
+    L.linea(12, 36, 34, 14, PAL.hierro[1], 3);
+    L.linea(13, 36, 35, 14, PAL.hierro[0], 1);
+    L.rect(30, 8, 10, 10, PAL.hierro[1]);
+    L.rect(33, 8, 4, 6, null);
+    L.rect(33, 8, 4, 6, '#0a0d12');
+    L.rect(8, 32, 10, 10, PAL.cuero[1]);
+    L.rect(9, 33, 8, 8, PAL.cuero[2]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- medalla / condecoración --- */
+  S2.medalla = function (L, din) {
+    const c = din || '#e0bd5a';
+    L.rect(16, 8, 16, 12, PAL.rojo[1]);
+    L.rect(16, 8, 16, 2, PAL.rojo[0]);
+    L.linea(16, 20, 24, 26, PAL.rojo[2], 2);
+    L.linea(32, 20, 24, 26, PAL.rojo[2], 2);
+    L.elipse(24, 32, 10, 10, PAL.oro[2]);
+    L.elipse(24, 31, 8, 8, c);
+    L.elipse(22, 29, 4, 4, PAL.oro[0]);
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      L.set(24 + Math.cos(a) * 5, 31 + Math.sin(a) * 5, PAL.oro[3]);
+    }
+    L.contorno('#0a0d12');
+  };
+
+  /* --- amuleto / talismán de bruja --- */
+  S2.talisman = function (L, din) {
+    const c = din || '#8aff9a';
+    for (let i = 0; i < 12; i++) L.set(24 + (i % 5) - 2, 6 + i, PAL.cuero[2]);
+    L.elipse(24, 28, 11, 12, PAL.cuero[2]);
+    L.elipse(24, 28, 9, 10, PAL.cuero[1]);
+    L.elipse(24, 28, 5, 6, '#1a1420');
+    L.elipse(24, 27, 3, 4, c);
+    L.set(23, 26, '#ffffff');
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3;
+      L.set(24 + Math.cos(a) * 8, 28 + Math.sin(a) * 9, c);
+    }
+    L.contorno('#0a0d12');
+  };
+
+  /* --- datachip / holocrón de datos --- */
+  S2.datachip = function (L, din) {
+    const c = din || '#7fffd0';
+    L.bloque(14, 18, 20, 16, PAL.negro);
+    L.rect(16, 20, 16, 8, '#0e1a18');
+    for (let i = 0; i < 4; i++) L.rect(17, 21 + i * 2, 14 - i * 3, 1, c);
+    for (let i = 0; i < 5; i++) L.rect(15 + i * 4, 34, 2, 4, PAL.oro[1]);
+    L.rect(14, 18, 20, 1, PAL.negro[0]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- bacta / botiquín --- */
+  S2.bacta = function (L, din) {
+    L.bloque(11, 16, 26, 20, PAL.acero);
+    L.rect(22, 20, 4, 12, PAL.rojo[1]);
+    L.rect(17, 24, 14, 4, PAL.rojo[1]);
+    L.rect(22, 20, 2, 12, PAL.rojo[0]);
+    L.rect(11, 34, 26, 2, PAL.acero[3]);
+    L.rect(18, 13, 12, 3, PAL.hierro[2]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- trofeo de caza --- */
+  S2.trofeo = function (L, din) {
+    const c = din || '#c8b89a';
+    L.elipse(24, 22, 11, 10, c);
+    L.elipse(21, 19, 5, 4, '#ffffff');
+    L.elipse(19, 21, 2.5, 2, '#12181f'); L.elipse(29, 21, 2.5, 2, '#12181f');
+    L.linea(14, 16, 8, 6, c, 2); L.linea(34, 16, 40, 6, c, 2);   // cuernos
+    L.rect(20, 30, 8, 4, PAL.cuero[2]);
+    L.rect(12, 34, 24, 6, PAL.cuero[1]);
+    L.rect(12, 34, 24, 1, PAL.cuero[0]);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- mejora de motor --- */
+  S2.motor = function (L, din) {
+    const c = din || '#3ad6ff';
+    L.cilindro(10, 16, 28, 16, PAL.hierro);
+    L.rect(10, 16, 28, 1, PAL.hierro[0]);
+    L.rect(10, 31, 28, 1, PAL.hierro[3]);
+    L.elipse(12, 24, 4, 7, PAL.negro[1]);
+    L.elipse(12, 24, 2.5, 5, c);
+    for (let i = 0; i < 5; i++) L.rect(18 + i * 4, 14, 2, 4, PAL.hierro[2]);
+    L.rect(36, 20, 6, 8, PAL.cobre[1]);
+    for (let i = 0; i < 4; i++) L.set(6 - i, 24, c);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- torreta / armamento --- */
+  S2.torreta = function (L, din) {
+    const c = din || '#ff6a4a';
+    L.elipse(24, 32, 13, 8, PAL.hierro[2]);
+    L.elipse(24, 30, 11, 7, PAL.hierro[1]);
+    L.rect(19, 22, 10, 9, PAL.hierro[1]);
+    L.rect(19, 22, 10, 1, PAL.hierro[0]);
+    L.rect(13, 12, 4, 14, PAL.hierro[2]); L.rect(31, 12, 4, 14, PAL.hierro[2]);
+    L.rect(20, 10, 3, 16, PAL.hierro[1]); L.rect(25, 10, 3, 16, PAL.hierro[1]);
+    L.rect(13, 10, 4, 2, c); L.rect(31, 10, 4, 2, c);
+    L.rect(20, 8, 3, 2, c); L.rect(25, 8, 3, 2, c);
+    L.contorno('#0a0d12');
+  };
+
+  /* --- mapa de mejora genérico (sigilo) --- */
+  S2.sigilo = function (L, din) {
+    const c = din || '#8a7ad8';
+    L.elipse(24, 24, 15, 15, '#151a24');
+    for (let a = 0; a < 360; a += 18) {
+      const r = (a * Math.PI) / 180;
+      L.set(24 + Math.cos(r) * 15, 24 + Math.sin(r) * 15, c);
+      L.set(24 + Math.cos(r) * 11, 24 + Math.sin(r) * 11, PAL.negro[0]);
+    }
+    L.elipse(24, 24, 6, 6, PAL.negro[1]);
+    L.elipse(24, 24, 3, 3, c);
+    L.set(23, 23, '#ffffff');
+    L.contorno('#0a0d12');
+  };
+
+
+  /** dibuja `nombre` en un canvas y lo devuelve */
   SW.pixel2 = function (nombre, opts) {
     const o = opts || {};
     const fn = S2[nombre];
@@ -2772,6 +3067,21 @@ body.en-juego::before {
   };
 
   SW.tienePixel2 = function (nombre) { return !!S2[nombre]; };
+  SW.SPRITES2 = Object.keys(S2);
+
+  /** qué sprite le toca a cada mejora de nave */
+  SW.arteMejora = function (m) {
+    if (!m) return 'nave_carguero';
+    if (m.cat === 'motor') return m.id === 'motor_silencio' ? 'sigilo' : 'motor';
+    if (m.cat === 'arma') return 'torreta';
+    if (m.cat === 'casco') return m.id === 'casco_medico' ? 'bacta' : 'carga';
+    if (m.id === 'ex_droide') return 'astromec';
+    if (m.id === 'ex_taller') return 'herramienta';
+    if (m.id === 'sis_nav') return 'holomapa';
+    if (m.id === 'sis_falsa') return 'credencial';
+    if (m.id === 'sis_escaner') return 'holomapa';
+    return 'carga';
+  };
   SW.Lienzo = Lienzo;
   SW.PAL_PIXEL = PAL;
 
@@ -2834,10 +3144,13 @@ body.en-juego::before {
   };
 
   /** Coste del pasaje según distancia real y riqueza del destino */
-  SW.costeViaje = function (origen, destino, tieneNave) {
+  /** `nave` puede ser el estado del jugador: aplica el descuento de sus mejoras */
+  SW.costeViaje = function (origen, destino, tieneNave, estado) {
     const saltos = SW.saltosEntre(origen, destino);
     const m = SW.mundo(destino);
-    return Math.round((tieneNave ? 320 : 900) * saltos + m.riq * 180);
+    let base = (tieneNave ? 320 : 900) * saltos + m.riq * 180;
+    if (estado && SW.descuentoSalto) base *= (1 - SW.descuentoSalto(estado));
+    return Math.round(base);
   };
 
   /* ============================================================
@@ -8229,6 +8542,9 @@ body.en-juego::before {
       rasgo: cfg.rasgo.id,
       rasgoN: cfg.rasgo.n,
       apariencia: Object.assign({ especie: esp.id }, cfg.apariencia || {}),
+      peligro: 0,                                  // cuánto has tentado a la suerte
+      mejorasNave: [],
+      puestoGuerra: null,
       edad: 0,
       edadBio: 0,
       muerto: false,
@@ -8513,6 +8829,13 @@ body.en-juego::before {
     this.envejecer();
     if (s.muerto) return;
 
+    // la guerra se cobra antes que nada
+    if (SW.añoDeGuerra) SW.añoDeGuerra(this);
+    if (s.muerto) return;
+    if (SW.cobrarPeligro) SW.cobrarPeligro(this);
+    if (SW.olvidoAtencion) SW.olvidoAtencion(this);
+    if (s.muerto) return;
+
     // eventos guionizados: los momentos que SÍ o SÍ deben ocurrir
     const guion = this.eventosPosibles(SW.GUION || []);
     if (guion.length) {
@@ -8746,10 +9069,33 @@ body.en-juego::before {
     this.aplicarNodo(res, slots, inst, false);
   };
 
+  /** resuelve una elección venga de donde venga: la interfaz y las
+      pruebas headless pasan las dos por aquí, así que lo que se mide
+      es exactamente lo que se juega. */
+  Game.prototype.resolverEleccion = function (inst, i) {
+    const op = inst && inst.opciones && inst.opciones[i];
+    if (!op) return;
+    const d = op.def;
+    if (d.tactica === 'cancelar') { this.cola.unshift(this.escenaCombateEvento()); return; }
+    if (d.tactica) { this.log('› ' + op.txt, 'eleccion'); this.resolverTactica(d.tactica); return; }
+    if (d.tacticaN) { this.log('› ' + op.txt, 'eleccion'); this.resolverTacticaNave(d.tacticaN); return; }
+    if (d.carreraLinea) { this.log('› ' + op.txt, 'eleccion'); SW.resolverCarrera(this, d.carreraLinea); return; }
+    this.elegir(inst, i);
+    if (this.aplicarExtra) this.aplicarExtra(d);
+  };
+
   Game.prototype.aplicarNodo = function (d, slots, inst, soloBase) {
     const s = this.s, rng = this.rng;
+    // lo temerario se anota: se cobra a final de año
+    if (!soloBase && SW.peligroDe) s.peligro = Math.min(SW.PELIGRO_MAX, (s.peligro || 0) + SW.peligroDe(d));
 
-    if (d.fx) this.aplicarFx(d.fx, slots);
+    if (d.fx) {
+      this.aplicarFx(d.fx, slots);
+      // cada entrenamiento cuenta para el virtuosismo: no basta el nivel
+      if (!soloBase && d.fx.fuerza && d.fx.fuerza > 0 && s.sensible) {
+        s.contadores.entrenosFuerza = (s.contadores.entrenosFuerza || 0) + 1;
+      }
+    }
 
     const texto = soloBase ? null : (d.out || (d.p != null && d.t ? d.t : null));
     if (texto) this.log(U.fill(texto, slots), d.tono || 'res');
@@ -8784,7 +9130,15 @@ body.en-juego::before {
 
     if (d.item) this.darObjeto(typeof d.item === 'string' ? d.item : slots.o);
     if (d.sinMascota) { s.mascota = null; }
-    if (d.venderNave && s.nave) { const v = Math.round(s.nave.p * 0.5); s.stats.creditos += v; this.log('Vendes ' + s.nave.n + ' por ' + U.cr(v) + '.', 'cr'); s.nave = null; s.naveNombre = null; }
+    if (d.venderNave && s.nave) {
+      let v = Math.round(s.nave.p * 0.5);
+      (s.mejorasNave || []).forEach(function (id) {
+        const m = SW.MEJORAS_NAVE && SW.MEJORAS_NAVE.filter(function (x) { return x.id === id; })[0];
+        if (m) v += Math.round(m.p * 0.25);
+      });
+      s.stats.creditos += v; this.log('Vendes ' + s.nave.n + ' por ' + U.cr(v) + '.', 'cr');
+      s.nave = null; s.naveNombre = null; s.mejorasNave = [];
+    }
     if (d.mascota) this.darMascota(slots.c);
     if (d.droide) this.darDroide();
 
@@ -8810,6 +9164,12 @@ body.en-juego::before {
     if (d.venderCarga) this.venderCarga();
     if (d.cargar) this.comprarCarga(d.cargar);
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
+    if (d.taller && SW.menuTaller && s.nave) this.cola.unshift(this.prepararGen(SW.menuTaller(this)));
+    if (d.carrera && SW.iniciarCarrera) SW.iniciarCarrera(this, d.circuito);
+    if (d.ojo && SW.GEN.atencionFuerza) this.cola.unshift(this.prepararGen(SW.GEN.atencionFuerza(rng, s)));
+    if (d.flag2) s.flags[U.fill(d.flag2, slots)] = true;
+    if (d.quitarRuido) { s.stats.notoriedad = Math.max(0, s.stats.notoriedad - 10); }
+    if (d.instalarMejora) this.instalarMejora(d.instalarMejora);
     if (d.viajar) this.abrirMapaViaje = true;
     if (d.fuerzaMenu) this.cola.unshift(this.prepararGen(this.menuFuerza()));
     if (d.clinica) this.cola.unshift(this.prepararGen(this.menuClinica()));
@@ -8838,7 +9198,16 @@ body.en-juego::before {
     if (d.chequeo) this.chequeoMedico();
     if (d.mover) this.mover(d.mover === 'casa' ? s.mundoNatal : (d.mover === 'cerca' ? this.mundoCercano() : null), d.motivo);
     if (d.mueveA) this.mover(U.fill(d.mueveA, slots), d.motivo);
-    if (d.guerra) { s.flags.veterano = true; s.contadores.batallas++; this.hito('Va a la guerra'); }
+    if (d.guerra) {
+      s.flags.veterano = true; s.contadores.batallas++;
+      s.flags.en_el_frente = true;
+      s.puestoGuerra = d.puesto || s.puestoGuerra || 'infanteria';
+      s.añosDeFrenteRestantes = d.campaña || rng.int(2, 5);
+      this.hito('Va a la guerra');
+      this.log('Estás en el frente. A partir de ahora, cada año cuenta.', 'mal');
+    }
+    if (d.puesto) s.puestoGuerra = d.puesto;
+    if (d.dejarFrente) { s.flags.en_el_frente = false; s.añosDeFrenteRestantes = 0; this.log('Te licencian. Se acabó el frente.', 'bien'); }
     if (d.muerte) this.morir(d.muerteTxt || 'Una mala decisión, la última.');
 
     if (d.combate) this.iniciarCombate(d.combate);
@@ -9409,8 +9778,11 @@ body.en-juego::before {
       tipo: 'combate',
       cfg: cfg || {},
       ronda: 1,
-      maxRondas: 4,
-      hpEnemigo: 100,
+      maxRondas: 5,
+      // el rival duro AGUANTA más y PEGA más: antes todos tenían 100 de vida
+      hpEnemigo: Math.round(80 + ((cfg && cfg.dif) || 50) * 0.85),
+      hpMaxEnemigo: Math.round(80 + ((cfg && cfg.dif) || 50) * 0.85),
+      golpe: 0.8 + ((cfg && cfg.dif) || 50) / 145,
       aguante: 100,
       poder: this.poderCombate(),
       dif: (cfg && cfg.dif) || 50,
@@ -9467,7 +9839,9 @@ body.en-juego::before {
         this.log('Te retiras a tiempo. Sin gloria, con vida.', 'res');
       } else {
         this.log('No consigues salir. Te alcanzan en la espalda.', 'mal');
-        this.aplicarFx({ salud: -16, cordura: -5 }, {});
+        this.aplicarFx({ salud: -Math.round(14 + e.dif / 3), cordura: -8, reputacion: -5 }, {});
+        this.herir('herida en la espalda', Math.round(6 + e.dif / 8), false);
+        if (s.stats.salud <= 0 && !s.muerto) { this.morir('Le alcanzaron mientras huía.'); return; }
       }
       this.escena = null;
       return;
@@ -9482,7 +9856,8 @@ body.en-juego::before {
     let dmg = 0, recib = 0, coste = 0, txt = '';
     const skill = e.poder, dif = e.dif;
     const cansado = e.aguante < 35 ? 0.5 : (e.aguante < 65 ? 0.78 : 1);
-    const expuesto = e.aguante < 28 ? 1.35 : 1;   // sin aire, encajas peor
+    // sin aire encajas peor, y un rival duro pega más fuerte siempre
+    const expuesto = (e.aguante < 28 ? 1.35 : 1) * (e.golpe || 1);
 
     if (tac === 'agresivo') {
       coste = 34;
@@ -9535,7 +9910,7 @@ body.en-juego::before {
     if (s.stats.salud <= 0) { this.morir(e.cfg.duelo ? 'Cae en un duelo.' : 'Cae en combate.'); this.escena = null; return; }
     if (e.hpEnemigo <= 0) { this.finCombate(true); return; }
     e.ronda++;
-    if (e.ronda > e.maxRondas) { this.finCombate(e.hpEnemigo < 40); return; }
+    if (e.ronda > e.maxRondas) { this.finCombate(e.hpEnemigo < e.hpMaxEnemigo * 0.18); return; }
     // el rival cambia de postura, con tendencia a repetir lo que le funciona
     e.postura = this.rng.pick(['embestida', 'guardia', 'finta']);
     this.cola.unshift(this.escenaCombateEvento());
@@ -9567,10 +9942,15 @@ body.en-juego::before {
     if (!e) return;
     // grado: 2 crítico · 1 bien · 0 flojo · -1 fallo
     let dmg = 0, recib = 0, txt = '';
-    if (grado === 2) { dmg = rng.int(70, 100); recib = 0; txt = 'Perfecto. Ni te ha visto moverte.'; s.stats.reputacion += 3; }
-    else if (grado === 1) { dmg = rng.int(38, 58); recib = rng.int(0, 6); txt = 'Limpio. Suficiente.'; }
-    else if (grado === 0) { dmg = rng.int(10, 22); recib = rng.int(10, 20); txt = 'Los dos acertáis a medias.'; }
-    else { dmg = 0; recib = rng.int(24, 40); txt = 'Te precipitas. Y lo pagas entero.'; }
+    const pega = (e.golpe || 1);
+    if (grado === 2) { dmg = rng.int(80, 115); recib = 0; txt = 'Perfecto. Ni te ha visto moverte.'; s.stats.reputacion += 3; }
+    else if (grado === 1) { dmg = rng.int(40, 62); recib = rng.int(0, 8) * pega; txt = 'Limpio. Suficiente.'; }
+    else if (grado === 0) { dmg = rng.int(10, 22); recib = rng.int(16, 30) * pega; txt = 'Los dos acertáis a medias.'; }
+    else {
+      dmg = 0; recib = rng.int(34, 55) * pega; txt = 'Te precipitas. Y lo pagas entero.';
+      // jugártela y fallar puede acabar la pelea de golpe
+      if (rng.chance(0.28)) { this.herir('tajo de la jugada fallida', rng.int(12, 24), false); }
+    }
 
     e.aguante = U.clamp(e.aguante - 18, 0, 100);
     e.hpEnemigo -= dmg;
@@ -9596,6 +9976,9 @@ body.en-juego::before {
       if (e.cfg.contrato) s.contadores.cazas = (s.contadores.cazas || 0) + 1;
       if (e.cfg.duelo) { s.contadores.duelos = (s.contadores.duelos || 0) + 1; this.hito('Gana un duelo'); }
     } else {
+      const hp = e.hpEnemigo;
+      this.escena = null;
+      if (SW.consecuenciaDerrota) { SW.consecuenciaDerrota(this, e.cfg, hp); return; }
       this.log('El enemigo aguanta más que tú. Te retiras maltrecho.', 'mal');
       this.aplicarFx({ salud: -10, cordura: -6, reputacion: -4 }, {});
     }
@@ -9770,6 +10153,25 @@ body.en-juego::before {
     };
   };
 
+  Game.prototype.instalarMejora = function (id) {
+    const s = this.s;
+    const m = (SW.MEJORAS_NAVE || []).filter(function (x) { return x.id === id; })[0];
+    if (!m || !s.nave) return;
+    s.mejorasNave = s.mejorasNave || [];
+    if (s.mejorasNave.indexOf(id) >= 0) return;
+    // una por ranura: la nueva sustituye a la vieja salvo en extras
+    if (m.cat !== 'extra') {
+      s.mejorasNave = s.mejorasNave.filter(function (otro) {
+        const o = SW.MEJORAS_NAVE.filter(function (x) { return x.id === otro; })[0];
+        return !o || o.cat !== m.cat;
+      });
+    }
+    s.mejorasNave.push(id);
+    this.log('Montado en tu nave: ' + m.n + '. ' + m.d, 'bien');
+    this.popup({ arte: SW.arteMejora ? SW.arteMejora(m) : 'nave_carguero', titulo: m.n, texto: m.sub });
+  };
+
+  /** el hangar ya no vende mejoras: eso es cosa del taller */
   Game.prototype.menuHangar = function () {
     const s = this.s, rng = this.rng;
     const c = [];
@@ -9785,9 +10187,7 @@ body.en-juego::before {
       });
     });
     if (s.nave) {
-      c.push({ t: 'Reparar casco — ' + U.cr(12000), req: function (st) { return st.stats.creditos >= 12000; }, fx: { creditos: -12000 }, naveEstado: 100 });
-      c.push({ t: 'Mejorar motores — ' + U.cr(25000), req: function (st) { return st.stats.creditos >= 25000; }, fx: { creditos: -25000 }, mejora: 'vel' });
-      c.push({ t: 'Mejorar armamento — ' + U.cr(30000), req: function (st) { return st.stats.creditos >= 30000; }, fx: { creditos: -30000 }, mejora: 'arm' });
+      c.push({ t: '⚙ Abrir el taller', sub: 'Mejoras que cambian lo que puedes hacer', taller: true });
       c.push({ t: 'Vender tu ' + s.nave.n, venderNave: true });
     }
     c.push({ t: '◂ Salir del hangar', volver: true });
@@ -9963,6 +10363,7 @@ body.en-juego::before {
       else if (id === 'mercado') this.cola.push(this.prepararGen(this.menuTienda()));
       else if (id === 'salud') this.cola.push(this.prepararGen(this.menuClinica()));
       else if (id === 'fuerza') this.cola.push(this.prepararGen(this.menuFuerza()));
+      else if (id === 'taller' && SW.menuTaller && s.nave) this.cola.push(this.prepararGen(SW.menuTaller(this)));
       else this.cola.push(this.prepararGen(this.rellenoActividad(id)));
     } else {
       const ev = this.elegirEvento(posibles);
@@ -10495,6 +10896,7 @@ body.en-juego::before {
     r.style.setProperty('--suelo', a.suelo);
     r.style.setProperty('--niebla', a.niebla);
     r.setAttribute('data-bioma', a.id);
+    if (SW.aplicarFondo) SW.aplicarFondo(mundoNombre);
     return a;
   };
 
@@ -11024,7 +11426,7 @@ body.en-juego::before {
       if (!w) { ficha.innerHTML = '<p class="dim">Pulsa un mundo para ver sus datos.</p>'; return; }
       const esAqui = w.n === s.mundo;
       const saltos = SW.saltosEntre(s.mundo, w.n);
-      const coste = SW.costeViaje(s.mundo, w.n, !!s.nave);
+      const coste = SW.costeViaje(s.mundo, w.n, !!s.nave, s);
       const dato = SW.datoMundo(w.n);
       const visto = (s.mundosVistos || []).indexOf(w.n) >= 0;
       let h = '<div class="mf-cab"><b>' + U.esc(w.n) + '</b>' +
@@ -11074,7 +11476,7 @@ body.en-juego::before {
       const via = e.target.closest('[data-viajar]');
       if (via && !via.disabled) {
         const destino = via.dataset.viajar;
-        const coste = SW.costeViaje(s.mundo, destino, !!s.nave);
+        const coste = SW.costeViaje(s.mundo, destino, !!s.nave, s);
         UI.pararMapa();
         g.log('› Viajar a ' + destino, 'eleccion');
         g.aplicarFx({ creditos: -coste }, {});
@@ -11215,10 +11617,8 @@ body.en-juego::before {
     if (!op) return;
     const d = op.def;
 
-    if (d.tactica === 'cancelar') { g.cola.unshift(g.escenaCombateEvento()); UI.renderJuego(); return; }
-    if (d.tactica) { g.log('› ' + op.txt, 'eleccion'); g.resolverTactica(d.tactica); }
-    else if (d.tacticaN) { g.log('› ' + op.txt, 'eleccion'); g.resolverTacticaNave(d.tacticaN); }
-    else { g.elegir(inst, i); g.aplicarExtra(d); }
+    if (d.tactica === 'cancelar') { g.resolverEleccion(inst, i); UI.renderJuego(); return; }
+    g.resolverEleccion(inst, i);
 
     if (!g.cola.length && !g.s.muerto) g.fase = 'menu';
     UI.renderJuego();
@@ -11263,14 +11663,16 @@ body.en-juego::before {
         const ms = Date.now() - st.t0;
         // ventana base 480 ms, que se estrecha con la dificultad del rival
         // y se ensancha con tu pericia. Contra una leyenda es casi imposible.
+        // Un humano reacciona en ~250 ms. La ventana base ronda eso, así
+        // que acertar exige ir de verdad: antes daba 400 ms de margen.
         const pericia = (ref.pericia || 30) / 100;
-        let ventana = 480 * (1.35 - dif / 100) * (0.72 + pericia * 0.6);
-        if (ref.rival === 'leyenda') ventana *= 0.55;
-        ventana = Math.max(90, ventana);
+        let ventana = 300 * (1.25 - dif / 105) * (0.78 + pericia * 0.5);
+        if (ref.rival === 'leyenda') ventana *= 0.5;
+        ventana = Math.max(70, ventana);
         let grado;
-        if (ms < ventana * 0.55) grado = 2;
+        if (ms < ventana * 0.45) grado = 2;
         else if (ms < ventana) grado = 1;
-        else if (ms < ventana * 1.7) grado = 0;
+        else if (ms < ventana * 1.35) grado = 0;
         else grado = -1;
         UI.finMinijuego(grado, 'Reacción: ' + ms + ' ms · ventana ' + Math.round(ventana) + ' ms.');
       };
@@ -11279,13 +11681,16 @@ body.en-juego::before {
 
     /* modo filo: barra en movimiento */
     const pista = $('#filo-pista'), marca = $('#filo-marca'), zonaEl = $('#filo-zona'), btn = $('#filo-golpe');
-    let anchoZona = U.clamp(22 - dif / 4.2 + s.stats.destreza / 16 + (s.sensible ? s.stats.fuerza / 26 : 0), 2.4, 20);
-    if (ref.rival === 'leyenda') anchoZona *= 0.5;
-    const centro = 50;
+    let anchoZona = U.clamp(18 - dif / 7 + s.stats.destreza / 22 + (s.sensible ? s.stats.fuerza / 34 : 0), 4.5, 16);
+    if (ref.rival === 'leyenda') anchoZona *= 0.45;
+    // la zona no siempre está en el centro: hay que mirar, no memorizar
+    const centro = 34 + (ref.semillaZona != null ? ref.semillaZona : Math.random()) * 32;
     zonaEl.style.left = (centro - anchoZona / 2) + '%';
     zonaEl.style.width = anchoZona + '%';
 
-    const st = { pos: 0, dir: 1, raf: 0, terminado: false, vel: 1.1 + dif / 42 };
+    // la barra va más rápido y arranca donde le da la gana
+    const st = { pos: Math.random() * 100, dir: Math.random() < 0.5 ? 1 : -1, raf: 0,
+                 terminado: false, vel: 1.4 + dif / 45 };
     UI.mini = st;
     const paso = function () {
       if (st.terminado) return;
@@ -11305,7 +11710,7 @@ body.en-juego::before {
       let grado;
       if (d < anchoZona / 5) grado = 2;
       else if (d < anchoZona / 2) grado = 1;
-      else if (d < anchoZona * 0.85) grado = 0;
+      else if (d < anchoZona * 0.8) grado = 0;
       else grado = -1;
       UI.finMinijuego(grado, 'Desvío: ' + d.toFixed(1) + '%.');
     };
