@@ -87,6 +87,9 @@
       legado: null,
       recientes: [],
       vistos: {},
+      pendientes: [],         // asuntos que te atan a un mundo
+      carga: null,            // mercancía comprada para revender
+      buscado: 0,             // gente que te busca en este sistema
       acciones: 3,            // acciones por año
       accionesMax: 3,
       historia: [],
@@ -198,11 +201,13 @@
   };
 
   /* ---------------- Selección de eventos ---------------- */
-  Game.prototype.eventosPosibles = function (pool) {
+  Game.prototype.eventosPosibles = function (pool, permitirVistos) {
     const s = this.s;
     const out = [];
     for (let i = 0; i < pool.length; i++) {
       const e = pool[i];
+      // ya lo viviste: no vuelve hasta que se agote todo lo demás
+      if (!permitirVistos && s.vistos[e.id]) continue;
       if (e.min != null && s.edadBio < e.min) continue;
       if (e.max != null && s.edadBio > e.max) continue;
       if (e.era && e.era.indexOf(s.era) < 0) continue;
@@ -210,7 +215,7 @@
       if (e.esp && e.esp.indexOf(s.especie) < 0) continue;
       if (e.espNo && e.espNo.indexOf(s.especie) >= 0) continue;
       if (e.unaVez && s.vistos[e.id]) continue;
-      if (s.recientes.indexOf(e.id) >= 0 && pool.length > 6) continue;
+      if (s.recientes.indexOf(e.id) >= 0) continue;
       if (e.req) { try { if (!e.req(s)) continue; } catch (err) { continue; } }
       out.push(e);
     }
@@ -221,7 +226,7 @@
   Game.prototype.peso = function (ev) {
     const base = ev.w == null ? 1 : ev.w;
     const visto = this.s.vistos[ev.id] || 0;
-    return base / (1 + visto * 1.4);
+    return base / (1 + visto * visto * 3);
   };
 
   Game.prototype.elegirEvento = function (posibles) {
@@ -233,7 +238,7 @@
     const s = this.s;
     s.vistos[id] = (s.vistos[id] || 0) + 1;
     s.recientes.push(id);
-    if (s.recientes.length > 14) s.recientes.shift();
+    if (s.recientes.length > 26) s.recientes.shift();
   };
 
   Game.prototype.prepararEvento = function (ev) {
@@ -317,7 +322,11 @@
     }
 
     const n = s.edadBio < 6 ? 1 : this.rng.int(1, 2);
-    const posibles = this.eventosPosibles(SW.EVENTOS);
+    let posibles = this.eventosPosibles(SW.EVENTOS);
+    if (!posibles.length && SW.GEN.dilema && this.rng.chance(0.6)) {
+      this.cola.push(this.prepararGen(SW.GEN.dilema(this.rng, s)));
+    }
+    if (!posibles.length) posibles = this.eventosPosibles(SW.EVENTOS, true);
     const usados = [];
     for (let i = 0; i < n && posibles.length; i++) {
       const restantes = posibles.filter(function (e) { return usados.indexOf(e.id) < 0; });
@@ -537,6 +546,8 @@
     if (texto) this.log(U.fill(texto, slots), d.tono || 'res');
 
     if (d.volver) { this.devolverAccion(); return; }
+    if (d.pendiente) this.añadirPendiente(U.fill(d.pendiente, slots));
+    if (d.buscado) { s.buscado = Math.min(100, s.buscado + d.buscado); this.log('Hay gente buscándote en ' + s.mundo + '.', 'mal'); }
     if (d.darItem) this.darObjeto(d.darItem);
     if (d.conocer) this.conocerCanon(d.conocer);
     if (d.flag) s.flags[U.fill(d.flag, slots)] = true;
@@ -562,7 +573,9 @@
     if (d.cortarRel) this.cortarRelacion();
     if (d.matarRel) this.matarRelacion(d.matarRel);
 
-    if (d.item) this.darObjeto(slots.o);
+    if (d.item) this.darObjeto(typeof d.item === 'string' ? d.item : slots.o);
+    if (d.sinMascota) { s.mascota = null; }
+    if (d.venderNave && s.nave) { const v = Math.round(s.nave.p * 0.5); s.stats.creditos += v; this.log('Vendes ' + s.nave.n + ' por ' + U.cr(v) + '.', 'cr'); s.nave = null; s.naveNombre = null; }
     if (d.mascota) this.darMascota(slots.c);
     if (d.droide) this.darDroide();
 
@@ -584,8 +597,11 @@
     if (d.matricula) this.cola.unshift(this.prepararGen(this.menuMatricula()));
     if (d.tienda) this.cola.unshift(this.prepararGen(this.menuTienda()));
     if (d.armeria) this.cola.unshift(this.prepararGen(SW.GEN.armeria(rng, s)));
+    if (d.mercancia) this.cola.unshift(this.prepararGen(this.menuMercancia()));
+    if (d.venderCarga) this.venderCarga();
+    if (d.cargar) this.comprarCarga(d.cargar);
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
-    if (d.viajar) this.cola.unshift(this.prepararGen(this.menuViaje()));
+    if (d.viajar) this.abrirMapaViaje = true;
     if (d.fuerzaMenu) this.cola.unshift(this.prepararGen(this.menuFuerza()));
     if (d.clinica) this.cola.unshift(this.prepararGen(this.menuClinica()));
     if (d.accionMenu) this.cola.unshift(this.prepararGen(SW.GEN[rng.chance(0.45) && s.nave ? 'dogfight' : 'accion'](rng, s)));
@@ -1028,6 +1044,53 @@
     });
   };
 
+  /* ---------------- Asuntos pendientes y mercancía ---------------- */
+  Game.prototype.añadirPendiente = function (txt) {
+    const s = this.s;
+    s.pendientes.push({ mundo: s.mundo, txt: txt, edad: s.edad });
+    this.log('⚑ Te queda pendiente en ' + s.mundo + ': ' + txt, 'mal');
+  };
+
+  Game.prototype.pendientesAqui = function () {
+    const s = this.s;
+    return s.pendientes.filter(function (p) { return p.mundo === s.mundo; });
+  };
+
+  /** Precio al que se vende tu carga en un mundo concreto */
+  Game.prototype.valorCargaEn = function (mundo) {
+    const s = this.s;
+    if (!s.carga) return 0;
+    const m = SW.mundo(mundo);
+    const origen = SW.mundo(s.carga.origen);
+    const saltos = SW.saltosEntre(s.carga.origen, mundo);
+    // lejos y a un mundo rico se paga mejor; lo ilegal cotiza donde no hay ley
+    let factor = 1 + saltos * 0.055 + (m.riq - origen.riq) * 0.04;
+    if (s.carga.ilegal) factor += (9 - m.ley) * 0.035;
+    else factor -= Math.max(0, (5 - m.ley)) * 0.02;
+    return Math.round(s.carga.coste * U.clamp(factor, 0.4, 1.9));
+  };
+
+  Game.prototype.comprarCarga = function (tipo) {
+    const s = this.s;
+    if (s.carga) { this.log('Ya llevas ' + s.carga.n + ' en la bodega.', 'mal'); return; }
+    if (s.stats.creditos < tipo.coste) { this.log('No te llega.', 'mal'); return; }
+    s.stats.creditos -= tipo.coste;
+    s.carga = { n: tipo.n, coste: tipo.coste, ilegal: !!tipo.ilegal, origen: s.mundo, edad: s.edad };
+    this.log('Cargas <b>' + tipo.n + '</b> por ' + U.cr(tipo.coste) + '. Ahora hay que colocarlo lejos.', 'cr');
+  };
+
+  Game.prototype.venderCarga = function () {
+    const s = this.s;
+    if (!s.carga) return;
+    const v = this.valorCargaEn(s.mundo);
+    const dif = v - s.carga.coste;
+    s.stats.creditos += v;
+    this.log('Vendes ' + s.carga.n + ' en ' + s.mundo + ' por ' + U.cr(v) +
+      ' <span class="' + (dif >= 0 ? 'l-bien' : 'l-mal') + '">(' + (dif >= 0 ? '+' : '') + U.cr(dif) + ')</span>.', 'cr');
+    if (s.carga.ilegal) this.aplicarFx({ notoriedad: 6 }, {});
+    s.carga = null;
+  };
+
   /* ---------------- Movimiento ---------------- */
   Game.prototype.mover = function (destino, motivo) {
     const s = this.s, rng = this.rng;
@@ -1040,11 +1103,30 @@
       s.mundosVistos.push(d);
       s.contadores.mundosVisitados = s.mundosVistos.length;
     }
+    // lo que dejas atrás
+    const dejados = s.pendientes.filter(function (x) { return x.mundo === anterior; });
+    if (dejados.length) {
+      this.log('Dejas sin resolver en ' + anterior + ': ' + dejados.map(function (x) { return x.txt; }).join('; ') + '.', 'mal');
+      this.aplicarFx({ reputacion: -4 * dejados.length, cordura: -3 }, {});
+      s.pendientes = s.pendientes.filter(function (x) { return x.mundo !== anterior; });
+    }
+    if (s.buscado > 0) {
+      const antes = s.buscado;
+      s.buscado = Math.max(0, s.buscado - 45);
+      this.log('Cambiar de sistema despista a quien te buscaba' + (s.buscado > 0 ? ', pero no del todo' : '') + '.', s.buscado > 0 ? 'res' : 'bien');
+      if (antes >= 45) this.aplicarFx({ notoriedad: -6 }, {});
+    }
+
     const dato = SW.datoMundo ? SW.datoMundo(d) : null;
     this.log('✈ ' + anterior + ' → <b>' + d + '</b> <span class="dim">(' + m.r + ' · ' + m.bio + ')</span>' +
       (motivo ? ' — ' + motivo : '') + '.', 'viaje');
     this.log('<span class="dato">◈ ' + (dato || U.titleCase(m.vibe)) + '</span>', 'dato');
     this.hito('Se traslada a ' + d);
+    if (s.carga) {
+      const v = this.valorCargaEn(d);
+      this.log('En bodega: ' + s.carga.n + '. Aquí lo pagarían a ' + U.cr(v) +
+        ' (te costó ' + U.cr(s.carga.coste) + ').', 'cr');
+    }
   };
 
   Game.prototype.chequeoMedico = function () {
@@ -1259,7 +1341,10 @@
            ? '<p>Las manos quietas. Cuando la señal cambie, dispara. Ni un instante antes.</p>'
            : '<p>El filo va y viene. Golpea cuando cruce el punto ciego de su guardia.</p>'),
       minijuego: modo,
-      dificultad: U.clamp(this.escena ? this.escena.dif : 50, 20, 95),
+      dificultad: U.clamp(this.escena ? this.escena.dif : 50, 20, 98),
+      pericia: Math.round(s.stats.destreza * 0.6 + (s.sensible ? s.stats.fuerza * 0.4 : 0) +
+        (s.habilidades.indexOf('tirador') >= 0 ? 12 : 0) + (s.habilidades.indexOf('duelista') >= 0 ? 12 : 0)),
+      rival: this.escena && this.escena.cfg.canon ? 'leyenda' : null,
       c: [{ t: 'Volver a la táctica normal', tactica: 'cancelar' }]
     };
   };
@@ -1427,9 +1512,50 @@
       };
     });
     c.push({ t: 'Ir a la armería', sub: 'armas y protección', armeria: true });
+    c.push({ t: 'Mercancía a granel', sub: 'comprar barato aquí para vender lejos', mercancia: true });
+    if (s.carga) {
+      const v = this.valorCargaEn(s.mundo);
+      c.push({ t: 'Vender tu carga: ' + s.carga.n + ' — ' + U.cr(v),
+        sub: 'te costó ' + U.cr(s.carga.coste) + (v >= s.carga.coste ? ' · beneficio' : ' · pérdida'),
+        venderCarga: true });
+    }
     c.push({ t: 'Vender algo tuyo', vender: true });
     c.push({ t: '◂ Salir del mercado sin comprar', volver: true });
     return { id: 'menu_tienda', gen: true, esMenu: true, t: 'MERCADO de ' + s.mundo + ' — tienes ' + U.cr(s.stats.creditos), c: c };
+  };
+
+  Game.prototype.menuMercancia = function () {
+    const s = this.s, rng = this.rng;
+    const m = SW.mundo(s.mundo);
+    const catalogo = [
+      { n: 'grano y raciones', base: 4000, ilegal: false },
+      { n: 'piezas de repuesto', base: 9000, ilegal: false },
+      { n: 'medicinas de bacta', base: 18000, ilegal: false },
+      { n: 'licor de contrabando', base: 12000, ilegal: true },
+      { n: 'especia sin refinar', base: 30000, ilegal: true },
+      { n: 'armas sin registrar', base: 26000, ilegal: true },
+      { n: 'mineral en bruto', base: 15000, ilegal: false },
+      { n: 'reliquias sin procedencia', base: 40000, ilegal: true }
+    ];
+    const oferta = rng.pickN(catalogo, 4).map(function (x) {
+      // donde abunda, sale barato
+      const coste = Math.round(x.base * (0.7 + rng.next() * 0.5) * (1 - (m.riq - 5) * 0.03));
+      const puede = s.stats.creditos >= coste && !s.carga;
+      return {
+        t: (puede ? 'Cargar ' : '✕ ') + x.n + ' — ' + U.cr(coste),
+        sub: (x.ilegal ? 'ilegal: se paga mejor donde no hay ley' : 'legal, margen corto') +
+             (s.carga ? ' · ya llevas carga' : (puede ? '' : ' · no te llega')),
+        bloqueada: !puede,
+        cargar: puede ? { n: x.n, coste: coste, ilegal: x.ilegal } : null
+      };
+    });
+    oferta.push({ t: '◂ Salir sin cargar nada', volver: true });
+    return {
+      id: 'menu_mercancia', gen: true, esMenu: true,
+      t: 'LONJA de ' + s.mundo + ' <span class="dim">(riqueza ' + m.riq + '/10 · ley ' + m.ley + '/10)</span>. ' +
+         'Se compra barato donde sobra y se vende caro donde falta.',
+      c: oferta
+    };
   };
 
   Game.prototype.menuHangar = function () {
@@ -1596,14 +1722,32 @@
     if (s.acciones <= 0) { this.log('Ya no te queda tiempo este año.', 'res'); return; }
     s.acciones--;
     this.actividadEnCurso = id;
+    if (id === 'viaje') { this.abrirMapaViaje = true; this.actividadUsada = s.acciones <= 0; this.fase = 'menu'; return; }
     const pool = SW.ACTOS[id] || [];
-    const posibles = this.eventosPosibles(pool);
+    let posibles = this.eventosPosibles(pool);
+    // si ya has vivido todo lo escrito para esa vía, se genera algo nuevo
+    // en vez de repetirte una escena que ya conoces
+    if (!posibles.length) {
+      const gens = {
+        trabajo: 'encargo', formacion: 'dilema', social: 'dilema', crimen: 'contrato',
+        nave: 'ruta', accion: 'accion', escuadron: 'mision', politica: 'encargo',
+        exploracion: 'encargo', mercado: 'armeria', salud: 'dilema', fuerza: 'dilema'
+      };
+      const g = gens[id];
+      if (g && SW.GEN[g] && rng.chance(0.75)) {
+        this.cola.push(this.prepararGen(SW.GEN[g](rng, s)));
+        this.actividadUsada = s.acciones <= 0;
+        this.fase = 'evento';
+        return;
+      }
+      posibles = this.eventosPosibles(pool, true);
+    }
     if (!posibles.length) {
       // nunca dejes al jugador sin nada que decidir
       const gens = { crimen: 'contrato', nave: 'ruta', accion: 'accion', escuadron: 'mision', politica: 'encargo', exploracion: 'encargo' };
       const g = gens[id];
       if (g && SW.GEN[g]) this.cola.push(this.prepararGen(SW.GEN[g](rng, s)));
-      else if (id === 'viaje') this.cola.push(this.prepararGen(this.menuViaje()));
+      else if (id === 'viaje') this.abrirMapaViaje = true;
       else if (id === 'mercado') this.cola.push(this.prepararGen(this.menuTienda()));
       else if (id === 'salud') this.cola.push(this.prepararGen(this.menuClinica()));
       else if (id === 'fuerza') this.cola.push(this.prepararGen(this.menuFuerza()));

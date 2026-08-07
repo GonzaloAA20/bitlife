@@ -83,6 +83,11 @@ Una especie jugable con guion propio: naces en Kamino con una designación CT-, 
 - **Prisión, deudas, adicciones, guerra, epidemias, herencias, legado y vejez.**
 - **Semilla determinista**: la misma semilla da la misma vida. Sirve para retar a alguien a jugar tu partida.
 
+### El mapa de la galaxia
+Una carta estelar navegable con la estructura real de la galaxia: anillos del Núcleo Profundo al Borde Exterior, el Espacio Hutt en su sector y las Regiones Desconocidas al oeste. Se arrastra, se hace zoom y se pulsa cualquier mundo para ver sus datos, su distancia en saltos y el precio del pasaje. Los planetas se dibujan por código —atmósfera, nubes, casquetes polares, luces de ciudad en el lado nocturno, venas de lava, anillos— y si pulsas el mundo en el que estás se abre en **pixel art grande**, distinto para cada planeta.
+
+Viajar dejó de ser un menú: es el mapa. Y tiene consecuencias — si dejas asuntos pendientes en un mundo, te avisa antes de irte; si hay gente buscándote, cambiar de sistema los despista; y si llevas mercancía en bodega, te dice cuánto se paga en cada destino.
+
 ### Cómo se ve
 La interfaz **cambia de color según el planeta**: el desierto la tiñe de ámbar, el hielo de cian pálido, los mundos volcánicos de rojo, las ciudades-planeta de violeta. Se nota dónde estás sin leer nada.
 

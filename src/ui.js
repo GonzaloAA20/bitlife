@@ -205,14 +205,15 @@
     h += '<label class="campo">TRATAMIENTO<select data-set="pronombre">' +
       ['elle', 'ella', 'él'].map(function (p) { return '<option value="' + p + '"' + (c.pronombre === p ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select></label>';
 
-    h += '<div class="campo">ESPECIE <span class="dim">(' + SW.ESPECIES.length + ')</span><div class="chips">';
+    h += '<div class="campo"><span class="campo-cab">ESPECIE <span class="dim">(' + SW.ESPECIES.length + ')</span>' +
+      '<button class="btn mini dado" data-rand="especie">⟳ al azar</button></span><div class="chips">';
     SW.ESPECIES.forEach(function (e) {
       h += '<button class="chip' + (e.id === c.especie ? ' on' : '') + '" data-esp="' + e.id + '">' + U.esc(e.n) + '</button>';
     });
     h += '</div><p class="nota">' + U.esc(esp.rasgo) + ' <span class="dim">· esperanza de vida ~' + esp.vida + ' años' +
       (esp.ritmo > 1 ? ' · envejece ×' + esp.ritmo : '') + '</span></p></div>';
 
-    h += '<div class="campo">ERA<div class="chips">';
+    h += '<div class="campo"><span class="campo-cab">ERA<button class="btn mini dado" data-rand="era">⟳ al azar</button></span><div class="chips">';
     SW.ERAS.forEach(function (e) {
       const bloq = esp.soloEra && esp.soloEra.indexOf(e.id) < 0;
       h += '<button class="chip' + (e.id === c.era ? ' on' : '') + (bloq ? ' bloq' : '') + '" data-era="' + e.id + '"' + (bloq ? ' disabled' : '') + '>' + U.esc(e.n) + '</button>';
@@ -221,14 +222,14 @@
       (esp.soloEra ? '<br><span class="aviso">Esta especie solo existe en: ' + esp.soloEra.map(function (i) { return SW.ERAS.filter(function (x) { return x.id === i; })[0].n; }).join(', ') + '.</span>' : '') +
       '</p></div>';
 
-    h += '<label class="campo">MUNDO NATAL<select data-set="mundo">';
+    h += '<label class="campo"><span class="campo-cab">MUNDO NATAL<button class="btn mini dado" data-rand="mundo">⟳ al azar</button></span><select data-set="mundo">';
     const mundos = esp.soloEra ? esp.home : esp.home.concat(SW.MUNDO_NOMBRES.filter(function (m) { return esp.home.indexOf(m) < 0; }));
     mundos.forEach(function (m) {
       h += '<option value="' + U.esc(m) + '"' + (c.mundo === m ? ' selected' : '') + '>' + U.esc(m) + ' — ' + U.esc(SW.mundo(m).r) + '</option>';
     });
     h += '</select><p class="nota">' + U.esc(SW.mundo(c.mundo).vibe) + '</p></label>';
 
-    h += '<div class="campo">ORIGEN<div class="chips">';
+    h += '<div class="campo"><span class="campo-cab">ORIGEN<button class="btn mini dado" data-rand="rasgo">⟳ al azar</button></span><div class="chips">';
     SW.RASGOS.forEach(function (r) {
       h += '<button class="chip' + (r.id === c.rasgo ? ' on' : '') + '" data-rasgo="' + r.id + '">' + U.esc(r.n) + '</button>';
     });
@@ -236,7 +237,8 @@
 
     h += '<label class="campo">SEMILLA <span class="dim">(opcional — misma semilla, misma vida)</span><input id="in-semilla" value="' + U.esc(c.semilla) + '" placeholder="dejar vacío = azar"></label>';
     h += '<div class="acciones"><button class="btn grande" data-a="empezar">▸ EMPEZAR VIDA</button>' +
-      '<button class="btn fantasma" data-a="rand-todo">⟳ todo al azar</button></div>';
+      '<button class="btn fantasma" data-a="rand-todo">⟳ todo al azar</button></div>' +
+      '<p class="nota dim">Cada apartado tiene su propio ⟳: puedes tirar los dados solo para la especie, la era, el mundo o el origen y diseñar el resto a mano.</p>';
     h += '</div></div></div></div>';
 
     UI.app.innerHTML = h;
@@ -246,9 +248,28 @@
   UI.bindCrear = function () {
     const c = UI.creador;
     UI.app.onclick = function (e) {
-      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo],[data-apv],[data-apciclo]');
+      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo],[data-apv],[data-apciclo],[data-rand]');
       if (!b || b.disabled) return;
       UI.leerCampos();
+      if (b.dataset.rand) {
+        const rng = c.rng, q = b.dataset.rand;
+        if (q === 'especie') {
+          const esp = rng.pick(SW.ESPECIES);
+          c.especie = esp.id;
+          if (esp.soloEra) c.era = rng.pick(esp.soloEra);
+          c.mundo = rng.pick(esp.home);
+          c.nombre = SW.genNombreCompleto(rng, esp.id);
+        } else if (q === 'era') {
+          const esp0 = SW.ESPECIES.filter(function (x) { return x.id === c.especie; })[0];
+          c.era = esp0.soloEra ? rng.pick(esp0.soloEra) : rng.pick(SW.ERAS).id;
+        } else if (q === 'mundo') {
+          const esp0 = SW.ESPECIES.filter(function (x) { return x.id === c.especie; })[0];
+          c.mundo = esp0.soloEra ? rng.pick(esp0.home) : rng.pick(SW.MUNDO_NOMBRES);
+        } else if (q === 'rasgo') {
+          c.rasgo = rng.weighted(SW.RASGOS).id;
+        }
+        UI.renderCrear(); return;
+      }
       if (b.dataset.apv) {
         const par = b.dataset.apv.split('|');
         c.apariencia[par[0]] = par[0] === 'forma' ? parseInt(par[1], 10) : par[1];
@@ -356,12 +377,16 @@
       '<div class="tb-mundo"><b><i class="bioma-punto"></i>' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + ' · ' + U.esc(s.eraN) + '</span></div>' +
       '<div class="tb-cr"><b>' + U.cr(s.stats.creditos) + '</b><span>créditos</span></div>' +
       '<div class="tb-acc"><b>' + UI.pips(s) + '</b><span>acciones</span></div>' +
+      '<button class="btn mini" data-a="mapa" title="carta estelar">◎</button>' +
       '<div class="tb-mini">' + UI.miniBarras(s) + '</div>' +
       '<button class="btn mini" data-a="menu">≡</button>' +
       '</header>';
 
     h += '<div class="cuerpo">';
-    h += '<aside class="panel" id="panel">' + UI.htmlPanel(s) + '</aside>';
+    h += '<aside class="panel" id="panel">' +
+      '<div class="panel-cab solo-movil"><span>FICHA DE ' + U.esc(s.nombre.toUpperCase()) + '</span>' +
+      '<button class="btn mini" data-a="ficha">✕</button></div>' +
+      UI.htmlPanel(s) + '<div class="panel-fin">— fin de la ficha —</div></aside>';
     h += '<main class="consola" id="consola">' + UI.htmlConsola() + '</main>';
     h += '</div>';
 
@@ -385,6 +410,7 @@
     h += '</footer></div>';
 
     UI.app.innerHTML = h;
+    if (g.abrirMapaViaje) { g.abrirMapaViaje = false; UI.bindJuego(); UI.abrirMapa(true); return; }
     if (g.cola.length) UI.mostrarEvento();
     UI.mostrarPopup();
     const cons = $('#consola');
@@ -499,6 +525,152 @@
   };
 
   /* ============================================================
+     MAPA DE LA GALAXIA
+     Arrastra para moverte, rueda para acercar, pulsa un mundo
+     para verlo. Si pulsas donde estás, se abre en grande.
+     ============================================================ */
+  UI.abrirMapa = function (modoViaje) {
+    const g = UI.juego, s = g.s;
+    UI.pararMapa();
+
+    const cont = document.createElement('div');
+    cont.className = 'mapa-overlay';
+    cont.innerHTML =
+      '<div class="mapa-marco">' +
+      '<div class="mapa-cab">' +
+      '<h3>CARTA ESTELAR</h3>' +
+      '<span class="mapa-ayuda">arrastra para moverte · rueda para acercar · pulsa un mundo</span>' +
+      '<button class="btn mini" data-cerrar-mapa>✕</button>' +
+      '</div>' +
+      '<canvas id="mapa-cv"></canvas>' +
+      '<div class="mapa-ficha" id="mapa-ficha"></div>' +
+      '<div class="mapa-pie">' +
+      '<button class="btn mini" data-mapa-centrar>◎ centrar en mí</button>' +
+      '<button class="btn mini" data-mapa-zoom="1.4">＋</button>' +
+      '<button class="btn mini" data-mapa-zoom="0.7">－</button>' +
+      (modoViaje ? '<span class="dim mapa-nota">elige destino y confirma abajo</span>' : '') +
+      '</div></div>';
+    document.body.appendChild(cont);
+    UI._mapaCont = cont;
+
+    const cv = cont.querySelector('#mapa-cv');
+    const ajustar = function () {
+      const r = cv.parentElement.getBoundingClientRect();
+      cv.width = Math.round(r.width);
+      cv.height = Math.round(r.height - 132);
+      cv.style.width = cv.width + 'px';
+      cv.style.height = cv.height + 'px';
+    };
+    ajustar();
+
+    const mapa = new SW.Mapa(cv, s);
+    UI._mapa = mapa;
+    mapa.zoom = 1.5;
+    mapa.animar();
+
+    const ficha = cont.querySelector('#mapa-ficha');
+    const pintarFicha = function (w) {
+      if (!w) { ficha.innerHTML = '<p class="dim">Pulsa un mundo para ver sus datos.</p>'; return; }
+      const esAqui = w.n === s.mundo;
+      const saltos = SW.saltosEntre(s.mundo, w.n);
+      const coste = SW.costeViaje(s.mundo, w.n, !!s.nave);
+      const dato = SW.datoMundo(w.n);
+      const visto = (s.mundosVistos || []).indexOf(w.n) >= 0;
+      let h = '<div class="mf-cab"><b>' + U.esc(w.n) + '</b>' +
+        '<span class="tag">' + U.esc(w.m.r) + '</span>' +
+        (visto ? '<span class="tag">visitado</span>' : '') +
+        (esAqui ? '<span class="tag oro">estás aquí</span>' : '') + '</div>';
+      h += '<p class="mf-bio">' + U.esc(U.titleCase(w.m.bio)) + ' · ' + U.esc(w.m.vibe) + '</p>';
+      if (dato) h += '<p class="mf-dato">◈ ' + U.esc(dato) + '</p>';
+      h += '<p class="mf-datos"><span>riqueza ' + w.m.riq + '/10</span><span>ley ' + w.m.ley + '/10</span>' +
+        (esAqui ? '' : '<span>' + saltos + ' saltos</span>') + '</p>';
+
+      if (esAqui) {
+        h += '<button class="btn bloque" data-ver-planeta="' + U.esc(w.n) + '">◉ VER ' + U.esc(w.n.toUpperCase()) + '</button>';
+      } else if (modoViaje) {
+        if (s.carga) {
+          const v = g.valorCargaEn(w.n);
+          const dif = v - s.carga.coste;
+          h += '<p class="mf-carga">Llevas <b>' + U.esc(s.carga.n) + '</b>. Aquí se paga a ' + U.cr(v) +
+            ' <span class="' + (dif >= 0 ? 'pos' : 'neg') + '">(' + (dif >= 0 ? '+' : '') + U.cr(dif) + ')</span></p>';
+        }
+        const pend = g.pendientesAqui();
+        if (pend.length) {
+          h += '<p class="mf-aviso">⚑ Dejas sin resolver en ' + U.esc(s.mundo) + ':<br>' +
+            pend.map(function (x) { return '· ' + U.esc(x.txt); }).join('<br>') + '</p>';
+        }
+        if (s.buscado > 0) h += '<p class="mf-bien">✦ Irte despistará a quien te busca aquí.</p>';
+        const puede = s.stats.creditos >= coste;
+        h += '<button class="btn grande bloque" data-viajar="' + U.esc(w.n) + '"' + (puede ? '' : ' disabled') + '>' +
+          (puede ? '▸ VIAJAR — ' + U.cr(coste) : '✕ NO TE LLEGA (' + U.cr(coste) + ')') + '</button>';
+      } else {
+        h += '<p class="dim">Para viajar, usa la actividad <b>Viajar</b>.</p>';
+      }
+      ficha.innerHTML = h;
+    };
+    pintarFicha(null);
+    mapa.onSelect = pintarFicha;
+
+    cont.addEventListener('click', function (e) {
+      const cerrar = e.target.closest('[data-cerrar-mapa]');
+      if (cerrar) { UI.pararMapa(); if (modoViaje) g.devolverAccion(); UI.renderJuego(); return; }
+      const centrar = e.target.closest('[data-mapa-centrar]');
+      if (centrar) { mapa.centrarEn(s.mundo); return; }
+      const z = e.target.closest('[data-mapa-zoom]');
+      if (z) { mapa.zoom = Math.max(0.5, Math.min(6, mapa.zoom * parseFloat(z.dataset.mapaZoom))); return; }
+      const ver = e.target.closest('[data-ver-planeta]');
+      if (ver) { UI.verPlaneta(ver.dataset.verPlaneta); return; }
+      const via = e.target.closest('[data-viajar]');
+      if (via && !via.disabled) {
+        const destino = via.dataset.viajar;
+        const coste = SW.costeViaje(s.mundo, destino, !!s.nave);
+        UI.pararMapa();
+        g.log('› Viajar a ' + destino, 'eleccion');
+        g.aplicarFx({ creditos: -coste }, {});
+        g.mover(destino, 'por decisión propia');
+        UI.renderJuego();
+      }
+    });
+
+    window.addEventListener('resize', ajustar);
+    UI._mapaResize = ajustar;
+  };
+
+  UI.pararMapa = function () {
+    if (UI._mapa) { UI._mapa.parar(); UI._mapa = null; }
+    if (UI._mapaCont) { UI._mapaCont.remove(); UI._mapaCont = null; }
+    if (UI._mapaResize) { window.removeEventListener('resize', UI._mapaResize); UI._mapaResize = null; }
+  };
+
+  /** Vista grande del planeta en pixel art */
+  UI.verPlaneta = function (nombre) {
+    const m = SW.mundo(nombre);
+    const dato = SW.datoMundo(nombre);
+    const amb = UI.ambienteDe(nombre);
+    const cont = document.createElement('div');
+    cont.className = 'vitrina-overlay planeta-overlay';
+    cont.innerHTML =
+      '<div class="vitrina ancha">' +
+      '<div class="vit-cab">' + U.esc(m.r.toUpperCase()) + '</div>' +
+      '<div class="vit-arte planeta-arte"><div class="vit-halo"></div></div>' +
+      '<div class="vit-nombre">' + U.esc(nombre) + '</div>' +
+      '<p class="vit-desc">' + U.esc(U.titleCase(m.bio)) + '. ' + U.esc(U.titleCase(m.vibe)) + '.</p>' +
+      (dato ? '<p class="planeta-dato">◈ ' + U.esc(dato) + '</p>' : '') +
+      '<div class="vit-stats"><span>riqueza ' + m.riq + '/10</span><span>ley ' + m.ley + '/10</span></div>' +
+      '<button class="btn grande bloque" data-vit>VOLVER AL MAPA</button>' +
+      '</div>';
+    document.body.appendChild(cont);
+    try {
+      const arte = cont.querySelector('.planeta-arte');
+      arte.appendChild(SW.pixelPlaneta(nombre, 7));
+      arte.style.setProperty('--halo', amb.acento);
+    } catch (e) {}
+    cont.addEventListener('click', function (e) {
+      if (e.target.closest('[data-vit]') || e.target === cont) cont.remove();
+    });
+  };
+
+  /* ============================================================
      VITRINA: cuando consigues algo, se ve
      ============================================================ */
   UI.mostrarPopup = function () {
@@ -576,6 +748,7 @@
       if (a === 'avanzar') { UI.juego.avanzarAño(); UI.renderJuego(); return; }
       if (a === 'fin') { UI.pantallaFin(); return; }
       if (a === 'menu') { UI.menuPausa(); return; }
+      if (a === 'mapa') { UI.abrirMapa(false); return; }
       if (a === 'ficha') { document.body.classList.toggle('panel-abierto'); return; }
     };
   };
@@ -635,25 +808,31 @@
         clearTimeout(st.timer);
         if (!st.listo) { UI.finMinijuego(-1, 'Disparas antes de tiempo.'); return; }
         const ms = Date.now() - st.t0;
-        const margen = 1 + (60 - dif) / 200;      // más difícil = ventanas más estrechas
+        // ventana base 480 ms, que se estrecha con la dificultad del rival
+        // y se ensancha con tu pericia. Contra una leyenda es casi imposible.
+        const pericia = (ref.pericia || 30) / 100;
+        let ventana = 480 * (1.35 - dif / 100) * (0.72 + pericia * 0.6);
+        if (ref.rival === 'leyenda') ventana *= 0.55;
+        ventana = Math.max(90, ventana);
         let grado;
-        if (ms < 330 * margen) grado = 2;
-        else if (ms < 560 * margen) grado = 1;
-        else if (ms < 900 * margen) grado = 0;
+        if (ms < ventana * 0.55) grado = 2;
+        else if (ms < ventana) grado = 1;
+        else if (ms < ventana * 1.7) grado = 0;
         else grado = -1;
-        UI.finMinijuego(grado, 'Reacción: ' + ms + ' ms.');
+        UI.finMinijuego(grado, 'Reacción: ' + ms + ' ms · ventana ' + Math.round(ventana) + ' ms.');
       };
       return;
     }
 
     /* modo filo: barra en movimiento */
     const pista = $('#filo-pista'), marca = $('#filo-marca'), zonaEl = $('#filo-zona'), btn = $('#filo-golpe');
-    const anchoZona = U.clamp(30 - dif / 6 + s.stats.destreza / 12 + (s.sensible ? s.stats.fuerza / 20 : 0), 8, 34);
+    let anchoZona = U.clamp(22 - dif / 4.2 + s.stats.destreza / 16 + (s.sensible ? s.stats.fuerza / 26 : 0), 2.4, 20);
+    if (ref.rival === 'leyenda') anchoZona *= 0.5;
     const centro = 50;
     zonaEl.style.left = (centro - anchoZona / 2) + '%';
     zonaEl.style.width = anchoZona + '%';
 
-    const st = { pos: 0, dir: 1, raf: 0, terminado: false, vel: 0.9 + dif / 90 };
+    const st = { pos: 0, dir: 1, raf: 0, terminado: false, vel: 1.1 + dif / 42 };
     UI.mini = st;
     const paso = function () {
       if (st.terminado) return;
@@ -671,9 +850,9 @@
       cancelAnimationFrame(st.raf);
       const d = Math.abs(st.pos - centro);
       let grado;
-      if (d < anchoZona / 6) grado = 2;
+      if (d < anchoZona / 5) grado = 2;
       else if (d < anchoZona / 2) grado = 1;
-      else if (d < anchoZona) grado = 0;
+      else if (d < anchoZona * 0.85) grado = 0;
       else grado = -1;
       UI.finMinijuego(grado, 'Desvío: ' + d.toFixed(1) + '%.');
     };

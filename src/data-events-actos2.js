@@ -393,11 +393,23 @@
     const n1 = SW.genNombreCompleto(rng, 'humano');
     const n2 = SW.genNombreCompleto(rng, rng.pick(['twilek', 'zabrak', 'duros']));
     const lugar = rng.pick(SW.LUGARES);
+    const oficios = ['un médico', 'una capataz', 'un piloto', 'una archivera', 'un contrabandista', 'una senadora', 'un mecánico', 'una cazarrecompensas'];
+    const of1 = rng.pick(oficios), of2 = rng.pick(oficios);
     const casos = [
       { t: 'Puedes salvar a ' + n1 + ' o a ' + n2 + '. No a los dos.', a: 'Salvar a ' + n1, b: 'Salvar a ' + n2, c: 'Intentar los dos y arriesgarlo todo' },
       { t: n1 + ' te pide que mientas por ' + n2 + ', que es culpable.', a: 'Mentir', b: 'Decir la verdad', c: 'Callarte y desaparecer' },
       { t: 'Puedes repartir lo que tienes entre muchos o salvar del todo a uno.', a: 'Repartirlo entre todos', b: 'Salvar del todo a uno', c: 'Quedártelo' },
-      { t: n1 + ' te ofrece dinero por no contar lo que viste en ' + lugar + '.', a: 'Aceptar el dinero', b: 'Contarlo igualmente', c: 'Pedirle que lo cuente él' }
+      { t: n1 + ' te ofrece dinero por no contar lo que viste en ' + lugar + '.', a: 'Aceptar el dinero', b: 'Contarlo igualmente', c: 'Pedirle que lo cuente él' },
+      { t: n1 + ', ' + of1 + ', te pide ayuda para algo que roza lo ilegal pero salvaría vidas.', a: 'Ayudarle', b: 'Negarte y avisar', c: 'Ayudarle a cambio de una parte' },
+      { t: 'En ' + lugar + ' hay comida para diez y sois veinte.', a: 'Repartir a medias raciones', b: 'Dársela a los que aguantarán más', c: 'Coger la tuya y callar' },
+      { t: n1 + ' ha robado para dar de comer a su familia y te toca decidir.', a: 'Dejarle marchar', b: 'Entregarle', c: 'Pagar tú lo robado' },
+      { t: 'Te enteras de que ' + n2 + ', ' + of2 + ', va a perder el trabajo por un error tuyo.', a: 'Confesar', b: 'Callar', c: 'Buscarle otro trabajo sin decir nada' },
+      { t: 'Puedes salvar tu carga o a un desconocido que se hunde en ' + lugar + '.', a: 'Salvar al desconocido', b: 'Salvar la carga', c: 'Intentar las dos cosas' },
+      { t: n1 + ' te pide que le acompañes a algo peligroso solo para no ir solo.', a: 'Ir con él', b: 'Convencerle de no ir', c: 'Dejarle ir solo' },
+      { t: 'Tienes pruebas de que alguien poderoso hizo algo terrible hace años.', a: 'Publicarlas', b: 'Usarlas para negociar', c: 'Destruirlas' },
+      { t: 'Un crío de ' + lugar + ' te pide que le enseñes lo que sabes hacer. Lo tuyo es peligroso.', a: 'Enseñarle bien', b: 'Espantarle', c: 'Enseñarle solo lo seguro' },
+      { t: n1 + ' te pide perdón por algo que todavía te duele.', a: 'Perdonarle', b: 'Decirle que no puedes', c: 'Fingir que ya lo habías olvidado' },
+      { t: 'Puedes quedarte con el mérito de algo que hicisteis entre dos.', a: 'Compartirlo', b: 'Quedártelo', c: 'Cedérselo entero a ' + n2 }
     ];
     const k = rng.pick(casos);
     return {

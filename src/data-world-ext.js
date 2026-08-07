@@ -114,7 +114,11 @@
     { n: 'Orto', r: 'Borde Medio', bio: 'templado', vibe: 'todo suena a algo', riq: 4, ley: 6 },
     { n: 'Af\'El', r: 'Borde Exterior', bio: 'penumbra metálica', vibe: 'la luz aquí es un insulto', riq: 4, ley: 3 },
     { n: 'Yuzzem', r: 'Borde Exterior', bio: 'bosque colosal', vibe: 'nadie levanta la voz dos veces', riq: 2, ley: 2 },
-    { n: 'Gentes', r: 'Borde Medio', bio: 'industrial', vibe: 'gremios ugnaught y hornos', riq: 5, ley: 5 }
+    { n: 'Gentes', r: 'Borde Medio', bio: 'industrial', vibe: 'gremios ugnaught y hornos', riq: 5, ley: 5 },
+    { n: 'Lasan', r: 'Borde Exterior', bio: 'praderas altas', vibe: 'un pueblo del que casi no queda nadie', riq: 2, ley: 2 },
+    { n: 'Concordia', r: 'Borde Medio', bio: 'luna minera', vibe: 'donde se esconden los que no aceptan la paz', riq: 3, ley: 3 },
+    { n: 'Devaron', r: 'Borde Interior', bio: 'valles rojos', vibe: 'los hombres se van, las mujeres gobiernan', riq: 4, ley: 4 },
+    { n: 'Kinyen', r: 'Borde Medio', bio: 'llanuras de cultivo', vibe: 'pacifistas de tres ojos y muy buena mesa', riq: 5, ley: 8 }
   ]);
   SW.MUNDO_NOMBRES = SW.MUNDOS.map(function (m) { return m.n; });
 
