@@ -230,7 +230,8 @@
          '<p class="dim">Vivo paga ×' + c.vivo + '. Muerto, el contrato base.</p>',
       c: [
         { t: 'Entrar por la fuerza', cazaCaptura: 'fuerza', sub: 'Combate. Rápido y sucio.' },
-        { t: 'Aturdirle y llevártelo', cazaCaptura: 'aturdir', sub: 'Necesitas pulso. Paga mucho más.' },
+        { t: 'Aturdirle a la primera', cazaCaptura: 'aturdir', minijuegoCaza: true,
+          sub: 'Un solo disparo, a tiempo. Si fallas, se acabó lo fácil.' },
         { t: 'Hablar con él antes', cazaCaptura: 'hablar', sub: 'Puede entregarse. O engañarte.' },
         { t: 'Esperar a que salga solo', cazaCaptura: 'esperar', sub: 'Paciencia. Depende de tu intelecto.' }
       ]

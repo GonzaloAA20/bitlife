@@ -163,15 +163,15 @@
       c: [
         { t: 'Obedecer', req: function (s) { return !s.flags.chip_extraido; },
           fx: { alineamiento: -35, cordura: -30, reputacion: 10, destreza: 5 }, faccion: 'imperio+30', faccion2: 'orden_jedi-60',
-          flag: 'ejecuto_orden66', matarRel: 'general jedi',
+          flag: 'ejecuto_orden66', flag2: 'orden66_pasada', matarRel: 'general jedi',
           out: 'Tu cuerpo lo hace antes que tú. Cuando vuelves en ti, ya está hecho. Nunca te perdonarás del todo, aunque no fueras tú.' },
         { t: 'Resistirte al chip con todas tus fuerzas', req: function (s) { return !s.flags.chip_extraido; },
           r: [
-            { p: 0.35, t: 'Bajas el rifle. Te tiemblan las manos, pero lo bajas.', fx: { cordura: -14, alineamiento: 20, notoriedad: 20 }, flag: 'resistio_orden66' },
-            { p: 0.65, t: 'No puedes. Lo intentas y no puedes.', fx: { alineamiento: -30, cordura: -35 }, flag: 'ejecuto_orden66', matarRel: 'general jedi' }
+            { p: 0.35, t: 'Bajas el rifle. Te tiemblan las manos, pero lo bajas.', fx: { cordura: -14, alineamiento: 20, notoriedad: 20 }, flag: 'resistio_orden66', flag2: 'orden66_pasada' },
+            { p: 0.65, t: 'No puedes. Lo intentas y no puedes.', fx: { alineamiento: -30, cordura: -35 }, flag: 'ejecuto_orden66', flag2: 'orden66_pasada', matarRel: 'general jedi' }
           ] },
         { t: 'Gritarle que corra', req: function (s) { return !!s.flags.chip_extraido; },
-          fx: { alineamiento: 25, cordura: -10, notoriedad: 25, reputacion: -20 }, flag: 'salvo_jedi', faccion: 'orden_jedi+40',
+          fx: { alineamiento: 25, cordura: -10, notoriedad: 25, reputacion: -20 }, flag: 'salvo_jedi', flag2: 'orden66_pasada', faccion: 'orden_jedi+40',
           out: 'Se va entre los árboles. Tú te quedas explicando por qué fallaste el tiro. Nadie te cree, pero nadie puede probarlo.' },
         { t: 'Disparar a los que disparan', req: function (s) { return !!s.flags.chip_extraido; },
           fx: { alineamiento: 15, cordura: -20, notoriedad: 35 }, flag: 'desertor', despido: true, mover: true, motivo: 'huyendo de tu propia unidad',

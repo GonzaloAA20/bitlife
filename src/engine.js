@@ -54,6 +54,7 @@
       peligro: 0,                                  // cuánto has tentado a la suerte
       mejorasNave: [],
       contrato: null,
+      escalonPolitico: 0,
       puestoGuerra: null,
       edad: 0,
       edadBio: 0,
@@ -276,6 +277,8 @@
       if (e.max != null && s.edadBio > e.max) continue;
       if (e.era && e.era.indexOf(s.era) < 0) continue;
       if (e.eraNo && e.eraNo.indexOf(s.era) >= 0) continue;
+      // lo que ya no encaja con tu situación no se ofrece
+      if (SW.eventoCoherente && !SW.eventoCoherente(s, e)) continue;
       if (e.mundo && e.mundo.indexOf(s.mundo) < 0) continue;
       if (e.mundoNo && e.mundoNo.indexOf(s.mundo) >= 0) continue;
       if (e.esp && e.esp.indexOf(s.especie) < 0) continue;
@@ -352,6 +355,7 @@
       return;
     }
 
+    if (SW.aplicarEstipendio) SW.aplicarEstipendio(this);
     if (s.trabajo) {
       s.añosEnTrabajo++;
       const bruto = Math.round(s.sueldo * (0.85 + s.rendimiento / 200));
@@ -760,7 +764,13 @@
     }
     if (d.cazaAvanza && s.contrato) { if (d.rastro) s.contrato.rastro = U.clamp((s.contrato.rastro || 0) + d.rastro, 0, 3); }
     if (d.cazaBusca && SW.resolverBusqueda) SW.resolverBusqueda(this, d.cazaBusca);
-    if (d.cazaCaptura && SW.resolverCaptura) SW.resolverCaptura(this, d.cazaCaptura);
+    if (d.cazaCaptura && d.minijuegoCaza && s.contrato) {
+      // el disparo de aturdimiento se juega, no se tira
+      this.escena = { tipo: 'combate', cfg: { dif: s.contrato.dif, caza: true }, ronda: 1, maxRondas: 1,
+                      hpEnemigo: 100, hpMaxEnemigo: 100, aguante: 100, golpe: 1,
+                      poder: this.poderCombate(), dif: s.contrato.dif, postura: 'guardia', capturaCaza: true };
+      this.cola.unshift(this.prepararGen(this.eventoMinijuego()));
+    } else if (d.cazaCaptura && SW.resolverCaptura) SW.resolverCaptura(this, d.cazaCaptura);
     if (d.cazaEntrega && SW.resolverEntrega) SW.resolverEntrega(this, d.cazaEntrega);
     if (d.cazaAbandona) {
       this.log('Dejas el contrato a medias. En el Gremio eso se recuerda.', 'mal');
@@ -771,6 +781,31 @@
     if (d.flag2) s.flags[U.fill(d.flag2, slots)] = true;
     if (d.quitarRuido) { s.stats.notoriedad = Math.max(0, s.stats.notoriedad - 10); }
     if (d.instalarMejora) this.instalarMejora(d.instalarMejora);
+    if (d.empleoPolitico != null && SW.ESCALONES) {
+      const esc = SW.ESCALONES[d.empleoPolitico];
+      if (esc) {
+        s.escalonPolitico = d.empleoPolitico;
+        s.flags.carrera_politica = true;
+        this.tomarEmpleo('politico', esc.sueldo);
+        s.rango = U.titleCase(esc.n);
+        this.log('Ahora eres <b>' + esc.n + '</b>. Sueldo: ' + U.cr(esc.sueldo) + '.', 'bien');
+        this.hito('Llega a ' + esc.n);
+        // a partir de senador, el sitio es Coruscant
+        if (d.empleoPolitico >= 3) {
+          s.flags.en_el_senado = true;
+          const dest = SW.destinoDeCargo ? SW.destinoDeCargo(s, 'senador') : 'Coruscant';
+          if (dest && s.mundo !== dest) this.mover(dest, 'a ocupar tu escaño');
+        }
+      }
+    }
+    if (d.votoRegistrado) {
+      s.votos = s.votos || [];
+      s.votos.push({ edad: s.edad, tema: d.votoRegistrado, sentido: d.t });
+    }
+    if (d.enemigo) {
+      s.contadores.enemigosPoliticos = (s.contadores.enemigosPoliticos || 0) + 1;
+      this.log('Te acabas de ganar un enemigo con memoria.', 'mal');
+    }
     if (d.viajar) this.abrirMapaViaje = true;
     if (d.fuerzaMenu) this.cola.unshift(this.prepararGen(this.menuFuerza()));
     if (d.clinica) this.cola.unshift(this.prepararGen(this.menuClinica()));
@@ -801,8 +836,27 @@
     if (d.apuesta === 'pierde') { const g = Math.round(Math.max(0, s.stats.creditos) * 0.5); s.stats.creditos -= g; this.log('Pierdes ' + U.cr(g) + '.', 'mal'); }
     if (d.legado) { s.legado = d.legado; this.hito('Deja un legado: ' + d.legado); }
     if (d.chequeo) this.chequeoMedico();
-    if (d.mover) this.mover(d.mover === 'casa' ? s.mundoNatal : (d.mover === 'cerca' ? this.mundoCercano() : null), d.motivo);
+    if (d.mover) this.mover(d.mover === 'casa' ? (s.mundoSecuestro || s.mundoNatal) : (d.mover === 'cerca' ? this.mundoCercano() : null), d.motivo);
     if (d.mueveA) this.mover(U.fill(d.mueveA, slots), d.motivo);
+    // te secuestran: apareces lejos y tienes que resolverlo
+    if (d.secuestrar) {
+      const lejos = SW.mundoAleatorioNormal ? SW.mundoAleatorioNormal(rng, s.mundo) : this.mundoCercano();
+      s.mundoSecuestro = s.mundo;
+      this.mover(lejos, 'te trajeron aquí en contra de tu voluntad');
+    }
+    if (d.pagarDeuda) {
+      const deuda = s.contadores.deuda || 10000;
+      s.stats.creditos -= deuda;
+      s.contadores.deuda = 0;
+      this.log('Saldas ' + U.cr(deuda) + '. Se acabó.', 'cr');
+    }
+    if (d.limpiarBusca) { s.buscado = 0; this.log('Ya no te busca nadie.', 'bien'); }
+    if (d.evacuar) {
+      const dest = SW.refugioDe ? SW.refugioDe(rng, s.mundo) : this.mundoCercano();
+      s.flags['evacuado_' + s.mundo] = true;
+      this.mover(dest, 'porque allí ya no se podía estar');
+    }
+    if (d.evacuarA) this.mover(d.evacuarA === 'cerca' ? this.mundoCercano() : d.evacuarA, d.motivo || 'sin mirar atrás');
     if (d.guerra) {
       s.flags.veterano = true; s.contadores.batallas++;
       s.flags.en_el_frente = true;
@@ -1128,6 +1182,9 @@
       this.tomarEmpleo('jedi', 0);
       s.stats.alineamiento += 15;
       this.hito('Entra en la Orden Jedi');
+      // el Templo está donde está: no se es jedi por correspondencia
+      const dest = SW.destinoDeCargo ? SW.destinoDeCargo(s, 'jedi') : 'Coruscant';
+      if (dest && s.mundo !== dest) this.mover(dest, 'te llevan al Templo');
     } else {
       this.tomarEmpleo('sith', 0);
       s.stats.alineamiento -= 25;
@@ -1387,6 +1444,8 @@
       cfg: cfg || {},
       ronda: 1,
       maxRondas: 5,
+      // duelo de sables: solo si los dos llevan uno. Cambia el tono y el riesgo.
+      sables: !!(cfg && cfg.sable && this.s.sable),
       // el rival duro AGUANTA más y PEGA más: antes todos tenían 100 de vida
       hpEnemigo: Math.round(80 + ((cfg && cfg.dif) || 50) * 0.85),
       hpMaxEnemigo: Math.round(80 + ((cfg && cfg.dif) || 50) * 0.85),
@@ -1401,11 +1460,16 @@
 
   Game.prototype.escenaCombateEvento = function () {
     const e = this.escena, s = this.s;
-    const desc = e.cfg.duelo ? 'DUELO' : (e.cfg.bestia ? 'BESTIA' : 'COMBATE');
+    const desc = e.sables ? 'DUELO DE SABLES' : (e.cfg.duelo ? 'DUELO' : (e.cfg.bestia ? 'BESTIA' : 'COMBATE'));
     const barra = function (v) {
       const n = U.clamp(Math.round(v / 10), 0, 10);
       return '█'.repeat(n) + '░'.repeat(10 - n);
     };
+    // El rival duro tiene más de 100 puntos de vida. Mostrarlos crudos
+    // hacía creer que no le hacías nada ("140%" → le pegas → "90%").
+    // Se enseña siempre sobre su propio total.
+    const pctRival = U.clamp((e.hpEnemigo / (e.hpMaxEnemigo || 100)) * 100, 0, 100);
+    const dureza = e.hpMaxEnemigo > 120 ? ' <i class="dim">(aguanta mucho)</i>' : '';
     const p = POSTURAS[e.postura];
     const c = [
       { t: '⚔ Ataque agresivo', tactica: 'agresivo', sub: 'Rompe fintas. Se estrella contra la defensa. Gasta aguante.' },
@@ -1418,7 +1482,7 @@
     return this.prepararGen({
       id: 'escena_combate', gen: true,
       t: '<span class="scene-tag">' + desc + ' · ASALTO ' + e.ronda + '/' + e.maxRondas + '</span>' +
-         '<div class="hp"><span>Rival</span><code>[' + barra(e.hpEnemigo) + ']</code> ' + Math.max(0, Math.round(e.hpEnemigo)) + '%</div>' +
+         '<div class="hp"><span>Rival</span><code>[' + barra(pctRival) + ']</code> ' + Math.round(pctRival) + '%' + dureza + '</div>' +
          '<div class="hp"><span>Tú</span><code>[' + barra(s.stats.salud) + ']</code> ' + s.stats.salud + '%</div>' +
          '<div class="hp"><span>Aguante</span><code>[' + barra(e.aguante) + ']</code> ' + Math.round(e.aguante) + '%</div>' +
          '<p class="tell">' + p.tell + '</p>',
@@ -1548,6 +1612,26 @@
   Game.prototype.resolverMinijuego = function (grado) {
     const e = this.escena, s = this.s, rng = this.rng;
     if (!e) return;
+
+    // si el minijuego era el disparo de aturdimiento de una caza,
+    // el grado decide si te lo llevas vivo o se lía
+    if (e.capturaCaza && s.contrato) {
+      this.escena = null;
+      if (grado >= 1) {
+        this.log('Disparo limpio. Cae sin enterarse.', 'bien');
+        s.contrato.estado = 'vivo'; s.contrato.fase = 'entrega';
+        this.aplicarFx({ destreza: 6 }, {});
+      } else if (grado === 0) {
+        this.log('Le rozas. Reacciona.', 'mal');
+        s.contrato.estado = 'vivo'; s.contrato.fase = 'entrega';
+        this.aplicarFx({ salud: -12 }, {});
+      } else {
+        this.log('Fallas. Y ahora sabe que estás ahí.', 'mal');
+        s.contrato.estado = 'muerto'; s.contrato.fase = 'entrega';
+        this.iniciarCombate({ dif: s.contrato.dif + 10, contrato: true });
+      }
+      return;
+    }
     // grado: 2 crítico · 1 bien · 0 flojo · -1 fallo
     let dmg = 0, recib = 0, txt = '';
     const pega = (e.golpe || 1);
@@ -1601,6 +1685,7 @@
     this.escena = {
       tipo: 'dogfight', cfg: cfg || {}, ronda: 1, maxRondas: 4,
       hpEnemigo: 100,
+      hpMaxEnemigo: 100,
       dif: (cfg && cfg.dif) || 50,
       postura: this.rng.pick(['embestida', 'guardia', 'finta']),
       poder: s.stats.destreza * 0.5 + s.nave.vel * 4 + s.nave.arm * 4 +
@@ -1615,6 +1700,9 @@
       const n = U.clamp(Math.round(v / 10), 0, 10);
       return '█'.repeat(n) + '░'.repeat(10 - n);
     };
+    // el caza rival también se enseña sobre su propio total
+    const pctRival = U.clamp((e.hpEnemigo / (e.hpMaxEnemigo || 100)) * 100, 0, 100);
+    const dureza = e.hpMaxEnemigo > 120 ? ' <i class="dim">(bien blindado)</i>' : '';
     const tells = {
       embestida: 'Viene de frente, sin desviarse. Quiere el choque.',
       guardia: 'Cierra el giro y se pega a la chatarra. Espera.',
@@ -1623,7 +1711,7 @@
     return this.prepararGen({
       id: 'escena_dogfight', gen: true,
       t: '<span class="scene-tag">COMBATE ESPACIAL · PASADA ' + e.ronda + '/' + e.maxRondas + '</span>' +
-         '<div class="hp"><span>Rival</span><code>[' + barra(e.hpEnemigo) + ']</code> ' + Math.max(0, Math.round(e.hpEnemigo)) + '%</div>' +
+         '<div class="hp"><span>Rival</span><code>[' + barra(pctRival) + ']</code> ' + Math.round(pctRival) + '%' + dureza + '</div>' +
          '<div class="hp"><span>Casco</span><code>[' + barra(s.naveEstado) + ']</code> ' + s.naveEstado + '%</div>' +
          '<p class="tell">' + tells[e.postura] + '</p>',
       c: [
@@ -1930,7 +2018,9 @@
   /* ---------------- Actividades ---------------- */
   Game.prototype.menuActividades = function () {
     const s = this.s;
+    const s0 = this.s;
     return SW.ACTIVIDADES.filter(function (a) {
+      if (SW.actividadPermitida && SW.actividadPermitida(s0, a.id) === false) return false;
       if (s.edadBio < a.min) return false;
       if (a.req) { try { return a.req(s); } catch (e) { return false; } }
       return true;
@@ -1943,6 +2033,28 @@
     s.acciones--;
     this.actividadEnCurso = id;
     if (id === 'viaje') { this.abrirMapaViaje = true; this.actividadUsada = s.acciones <= 0; this.fase = 'menu'; return; }
+
+    // La clínica no compite con eventos: si la pides, se abre la clínica.
+    // Antes «Cuerpo y mente» te soltaba cualquier cosa menos curarte.
+    if (id === 'clinica') { this.cola.push(this.prepararGen(this.menuClinica())); this.fase = 'evento'; return; }
+    // Los bajos fondos se adaptan: un clon en servicio no monta un cártel
+    if (id === 'crimen' && SW.actividadPermitida &&
+        SW.actividadPermitida(s, 'crimen') === 'limitado' && SW.GEN.crimenLimitado) {
+      this.cola.push(this.prepararGen(SW.GEN.crimenLimitado(rng, s)));
+      this.fase = 'evento'; return;
+    }
+    // El gremio y el taller tienen su propia pantalla, no sorteo de eventos
+    if (id === 'gremio' && SW.GEN.contratoCaza) {
+      const paso = s.contrato && SW.pasoCaza ? SW.pasoCaza(this) : null;
+      this.cola.push(this.prepararGen(paso || SW.GEN.contratoCaza(rng, s)));
+      this.fase = 'evento'; return;
+    }
+    if (id === 'taller' && SW.menuTaller && s.nave) {
+      this.cola.push(this.prepararGen(SW.menuTaller(this))); this.fase = 'evento'; return;
+    }
+    if (id === 'senado' && SW.menuPolitica) {
+      this.cola.push(this.prepararGen(SW.menuPolitica(this))); this.fase = 'evento'; return;
+    }
     const pool = SW.ACTOS[id] || [];
     let posibles = this.eventosPosibles(pool);
     // si ya has vivido todo lo escrito para esa vía, se genera algo nuevo
@@ -1970,6 +2082,8 @@
       else if (id === 'viaje') this.abrirMapaViaje = true;
       else if (id === 'mercado') this.cola.push(this.prepararGen(this.menuTienda()));
       else if (id === 'salud') this.cola.push(this.prepararGen(this.menuClinica()));
+      else if (id === 'clinica') this.cola.push(this.prepararGen(this.menuClinica()));
+      else if (id === 'senado' && SW.menuPolitica) this.cola.push(this.prepararGen(SW.menuPolitica(this)));
       else if (id === 'fuerza') this.cola.push(this.prepararGen(this.menuFuerza()));
       else if (id === 'taller' && SW.menuTaller && s.nave) this.cola.push(this.prepararGen(SW.menuTaller(this)));
       else if (id === 'gremio' && SW.GEN.contratoCaza) {

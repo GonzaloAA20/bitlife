@@ -10766,6 +10766,234 @@ body.en-juego::before {
 
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* ===== src/data-events-giros.js ===== */
+/* ============================================================
+   HOLOVIDA :: GIROS QUE DEJAN HUELLA
+   Cosas que te pasan y que NO se olvidan al año siguiente: si te
+   secuestran, apareces en otro planeta y tienes que volver (o no).
+   Si te deben algo, alguien vuelve a cobrarlo. Si haces una
+   promesa, se te recuerda. Cada uno de estos deja un flag que
+   otros eventos leen después.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  SW.EVENTOS_GIROS = [];
+  const S = { p: 'mundoAqui', l: 'lugar', k: 'banda', d: 'mandamas', x: 'mundoCerca',
+              n: 'nombre', c: 'conocido', h: 'hito', b: 'bicho', m: 'mercancia' };
+  const E = function (o) { o.slots = o.slots || S; SW.EVENTOS_GIROS.push(o); };
+
+  /* ══════════════ SECUESTRO: te llevan de verdad ══════════════ */
+
+  E({ id: 'gi_secuestro', min: 12, max: 80, w: 3,
+    req: function (s) {
+      if (s.flags.secuestrado || s.mundoSecuestro) return false;   // una vez por vida basta
+      // secuestran a quien tiene algo que sacarle o algo que callar
+      return s.stats.notoriedad > 25 || s.stats.creditos > 40000 ||
+             !!s.flags.carrera_politica || s.buscado > 20 || !!s.flags.en_el_gremio;
+    },
+    t: 'Te meten en la bodega de una nave en {l} con un saco en la cabeza. Cuando te lo quitan, ya no estás en {p}.',
+    c: [
+      { t: 'Mirar dónde estás y quiénes son', fx: { intelecto: 8, cordura: -12 },
+        flag: 'secuestrado', secuestrar: true,
+        out: 'Estás muy lejos de casa y no sabes por qué te han traído.' },
+      { t: 'Pelear ahí mismo', fx: { fisico: 6, salud: -18 }, herida: { n: 'paliza', sev: 12 },
+        flag: 'secuestrado', secuestrar: true, out: 'No sale bien. Igual te traen.' },
+      { t: 'Hacerte el dormido y escuchar', fx: { intelecto: 12, carisma: 4 },
+        flag: 'secuestrado', flag2: 'sabe_quien_le_llevo', secuestrar: true,
+        out: 'Oyes un nombre. Te lo aprendes.' }
+    ] });
+
+  E({ id: 'gi_secuestro_salir', min: 8, max: 95, w: 30, repetible: true,
+    req: function (s) { return !!s.flags.secuestrado; },
+    t: 'Sigues en {p}, donde te trajeron. Nadie te vigila todo el rato, pero tampoco tienes con qué salir.',
+    c: [
+      { t: 'Trabajar hasta pagarte el pasaje', fx: { creditos: 3000, fisico: 8, salud: -6 },
+        quitarFlag: 'secuestrado', mover: 'casa', motivo: 'de vuelta, por tu cuenta',
+        out: 'Dos años fregando bodegas. Vuelves.' },
+      { t: 'Escaparte en un carguero', r: [
+          { p: 0.5, t: 'Sales.', fx: { destreza: 12, cordura: 8 }, quitarFlag: 'secuestrado',
+            mover: 'casa', motivo: 'de polizón' },
+          { p: 0.3, t: 'Te pillan y te ponen a trabajar.', fx: { salud: -14, fisico: 6 } },
+          { p: 0.2, t: 'Sales, pero acabas en otro sitio.', fx: { cordura: -8 },
+            quitarFlag: 'secuestrado', mover: 'cerca', motivo: 'a donde fuera' }] },
+      { t: 'Pedir ayuda a alguien de tu vida', req: function (s) { return s.relaciones.length > 0; },
+        fx: { creditos: -1000, cordura: 10 }, quitarFlag: 'secuestrado',
+        mover: 'casa', motivo: 'alguien pagó tu billete', conEsa: 30,
+        notaRel: 'pagó tu vuelta cuando te secuestraron' },
+      { t: 'Quedarte: aquí nadie sabe quién eras', quitarFlag: 'secuestrado',
+        fx: { cordura: 6, intelecto: 6 }, flag: 'empezó_de_cero',
+        out: 'Te cambias el nombre y montas otra vida. Funciona más de lo que crees.' }
+    ] });
+
+  E({ id: 'gi_secuestro_venganza', min: 14, max: 95, w: 8,
+    req: function (s) { return !!s.flags.sabe_quien_le_llevo && !s.flags.secuestrado; },
+    t: 'Años después te cruzas con el nombre que oíste en aquella bodega.',
+    c: [
+      { t: 'Ir a por él', combate: { dif: 62 }, fx: { notoriedad: 12 }, quitarFlag: 'sabe_quien_le_llevo' },
+      { t: 'Entregarlo a {d}', fx: { alineamiento: 14, reputacion: 10 }, quitarFlag: 'sabe_quien_le_llevo' },
+      { t: 'Preguntarle por qué', fx: { intelecto: 10, cordura: -6 }, quitarFlag: 'sabe_quien_le_llevo',
+        out: 'La respuesta es más tonta de lo que esperabas. Alguien pagó y ya.' },
+      { t: 'Dejarlo pasar', fx: { cordura: 10, alineamiento: 8 }, quitarFlag: 'sabe_quien_le_llevo' }
+    ] });
+
+  /* ══════════════ DEUDAS QUE VUELVEN ══════════════ */
+
+  E({ id: 'gi_deuda_contraes', min: 16, max: 90, w: 9,
+    req: function (s) { return !s.flags.debe_a_un_carte && s.stats.creditos < 3000; },
+    t: 'Necesitas dinero ya y {k} presta a quien sea. Las condiciones no se discuten.',
+    c: [
+      { t: 'Coger el préstamo', fx: { creditos: 25000 }, flag: 'debe_a_un_carte',
+        contador: { deuda: 25000 }, out: 'Te dan el dinero en la mano. Ahora corre el reloj.' },
+      { t: 'Pedir menos', fx: { creditos: 8000 }, flag: 'debe_a_un_carte', contador: { deuda: 8000 } },
+      { t: 'Apañarte sin él', fx: { cordura: -8, fisico: 4 } }
+    ] });
+
+  E({ id: 'gi_deuda_cobran', min: 17, max: 95, w: 26, repetible: true,
+    req: function (s) { return !!s.flags.debe_a_un_carte; },
+    t: 'Vienen a cobrar. {k} no manda avisos dos veces.',
+    c: [
+      { t: 'Pagar lo que debes', req: function (s) { return s.stats.creditos >= (s.contadores.deuda || 10000); },
+        pagarDeuda: true, quitarFlag: 'debe_a_un_carte', fx: { cordura: 12 },
+        out: 'Pagas y te miran como si les quitaras algo.' },
+      { t: 'Pagar una parte y ganar tiempo', fx: { creditos: -6000, cordura: -4 },
+        contador: { deuda: 4000 }, out: 'Aceptan. Y suben los intereses.' },
+      { t: 'Trabajar para ellos hasta saldarlo', fx: { notoriedad: 14, alineamiento: -12 },
+        quitarFlag: 'debe_a_un_carte', flag: 'trabaja_para_el_carte',
+        out: 'Ya no debes dinero. Debes otra cosa.' },
+      { t: 'Salir del planeta esta noche', fx: { cordura: -10 }, mover: 'cerca',
+        motivo: 'con una deuda detrás', buscado: 20, out: 'Te siguen. Tardan, pero te siguen.' },
+      { t: 'Plantarles cara', combate: { dif: 58 }, fx: { notoriedad: 10 } }
+    ] });
+
+  /* ══════════════ ENFERMEDAD LARGA ══════════════ */
+
+  E({ id: 'gi_enfermedad_cronica', min: 25, max: 100, w: 8,
+    req: function (s) { return !s.flags.enfermo_cronico && s.stats.salud < 70; },
+    t: 'Llevas meses arrastrando algo que no se va. En una clínica de {p} te ponen nombre.',
+    c: [
+      { t: 'Tratarlo bien, cueste lo que cueste', coste: 22000, fx: { salud: 18, cordura: 8 },
+        out: 'Se controla. Hay que seguir con ello de por vida.' },
+      { t: 'Tratarlo a medias', fx: { creditos: -6000, salud: 6 }, flag: 'enfermo_cronico',
+        out: 'Vas tirando. Malos años, de vez en cuando.' },
+      { t: 'No tratarlo', flag: 'enfermo_cronico', fx: { cordura: -8 },
+        herida: { n: 'enfermedad sin tratar', sev: 14, cronica: true } },
+      { t: 'Buscar algo en el mercado negro', r: [
+          { p: 0.45, t: 'Funciona mejor que lo legal.', fx: { salud: 20, creditos: -9000 } },
+          { p: 0.55, t: 'Te venden agua con colorante.', fx: { creditos: -9000, salud: -8 }, flag: 'enfermo_cronico' }] }
+    ] });
+
+  E({ id: 'gi_recaida', min: 26, max: 105, w: 9, repetible: true,
+    req: function (s) { return !!s.flags.enfermo_cronico; },
+    t: 'Recaes. Ya sabes lo que toca y sigue sin gustarte.',
+    c: [
+      { t: 'Pasar por la clínica', clinica: true },
+      { t: 'Aguantarlo en casa', fx: { salud: -14, cordura: -6, fisico: 3 } },
+      { t: 'Cuidarte en serio este año', fx: { salud: 12, cordura: 8, creditos: -5000 },
+        r: [{ p: 0.3, t: 'Esta vez remite del todo.', quitarFlag: 'enfermo_cronico', fx: { salud: 15 } },
+            { p: 0.7, t: 'Se controla otro año más.', fx: { salud: 5 } }] }
+    ] });
+
+  /* ══════════════ REPUTACIÓN QUE TE PERSIGUE ══════════════ */
+
+  E({ id: 'gi_te_reconocen', min: 20, max: 100, w: 9, repetible: true,
+    req: function (s) { return s.stats.notoriedad > 45; },
+    t: 'Te reconocen en {l}. No por lo bueno.',
+    c: [
+      { t: 'Negar que seas tú', fx: { carisma: 8 },
+        r: [{ p: 0.55, t: 'Cuela.', fx: { cordura: 4 } },
+            { p: 0.45, t: 'No cuela y lo cuentan.', fx: { notoriedad: 8, reputacion: -6 } }] },
+      { t: 'Asumirlo delante de todos', fx: { notoriedad: 10, carisma: 10, cordura: 6 } },
+      { t: 'Irte antes de que llamen a nadie', fx: { destreza: 6 }, mover: 'cerca', motivo: 'antes de que llamen' },
+      { t: 'Comprar su silencio', coste: 6000, fx: { notoriedad: -6 } }
+    ] });
+
+  E({ id: 'gi_limpiar_nombre', min: 25, max: 100, w: 8,
+    req: function (s) { return s.stats.notoriedad > 55 || s.buscado > 40; },
+    t: 'Hay una forma de limpiar tu expediente en {p}. Cara y con letra pequeña.',
+    c: [
+      { t: 'Pagar una amnistía', coste: 45000, fx: { notoriedad: -30, reputacion: 6 },
+        limpiarBusca: true, out: 'Papel firmado. Tu nombre vuelve a valer.' },
+      { t: 'Delatar a alguien a cambio', fx: { notoriedad: -25, alineamiento: -18 },
+        limpiarBusca: true, out: 'Sales limpio. Otro entra.' },
+      { t: 'Cambiar de identidad', coste: 18000, fx: { notoriedad: -40, reputacion: -20 },
+        limpiarBusca: true, flag: 'identidad_nueva', out: 'Eres otro. Con lo bueno y lo malo.' },
+      { t: 'Vivir con ello', fx: { cordura: -4 } }
+    ] });
+
+  /* ══════════════ HERENCIAS Y GOLPES DE SUERTE ══════════════ */
+
+  E({ id: 'gi_herencia', min: 22, max: 100, w: 7,
+    req: function (s) { return s.relaciones.length > 1; },
+    t: 'Muere alguien de tu familia y aparece tu nombre en lo que deja.',
+    c: [
+      { t: 'Quedarte el dinero', fx: { creditos: 40000, cordura: -4 } },
+      { t: 'Quedarte la casa de {p}', fx: { cordura: 14 }, flag: 'casa_heredada',
+        out: 'Vieja, fría y tuya.' },
+      { t: 'Repartirlo con quien lo necesite más', fx: { alineamiento: 20, reputacion: 12, relTodas: 16 } },
+      { t: 'Descubrir que hay deudas en vez de dinero', fx: { creditos: -12000, cordura: -10 },
+        flag: 'debe_a_un_carte', contador: { deuda: 12000 } }
+    ] });
+
+  E({ id: 'gi_hallazgo', min: 16, max: 100, w: 7,
+    t: 'Encuentras algo en {h} que no debería estar ahí.',
+    c: [
+      { t: 'Quedártelo', item: true, fx: { cordura: 6 } },
+      { t: 'Venderlo sin preguntar', fx: { creditos: 18000, alineamiento: -6 } },
+      { t: 'Averiguar de quién es', fx: { intelecto: 10 },
+        r: [{ p: 0.5, t: 'Aparece el dueño y te lo agradece de verdad.', fx: { alineamiento: 14, creditos: 9000 },
+              rel: { tipo: 'contacto', afecto: 55 } },
+            { p: 0.5, t: 'Aparece alguien que dice ser el dueño.', fx: { cordura: -6 }, buscado: 10 }] },
+      { t: 'Dejarlo donde estaba', fx: { alineamiento: 8, cordura: 4 } }
+    ] });
+
+  /* ══════════════ HIJOS QUE CRECEN ══════════════ */
+
+  E({ id: 'gi_hijo_crece', min: 30, max: 100, w: 9, repetible: true,
+    req: function (s) { return s.relaciones.some(function (r) { return r.tipo === 'hijo'; }); },
+    t: 'Tu hijo ya no es un crío y ha decidido a qué se va a dedicar. No te ha preguntado.',
+    c: [
+      { t: 'Apoyarle sin condiciones', fx: { relHijos: 24, cordura: 12 } },
+      { t: 'Decirle que se equivoca', fx: { relHijos: -18, cordura: -6 },
+        out: 'Igual tienes razón. Da igual.' },
+      { t: 'Pagarle lo que necesite para empezar', fx: { creditos: -25000, relHijos: 20 } },
+      { t: 'Ofrecerle meterse en lo tuyo', fx: { relHijos: 10, reputacion: 6 },
+        flag: 'hijo_en_el_negocio' }
+    ] });
+
+  E({ id: 'gi_hijo_problema', min: 34, max: 100, w: 8,
+    req: function (s) { return s.relaciones.some(function (r) { return r.tipo === 'hijo'; }); },
+    t: 'Tu hijo se ha metido en un lío de los que no se arreglan hablando.',
+    c: [
+      { t: 'Sacarle tú, cueste lo que cueste', fx: { creditos: -30000, relHijos: 26, cordura: -8 },
+        buscado: 12 },
+      { t: 'Dejar que lo resuelva solo', fx: { relHijos: -20, cordura: -12 },
+        r: [{ p: 0.5, t: 'Lo resuelve. Y no te lo perdona.', fx: { relHijos: -10 } },
+            { p: 0.5, t: 'No lo resuelve.', fx: { cordura: -20, relHijos: -25 } }] },
+      { t: 'Ir con él a dar la cara', fx: { relHijos: 22, salud: -14, reputacion: 8 },
+        herida: { n: 'golpe por defender a los tuyos', sev: 8 } }
+    ] });
+
+  /* ══════════════ MAESTRÍA: lo que se te da bien ══════════════ */
+
+  E({ id: 'gi_maestria', min: 30, max: 100, w: 8,
+    req: function (s) { return s.habilidades.length >= 3; },
+    t: 'Se te reconoce como uno de los que mejor hace lo que haces en este sector.',
+    c: [
+      { t: 'Cobrar en consecuencia', fx: { creditos: 30000, reputacion: 10, aumento: 0.4 } },
+      { t: 'Montar escuela y enseñarlo', fx: { reputacion: 22, alineamiento: 12, carisma: 10 },
+        legado: 'formó a una generación', habilidad: 'maestro' },
+      { t: 'Guardarte los trucos', fx: { creditos: 14000, reputacion: -6, intelecto: 6 } },
+      { t: 'Buscar a alguien mejor que tú y aprender', fx: { intelecto: 12, cordura: 10 },
+        rel: { tipo: 'mentor', afecto: 45 } }
+    ] });
+
+  /* --- al pozo global --- */
+  SW.EVENTOS = SW.EVENTOS || [];
+  for (let i = 0; i < SW.EVENTOS_GIROS.length; i++) SW.EVENTOS.push(SW.EVENTOS_GIROS[i]);
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== src/data-events-actos.js ===== */
 /* ============================================================
    HOLOVIDA :: eventos por actividad (el jugador elige categoría)
@@ -12258,15 +12486,15 @@ body.en-juego::before {
       c: [
         { t: 'Obedecer', req: function (s) { return !s.flags.chip_extraido; },
           fx: { alineamiento: -35, cordura: -30, reputacion: 10, destreza: 5 }, faccion: 'imperio+30', faccion2: 'orden_jedi-60',
-          flag: 'ejecuto_orden66', matarRel: 'general jedi',
+          flag: 'ejecuto_orden66', flag2: 'orden66_pasada', matarRel: 'general jedi',
           out: 'Tu cuerpo lo hace antes que tú. Cuando vuelves en ti, ya está hecho. Nunca te perdonarás del todo, aunque no fueras tú.' },
         { t: 'Resistirte al chip con todas tus fuerzas', req: function (s) { return !s.flags.chip_extraido; },
           r: [
-            { p: 0.35, t: 'Bajas el rifle. Te tiemblan las manos, pero lo bajas.', fx: { cordura: -14, alineamiento: 20, notoriedad: 20 }, flag: 'resistio_orden66' },
-            { p: 0.65, t: 'No puedes. Lo intentas y no puedes.', fx: { alineamiento: -30, cordura: -35 }, flag: 'ejecuto_orden66', matarRel: 'general jedi' }
+            { p: 0.35, t: 'Bajas el rifle. Te tiemblan las manos, pero lo bajas.', fx: { cordura: -14, alineamiento: 20, notoriedad: 20 }, flag: 'resistio_orden66', flag2: 'orden66_pasada' },
+            { p: 0.65, t: 'No puedes. Lo intentas y no puedes.', fx: { alineamiento: -30, cordura: -35 }, flag: 'ejecuto_orden66', flag2: 'orden66_pasada', matarRel: 'general jedi' }
           ] },
         { t: 'Gritarle que corra', req: function (s) { return !!s.flags.chip_extraido; },
-          fx: { alineamiento: 25, cordura: -10, notoriedad: 25, reputacion: -20 }, flag: 'salvo_jedi', faccion: 'orden_jedi+40',
+          fx: { alineamiento: 25, cordura: -10, notoriedad: 25, reputacion: -20 }, flag: 'salvo_jedi', flag2: 'orden66_pasada', faccion: 'orden_jedi+40',
           out: 'Se va entre los árboles. Tú te quedas explicando por qué fallaste el tiro. Nadie te cree, pero nadie puede probarlo.' },
         { t: 'Disparar a los que disparan', req: function (s) { return !!s.flags.chip_extraido; },
           fx: { alineamiento: 15, cordura: -20, notoriedad: 35 }, flag: 'desertor', despido: true, mover: true, motivo: 'huyendo de tu propia unidad',
@@ -12904,6 +13132,513 @@ body.en-juego::before {
     { id: 'ingeniero', n: 'Zapador / mecánico', sub: 'Detrás de la línea, casi siempre', req: function (s) { return s.stats.intelecto > 38; },
       fx: { intelecto: 12, destreza: 8, creditos: 6500 }, habilidad: 'ingeniero', aviso: 'El puesto más seguro que hay en una guerra.' }
   ];
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== src/data-coherencia.js ===== */
+/* ============================================================
+   HOLOVIDA :: COHERENCIA DE ESTADO Y DE LORE
+   Aquí vive todo lo que el juego tiene que dejar de ofrecerte
+   cuando tu situación cambia, y todo lo que el canon impone:
+
+     · Si te expulsan del ejército, se acabaron las misiones.
+     · Después de la Orden 66 no hay misiones para los jedi.
+     · Kamino se desmantela tras la guerra: no se vive allí.
+     · Mandalore queda arrasada: se puede ser mandaloriano, pero
+       no vivir en el planeta durante la Purga.
+     · Alderaan deja de existir en el 0 ABY.
+     · Un jedi cobra un estipendio de la Orden. No mucho, pero
+       cobra: si no, acabas robando para poder curarte.
+     · Entrar en una Orden o en el Senado te lleva a Coruscant.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+
+  /* ============================================================
+     MUNDOS QUE DEJAN DE SER HABITABLES SEGÚN LA ÉPOCA
+     ============================================================ */
+  SW.MUNDOS_CAIDOS = {
+    'Kamino': { desde: ['imperio_temprano', 'rebelion', 'nueva_republica', 'primera_orden'],
+                txt: 'El Imperio desmanteló Ciudad Tipoca. Aquí ya no queda nada que no sea agua.' },
+    'Alderaan': { desde: ['rebelion', 'nueva_republica', 'primera_orden'],
+                  txt: 'Alderaan ya no está. Ni el planeta.' },
+    'Mandalore': { desde: ['imperio_temprano', 'rebelion'],
+                   txt: 'Después de la Purga, la superficie de Mandalore es cristal. Se puede ser mandaloriano; vivir allí, no.' },
+    'Scarif': { desde: ['nueva_republica', 'primera_orden'],
+                txt: 'De Scarif queda un cinturón de escombros y un mar hirviendo.' },
+    'Jedha': { desde: ['nueva_republica', 'primera_orden'],
+               txt: 'La Ciudad Santa se la llevó un disparo de prueba. Queda el cráter.' }
+  };
+
+  /** ¿se puede vivir aquí en esta época? */
+  SW.mundoViable = function (nombre, era) {
+    const c = SW.MUNDOS_CAIDOS[nombre];
+    if (!c) return true;
+    return c.desde.indexOf(era) < 0;
+  };
+
+  /** un destino de evacuación decente para cuando tu mundo cae */
+  SW.refugioDe = function (rng, nombre) {
+    const REF = { 'Kamino': 'Nar Shaddaa', 'Alderaan': 'Chandrila', 'Mandalore': 'Concordia',
+                  'Scarif': 'Batuu', 'Jedha': 'Takodana' };
+    return REF[nombre] || (SW.mundoAleatorioNormal ? SW.mundoAleatorioNormal(rng, nombre) : 'Nar Shaddaa');
+  };
+
+  /* ============================================================
+     ¿QUÉ ACTIVIDADES TIENEN SENTIDO AHORA MISMO?
+     Se consulta desde el menú anual: lo que no encaja, no sale.
+     ============================================================ */
+  SW.actividadPermitida = function (s, id) {
+    const clon = s.especie === 'clon' || s.especie === 'clon_nulo';
+    const jedi = s.trabajo === 'jedi';
+    const sith = s.trabajo === 'sith';
+
+    if (id === 'escuadron') {
+      // te echaron, desertaste o se acabó tu ejército: no hay unidad
+      if (s.flags.expulsado_ejercito || s.flags.desertor) return false;
+      if ((s.flags.ejecuto_orden66 || s.flags.resistio_orden66 || s.flags.salvo_jedi) && jedi) return false;
+      // un clon después de la guerra ya no tiene escuadrón al que volver
+      if (clon && (s.era === 'rebelion' || s.era === 'nueva_republica')) return false;
+      if (s.flags.licenciado) return false;
+      return true;
+    }
+    if (id === 'crimen') {
+      // un clon en servicio o un jedi en la Orden no se meten a contrabandistas
+      if (clon && !s.flags.desertor && !s.flags.expulsado_ejercito && s.era === 'guerras_clon') return 'limitado';
+      if (jedi) return 'limitado';
+      return true;
+    }
+    if (id === 'nave' || id === 'taller') {
+      if (clon && !s.flags.desertor && !s.flags.expulsado_ejercito && s.era === 'guerras_clon') return false;
+      return true;
+    }
+    if (id === 'viaje') {
+      if (clon && !s.flags.desertor && !s.flags.expulsado_ejercito && s.era === 'guerras_clon') return false;
+      if (s.contrato) return true;
+      return true;
+    }
+    if (id === 'gremio') return !!s.flags.en_el_gremio;
+    if (id === 'senado') return !!s.flags.en_el_senado;
+    if (id === 'fuerza') return s.sensible || s.stats.fuerza > 5;
+    return true;
+  };
+
+  /* ============================================================
+     SUELDOS QUE FALTABAN
+     Un jedi no cobraba nada y acababa robando para curarse.
+     ============================================================ */
+  SW.ESTIPENDIOS = {
+    jedi: function (s) {
+      // la Orden cubre lo tuyo: no te haces rico, pero no mendigas
+      const base = 5200 + (s.contadores.años || 0) * 60;
+      return Math.round(base * (s.rango && /maestro/i.test(s.rango) ? 1.6 : 1));
+    },
+    sith: function (s) { return 3000 + Math.round(s.stats.fuerza * 60); },
+    clon: function (s) { return 900; }   // simbólico: al clon se le da todo, no se le paga
+  };
+
+  SW.aplicarEstipendio = function (g) {
+    const s = g.s;
+    let f = null;
+    if (s.trabajo === 'jedi') f = 'jedi';
+    else if (s.trabajo === 'sith') f = 'sith';
+    else if ((s.especie === 'clon' || s.especie === 'clon_nulo') &&
+             !s.flags.desertor && !s.flags.expulsado_ejercito && !s.flags.licenciado) f = 'clon';
+    if (!f) return;
+    const v = SW.ESTIPENDIOS[f](s);
+    if (!v) return;
+    s.stats.creditos += v;
+    if (f === 'jedi') g.log('La Orden cubre tus gastos: ' + U.cr(v) + '.', 'cr');
+    else if (f === 'sith') g.log('Tu maestro te pasa ' + U.cr(v) + '. Nada es gratis.', 'cr');
+    else g.log('Paga de soldado: ' + U.cr(v) + '.', 'cr');
+  };
+
+  /* ============================================================
+     MUDANZAS OBLIGADAS
+     Entrar en la Orden o en el Senado te lleva a Coruscant.
+     ============================================================ */
+  SW.destinoDeCargo = function (s, cargo) {
+    if (cargo === 'jedi') {
+      // en las eras sin Templo no hay a dónde ir
+      if (['alta_republica', 'republica_tardia', 'guerras_clon'].indexOf(s.era) >= 0) return 'Coruscant';
+      if (s.era === 'nueva_republica' || s.era === 'primera_orden') return 'Ajan Kloss';
+      return null;
+    }
+    if (cargo === 'senador') return 'Coruscant';
+    if (cargo === 'sith') return s.era === 'imperio_temprano' || s.era === 'rebelion' ? 'Coruscant' : null;
+    return null;
+  };
+
+  /* ============================================================
+     REVISIÓN ANUAL: lo que el mundo te impone quieras o no
+     ============================================================ */
+  SW.GUION = SW.GUION || [];
+
+  /* tu mundo deja de existir bajo tus pies */
+  SW.GUION.push({
+    id: 'coh_mundo_caido', min: 0, max: 200, prio: 95,
+    req: function (s) { return !SW.mundoViable(s.mundo, s.era) && !s.flags['evacuado_' + s.mundo]; },
+    t: 'Aquí ya no se puede seguir.',
+    c: [{ t: 'Salir de aquí como sea', evacuar: true }]
+  });
+
+  /* después de la Orden 66 un clon ya no puede seguir de misiones jedi */
+  SW.GUION.push({
+    id: 'coh_post66', min: 0, max: 200, prio: 90, unaVez: true,
+    req: function (s) {
+      return (s.flags.ejecuto_orden66 || s.flags.resistio_orden66 || s.flags.salvo_jedi) && !s.flags.post66_asentado &&
+             (s.especie === 'clon' || s.especie === 'clon_nulo');
+    },
+    t: 'La guerra se ha acabado de la noche a la mañana. Ya no hay Generales Jedi, ni República, ni el ejército que conocías.<br>' +
+       '<span class="dim">Ahora eres un soldado del Imperio, y el Imperio prefiere reclutas que no cuesten dinero.</span>',
+    c: [
+      { t: 'Seguir sirviendo mientras te dejen', flag: 'post66_asentado', fx: { cordura: -10, reputacion: 4 },
+        faccion: 'imperio+20', out: 'Te destinan a guarnición. Cada año hay menos como tú.' },
+      { t: 'Desertar ahora que hay caos', flag: 'post66_asentado', flag2: 'desertor',
+        fx: { cordura: 8, notoriedad: 12 }, buscado: 35, evacuarA: 'cerca',
+        out: 'Te quitas la armadura en un callejón y no miras atrás.' },
+      { t: 'Pedir el retiro por el chip', flag: 'post66_asentado', flag2: 'licenciado',
+        fx: { salud: -10, cordura: -6 }, out: 'Envejeces al doble. Ellos lo saben y les viene bien.' }
+    ]
+  });
+
+  /* Kamino cae: un clon que siga allí tiene que salir */
+  SW.GUION.push({
+    id: 'coh_kamino', min: 0, max: 200, prio: 92, unaVez: true,
+    req: function (s) {
+      return s.mundo === 'Kamino' && !SW.mundoViable('Kamino', s.era);
+    },
+    t: 'El Imperio ha empezado a desmantelar Ciudad Tipoca. Las plataformas caen al mar una a una.',
+    c: [
+      { t: 'Subir al último transporte', evacuar: true, fx: { cordura: -8 } },
+      { t: 'Llevarte contigo a los que puedas', evacuar: true, fx: { alineamiento: 18, cordura: -12, reputacion: 10 },
+        out: 'Metes a catorce en una lanzadera para ocho.' },
+      { t: 'Quedarte hasta el final', fx: { cordura: -20, salud: -25 }, evacuar: true,
+        out: 'Ves hundirse el sitio donde naciste. Sales el último.' }
+    ]
+  });
+
+  /* te expulsan: hay que salir del planeta militar sin un crédito */
+  SW.GUION.push({
+    id: 'coh_expulsado', min: 0, max: 200, prio: 88, unaVez: true,
+    req: function (s) { return s.flags.expulsado_ejercito && !s.flags.expulsion_resuelta; },
+    t: 'Te han dado de baja. Sin unidad, sin paga y sin transporte de vuelta: eso te lo buscas tú.',
+    c: [
+      { t: 'Pagarte un pasaje', req: function (s) { return s.stats.creditos >= 4000; },
+        coste: 4000, flag: 'expulsion_resuelta', evacuar: true, out: 'Clase de carga, pero sales.' },
+      { t: 'Colarte en la bodega de un carguero', flag: 'expulsion_resuelta',
+        r: [{ p: 0.5, t: 'Sales sin que nadie te vea.', fx: { destreza: 10, cordura: 6 }, evacuar: true },
+            { p: 0.3, t: 'Te pillan a medio salto y te ponen a trabajar el pasaje.', fx: { fisico: 8, salud: -10, creditos: 1200 }, evacuar: true },
+            { p: 0.2, t: 'Te pillan antes de despegar.', fx: { salud: -18, reputacion: -8 }, carcel: 1 }] },
+      { t: 'Ofrecerte de tripulación a quien salga', flag: 'expulsion_resuelta',
+        fx: { carisma: 8, creditos: 900 }, evacuar: true, habilidad: 'tripulante',
+        out: 'Fregando bodegas, pero con destino.' },
+      { t: 'Quedarte y buscarte la vida aquí', flag: 'expulsion_resuelta',
+        fx: { cordura: -8, notoriedad: 6 }, out: 'Hay peores sitios. No muchos.' }
+    ]
+  });
+
+  /* ============================================================
+     FILTRO GLOBAL DE EVENTOS
+     Un evento puede ser válido por edad y por mundo y aun así no
+     tener ningún sentido en tu situación. Esto lo corta antes de
+     que llegue a la pantalla.
+     ============================================================ */
+  const MILITAR = /^(cl_|esc_|mil_|gen_mision)/;
+  const JEDI_EV = /^(jd_|jedi_)/;
+
+  SW.eventoCoherente = function (s, e) {
+    const id = e.id || '';
+    const clon = s.especie === 'clon' || s.especie === 'clon_nulo';
+    const fueraDelEjercito = s.flags.expulsado_ejercito || s.flags.desertor || s.flags.licenciado;
+
+    // misiones y vida de cuartel: solo si sigues en filas
+    if (MILITAR.test(id) && id !== 'cl_orden66') {
+      if (fueraDelEjercito) return false;
+      if (clon && ['rebelion', 'nueva_republica', 'primera_orden'].indexOf(s.era) >= 0) return false;
+    }
+    // la vida de la Orden se acaba con la Orden 66
+    if (JEDI_EV.test(id) && (s.flags.ejecuto_orden66 || s.flags.orden66_pasada)) {
+      if (s.trabajo !== 'jedi') return false;
+    }
+    // eventos atados a un mundo que ya no existe
+    if (e.mundo && e.mundo.length === 1 && !SW.mundoViable(e.mundo[0], s.era)) return false;
+    return true;
+  };
+
+  /* ============================================================
+     BAJOS FONDOS ADAPTADOS A TU SITUACIÓN
+     Un clon en servicio no se hace contrabandista: roba raciones.
+     ============================================================ */
+  SW.GEN = SW.GEN || {};
+  SW.GEN.crimenLimitado = function (rng, s) {
+    const clon = s.especie === 'clon' || s.especie === 'clon_nulo';
+    if (clon) {
+      return {
+        id: 'coh_crimen_clon', gen: true,
+        t: 'No puedes salir de la base ni tienes con quién tratar fuera. Lo que sí hay es almacén.',
+        c: [
+          { t: 'Sisar raciones y venderlas en el hangar', fx: { creditos: 1400, notoriedad: 5, alineamiento: -5 },
+            sub: 'Poco dinero, poco riesgo' },
+          { t: 'Cambiar piezas de armería por favores', fx: { carisma: 8, creditos: 2200, notoriedad: 8 },
+            r: [{ p: 0.7, t: 'Nadie cuenta los cargadores.', fx: { creditos: 1500 } },
+                { p: 0.3, t: 'Alguien sí los cuenta.', fx: { reputacion: -12 }, contador: { faltas: 1 } }] },
+          { t: 'Vender información de rotaciones a un piloto de carga', fx: { creditos: 5000, alineamiento: -14 },
+            contador: { faltas: 1 }, sub: 'Esto ya es traición, técnicamente' },
+          { t: 'Dejarlo estar', volver: true }
+        ]
+      };
+    }
+    // jedi: no robas, pero el mundo te ofrece atajos igual
+    return {
+      id: 'coh_crimen_jedi', gen: true,
+      t: 'Podrías resolver esto por el camino corto. Nadie se enteraría. Tú sí.',
+      c: [
+        { t: 'Usar la Fuerza para influir en una mente débil', fx: { creditos: 4000, alineamiento: -12, fuerza: 4 },
+          sub: 'Funciona. Ese es el problema.' },
+        { t: 'Pedir ayuda a la Orden como es debido', fx: { creditos: 2000, alineamiento: 6, cordura: 5 } },
+        { t: 'Apañártelas sin nada', fx: { cordura: -6, fisico: 4, alineamiento: 8 } },
+        { t: 'Dejarlo', volver: true }
+      ]
+    };
+  };
+
+  /* ============================================================
+     LA CLÍNICA, SEPARADA DE «CUERPO Y MENTE»
+     ============================================================ */
+  SW.ACTIVIDADES = SW.ACTIVIDADES || [];
+  SW.ACTIVIDADES.push({
+    id: 'clinica', n: 'Clínica', ico: '✚', desc: 'Curar heridas abiertas, prótesis y revisiones. Solo eso.', min: 6
+  });
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== src/data-senado.js ===== */
+/* ============================================================
+   HOLOVIDA :: LA CARRERA POLÍTICA
+   Un camino largo que solo se abre si te lo has ganado desde
+   pequeño: estudiar, tener cabeza y saber tratar con la gente.
+   No es un botón: son cinco escalones, y cada uno tiene su
+   requisito. Llegar al Senado te lleva a Coruscant, como debe.
+
+     aprendiz de despacho → concejal → delegado planetario
+       → senador del sector → figura del Senado
+
+   Y en el Senado se vota. Los votos dejan huella: te ganan
+   enemigos, te cambian el alineamiento y algunos te persiguen
+   décadas después.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+
+  SW.ESCALONES = [
+    { id: 0, n: 'aprendiz de despacho', sueldo: 6000,
+      req: function (s) { return s.stats.intelecto > 42 && s.stats.carisma > 38; } },
+    { id: 1, n: 'concejal de distrito', sueldo: 14000,
+      req: function (s) { return s.stats.intelecto > 52 && s.stats.carisma > 50 && s.stats.reputacion > 25; } },
+    { id: 2, n: 'delegado planetario', sueldo: 34000,
+      req: function (s) { return s.stats.intelecto > 60 && s.stats.carisma > 60 && s.stats.reputacion > 40; } },
+    { id: 3, n: 'senador del sector', sueldo: 78000,
+      req: function (s) { return s.stats.intelecto > 66 && s.stats.carisma > 68 && s.stats.reputacion > 55; } },
+    { id: 4, n: 'figura del Senado', sueldo: 140000,
+      req: function (s) { return s.stats.intelecto > 72 && s.stats.carisma > 76 && s.stats.reputacion > 70; } }
+  ];
+
+  const escalonDe = function (s) { return SW.ESCALONES[s.escalonPolitico || 0]; };
+
+  /* La carrera tiene que estar registrada o tomarEmpleo() se sale sin
+     hacer nada y te quedas de senador sin cobrar. */
+  SW.CARRERAS = SW.CARRERAS || [];
+  if (!SW.CARRERAS.some(function (c) { return c.id === 'politico'; })) {
+    SW.CARRERAS.push({
+      id: 'politico', n: 'carrera política', sueldoBase: 6000,
+      rangos: SW.ESCALONES.map(function (e) { return U.titleCase(e.n); }),
+      faccion: 'republica',
+      req: function (s) { return s.stats.intelecto > 45 && s.stats.carisma > 42; }
+    });
+  }
+
+  /* ============================================================
+     LA PUERTA: hay que haber sido buen estudiante
+     ============================================================ */
+  SW.EVENTOS = SW.EVENTOS || [];
+  SW.EVENTOS.push({
+    id: 'sn_puerta', min: 17, max: 60, w: 9,
+    slots: { p: 'mundoAqui', l: 'lugar', d: 'mandamas' },
+    req: function (s) {
+      if (s.flags.carrera_politica) return false;
+      if (s.trabajo === 'jedi' || s.trabajo === 'sith') return false;
+      // se abre solo si te lo has trabajado: cabeza, labia y buen nombre
+      return s.stats.intelecto > 45 && s.stats.carisma > 42 && s.stats.reputacion > 18 &&
+             s.stats.notoriedad < 45;
+    },
+    t: 'En {p} se fijan en ti: has estudiado, sabes hablar y no tienes manchas. ' +
+       '{d} te ofrece un puesto de aprendiz en un despacho.',
+    c: [
+      { t: 'Aceptar y empezar desde abajo', flag: 'carrera_politica', empleoPolitico: 0,
+        fx: { intelecto: 6, carisma: 6 }, sub: 'Cinco escalones hasta el Senado',
+        out: 'Archivo, actas y café. Así empieza todo el mundo.' },
+      { t: 'Preguntar hasta dónde se puede llegar', fx: { intelecto: 8 },
+        out: '"Hasta donde aguantes. El Senado está en Coruscant y no se llega desde aquí sin manos."' },
+      { t: 'No es lo tuyo', volver: true }
+    ]
+  });
+
+  /* ============================================================
+     SUBIR ESCALÓN
+     ============================================================ */
+  SW.GEN = SW.GEN || {};
+  SW.GEN.ascensoPolitico = function (rng, s) {
+    const actual = s.escalonPolitico || 0;
+    const sig = SW.ESCALONES[actual + 1];
+    if (!sig) {
+      return {
+        id: 'sn_cima', gen: true,
+        t: 'Ya no hay escalón por encima del tuyo. Lo que queda es qué haces con el sitio.',
+        c: [{ t: 'Seguir', volver: true }]
+      };
+    }
+    const listo = sig.req(s);
+    if (!listo) {
+      return {
+        id: 'sn_no_listo', gen: true,
+        t: 'Optas a <b>' + sig.n + '</b> y no sale. Te falta peso.<br>' +
+           '<span class="dim">Hace falta intelecto, carisma y buen nombre. Se consiguen trabajando.</span>',
+        c: [
+          { t: 'Estudiar el expediente hasta sabértelo', fx: { intelecto: 10, cordura: -5 } },
+          { t: 'Hacer contactos en los pasillos', fx: { carisma: 10, reputacion: 5 } },
+          { t: 'Aparecer en la HoloRed defendiendo algo', fx: { reputacion: 12, carisma: 6, notoriedad: 4 } },
+          { t: 'Comprar apoyos', coste: 25000, fx: { reputacion: 14, alineamiento: -10 },
+            sub: 'Rápido y sucio' }
+        ]
+      };
+    }
+    return {
+      id: 'sn_ascenso', gen: true,
+      t: 'Hay hueco para <b>' + sig.n + '</b> y esta vez cumples los requisitos.',
+      c: [
+        { t: 'Presentarte', empleoPolitico: actual + 1, fx: { reputacion: 10, carisma: 6 } },
+        { t: 'Presentarte y prometer lo que haga falta', empleoPolitico: actual + 1,
+          fx: { reputacion: 16, carisma: 10, alineamiento: -12 }, flag: 'promesas_vacias' },
+        { t: 'Dejar que se lo lleve otro', fx: { cordura: 6, reputacion: -6 } }
+      ]
+    };
+  };
+
+  /* ============================================================
+     LAS VOTACIONES: aquí es donde la política duele
+     ============================================================ */
+  const VOTOS = [
+    { t: 'Se vota ampliar los poderes de emergencia del Canciller.',
+      a: { t: 'A favor: hace falta mano dura', fx: { alineamiento: -18, reputacion: 8 }, faccion: 'republica+20', flag: 'voto_poderes' },
+      b: { t: 'En contra: eso no se devuelve nunca', fx: { alineamiento: 16, reputacion: -6 }, enemigo: true },
+      c: { t: 'Abstenerte', fx: { cordura: -6, reputacion: -4 } } },
+    { t: 'Se vota financiar un ejército con clones de Kamino.',
+      a: { t: 'A favor', fx: { alineamiento: -14, reputacion: 10 }, flag: 'voto_ejercito' },
+      b: { t: 'En contra: eso es comprar personas', fx: { alineamiento: 20, reputacion: -8 }, enemigo: true },
+      c: { t: 'Pedir una comisión que lo estudie', fx: { intelecto: 8, reputacion: -2 } } },
+    { t: 'Se vota un bloqueo comercial que hundirá tu propio sector.',
+      a: { t: 'Votar con tu bloque', fx: { reputacion: 6, alineamiento: -8 }, faccion: 'auto+10' },
+      b: { t: 'Votar por los tuyos aunque te cueste el puesto', fx: { alineamiento: 18, reputacion: 14 }, enemigo: true },
+      c: { t: 'Negociar una excepción para tu planeta', fx: { carisma: 14, creditos: 20000, alineamiento: -6 } } },
+    { t: 'Un consorcio te ofrece mucho dinero por una enmienda de tres líneas.',
+      a: { t: 'Meterla y cobrar', fx: { creditos: 90000, alineamiento: -24, notoriedad: 10 }, flag: 'corrupto' },
+      b: { t: 'Rechazarlo y denunciarlo', fx: { alineamiento: 22, reputacion: 16 }, enemigo: true },
+      c: { t: 'Rechazarlo sin hacer ruido', fx: { alineamiento: 10, cordura: 6 } } },
+    { t: 'Se vota reconocer la independencia de unos sistemas del Borde.',
+      a: { t: 'A favor: llevan razón', fx: { alineamiento: 14, reputacion: 6 }, faccion: 'separatistas+15', enemigo: true },
+      b: { t: 'En contra: es el principio del fin', fx: { alineamiento: -6, reputacion: 8 }, faccion: 'republica+15' },
+      c: { t: 'Proponer autonomía en vez de independencia', fx: { carisma: 16, intelecto: 10, reputacion: 12 } } },
+    { t: 'Sale a la luz que un colega tuyo cobra de un cártel. Te piden que le cubras.',
+      a: { t: 'Cubrirle', fx: { alineamiento: -16, reputacion: -4 }, rel: { tipo: 'contacto', afecto: 60 } },
+      b: { t: 'Entregarle', fx: { alineamiento: 18, reputacion: 12 }, enemigo: true },
+      c: { t: 'Avisarle de que dimita él solo', fx: { carisma: 12, alineamiento: 6 } } }
+  ];
+
+  SW.GEN.votacion = function (rng, s) {
+    const v = rng.pick(VOTOS);
+    return {
+      id: 'sn_voto', gen: true,
+      t: '<span class="scene-tag">VOTACIÓN</span><p>' + v.t + '</p>',
+      c: [
+        Object.assign({ votoRegistrado: v.t }, v.a),
+        Object.assign({ votoRegistrado: v.t }, v.b),
+        Object.assign({ votoRegistrado: v.t }, v.c)
+      ]
+    };
+  };
+
+  /* ============================================================
+     LO QUE TE PASA POR SER POLÍTICO
+     ============================================================ */
+  SW.EVENTOS.push({
+    id: 'sn_enemigo_vuelve', min: 25, max: 200, w: 9, repetible: true,
+    slots: { p: 'mundoAqui', l: 'lugar' },
+    req: function (s) { return !!s.flags.carrera_politica && (s.contadores.enemigosPoliticos || 0) > 0; },
+    t: 'Alguien a quien votaste en contra hace años tiene ahora más poder que tú, y buena memoria.',
+    c: [
+      { t: 'Ir a hablar con él', fx: { carisma: 10, cordura: -4 },
+        r: [{ p: 0.45, t: 'Llegáis a un acuerdo.', fx: { reputacion: 8 } },
+            { p: 0.55, t: 'No hay acuerdo. Hay aviso.', fx: { reputacion: -12 }, buscado: 15 }] },
+      { t: 'Adelantarte y sacarle los trapos', fx: { notoriedad: 14, reputacion: 6, alineamiento: -8 } },
+      { t: 'Blindarte: contratar seguridad', coste: 30000, fx: { cordura: 8 }, flag: 'con_escolta' },
+      { t: 'Retirarte de la política', quitarFlag: 'carrera_politica', fx: { cordura: 14, reputacion: -10 },
+        despido: true, out: 'Te vas antes de que te echen. No es lo mismo.' }
+    ]
+  });
+
+  SW.EVENTOS.push({
+    id: 'sn_escandalo', min: 25, max: 200, w: 8, repetible: true,
+    slots: { p: 'mundoAqui' },
+    req: function (s) { return !!s.flags.carrera_politica && (s.flags.corrupto || s.flags.promesas_vacias); },
+    t: 'Sale en la HoloRed lo que hiciste para llegar donde estás.',
+    c: [
+      { t: 'Negarlo todo', fx: { carisma: 10, alineamiento: -10 },
+        r: [{ p: 0.5, t: 'Cuela. El ciclo de noticias pasa.', fx: { reputacion: -6 } },
+            { p: 0.5, t: 'Aparecen pruebas.', fx: { reputacion: -30, notoriedad: 18 }, despido: true, quitarFlag: 'carrera_politica' }] },
+      { t: 'Admitirlo y pedir perdón', fx: { reputacion: -14, alineamiento: 12, cordura: 8 },
+        out: 'Se te perdona a medias. Nunca del todo.' },
+      { t: 'Dimitir', despido: true, quitarFlag: 'carrera_politica', fx: { cordura: 10, reputacion: -8 } },
+      { t: 'Comprar el silencio del medio', coste: 60000, fx: { alineamiento: -16, notoriedad: 8 } }
+    ]
+  });
+
+  /* ============================================================
+     LA PESTAÑA
+     ============================================================ */
+  SW.ACTIVIDADES = SW.ACTIVIDADES || [];
+  SW.ACTIVIDADES.push({
+    id: 'senado', n: 'Política', ico: '⚖', desc: 'Escalar, votar y sobrevivir a lo que votaste.', min: 16,
+    req: function (s) { return !!s.flags.carrera_politica; }
+  });
+
+  SW.menuPolitica = function (g) {
+    const s = g.s;
+    const e = escalonDe(s);
+    const sig = SW.ESCALONES[(s.escalonPolitico || 0) + 1];
+    const c = [
+      { t: 'Optar al siguiente escalón', generar: 'ascensoPolitico',
+        sub: sig ? 'Siguiente: ' + sig.n : 'Ya estás arriba del todo' },
+      { t: 'Ir a una votación', generar: 'votacion', sub: 'Lo que votes te va a seguir' },
+      { t: 'Trabajar el distrito', fx: { reputacion: 10, carisma: 6, cordura: -4 },
+        sub: 'Aburrido, seguro y suma' },
+      { t: 'Estudiar los expedientes a fondo', fx: { intelecto: 10, cordura: -4 } },
+      { t: 'Hacer campaña con tu propio dinero', req: function (st) { return st.stats.creditos > 20000; },
+        coste: 20000, fx: { reputacion: 18, carisma: 8 } },
+      { t: '◂ Volver', volver: true }
+    ];
+    return {
+      id: 'menu_politica', gen: true, esMenu: true,
+      t: 'POLÍTICA — eres <b>' + e.n + '</b>' +
+         '<br><span class="dim">Intelecto ' + s.stats.intelecto + ' · carisma ' + s.stats.carisma +
+         ' · reputación ' + s.stats.reputacion + '</span>',
+      c: c
+    };
+  };
 
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -13753,7 +14488,8 @@ body.en-juego::before {
          '<p class="dim">Vivo paga ×' + c.vivo + '. Muerto, el contrato base.</p>',
       c: [
         { t: 'Entrar por la fuerza', cazaCaptura: 'fuerza', sub: 'Combate. Rápido y sucio.' },
-        { t: 'Aturdirle y llevártelo', cazaCaptura: 'aturdir', sub: 'Necesitas pulso. Paga mucho más.' },
+        { t: 'Aturdirle a la primera', cazaCaptura: 'aturdir', minijuegoCaza: true,
+          sub: 'Un solo disparo, a tiempo. Si fallas, se acabó lo fácil.' },
         { t: 'Hablar con él antes', cazaCaptura: 'hablar', sub: 'Puede entregarse. O engañarte.' },
         { t: 'Esperar a que salga solo', cazaCaptura: 'esperar', sub: 'Paciencia. Depende de tu intelecto.' }
       ]
@@ -14487,6 +15223,7 @@ body.en-juego::before {
       peligro: 0,                                  // cuánto has tentado a la suerte
       mejorasNave: [],
       contrato: null,
+      escalonPolitico: 0,
       puestoGuerra: null,
       edad: 0,
       edadBio: 0,
@@ -14709,6 +15446,8 @@ body.en-juego::before {
       if (e.max != null && s.edadBio > e.max) continue;
       if (e.era && e.era.indexOf(s.era) < 0) continue;
       if (e.eraNo && e.eraNo.indexOf(s.era) >= 0) continue;
+      // lo que ya no encaja con tu situación no se ofrece
+      if (SW.eventoCoherente && !SW.eventoCoherente(s, e)) continue;
       if (e.mundo && e.mundo.indexOf(s.mundo) < 0) continue;
       if (e.mundoNo && e.mundoNo.indexOf(s.mundo) >= 0) continue;
       if (e.esp && e.esp.indexOf(s.especie) < 0) continue;
@@ -14785,6 +15524,7 @@ body.en-juego::before {
       return;
     }
 
+    if (SW.aplicarEstipendio) SW.aplicarEstipendio(this);
     if (s.trabajo) {
       s.añosEnTrabajo++;
       const bruto = Math.round(s.sueldo * (0.85 + s.rendimiento / 200));
@@ -15193,7 +15933,13 @@ body.en-juego::before {
     }
     if (d.cazaAvanza && s.contrato) { if (d.rastro) s.contrato.rastro = U.clamp((s.contrato.rastro || 0) + d.rastro, 0, 3); }
     if (d.cazaBusca && SW.resolverBusqueda) SW.resolverBusqueda(this, d.cazaBusca);
-    if (d.cazaCaptura && SW.resolverCaptura) SW.resolverCaptura(this, d.cazaCaptura);
+    if (d.cazaCaptura && d.minijuegoCaza && s.contrato) {
+      // el disparo de aturdimiento se juega, no se tira
+      this.escena = { tipo: 'combate', cfg: { dif: s.contrato.dif, caza: true }, ronda: 1, maxRondas: 1,
+                      hpEnemigo: 100, hpMaxEnemigo: 100, aguante: 100, golpe: 1,
+                      poder: this.poderCombate(), dif: s.contrato.dif, postura: 'guardia', capturaCaza: true };
+      this.cola.unshift(this.prepararGen(this.eventoMinijuego()));
+    } else if (d.cazaCaptura && SW.resolverCaptura) SW.resolverCaptura(this, d.cazaCaptura);
     if (d.cazaEntrega && SW.resolverEntrega) SW.resolverEntrega(this, d.cazaEntrega);
     if (d.cazaAbandona) {
       this.log('Dejas el contrato a medias. En el Gremio eso se recuerda.', 'mal');
@@ -15204,6 +15950,31 @@ body.en-juego::before {
     if (d.flag2) s.flags[U.fill(d.flag2, slots)] = true;
     if (d.quitarRuido) { s.stats.notoriedad = Math.max(0, s.stats.notoriedad - 10); }
     if (d.instalarMejora) this.instalarMejora(d.instalarMejora);
+    if (d.empleoPolitico != null && SW.ESCALONES) {
+      const esc = SW.ESCALONES[d.empleoPolitico];
+      if (esc) {
+        s.escalonPolitico = d.empleoPolitico;
+        s.flags.carrera_politica = true;
+        this.tomarEmpleo('politico', esc.sueldo);
+        s.rango = U.titleCase(esc.n);
+        this.log('Ahora eres <b>' + esc.n + '</b>. Sueldo: ' + U.cr(esc.sueldo) + '.', 'bien');
+        this.hito('Llega a ' + esc.n);
+        // a partir de senador, el sitio es Coruscant
+        if (d.empleoPolitico >= 3) {
+          s.flags.en_el_senado = true;
+          const dest = SW.destinoDeCargo ? SW.destinoDeCargo(s, 'senador') : 'Coruscant';
+          if (dest && s.mundo !== dest) this.mover(dest, 'a ocupar tu escaño');
+        }
+      }
+    }
+    if (d.votoRegistrado) {
+      s.votos = s.votos || [];
+      s.votos.push({ edad: s.edad, tema: d.votoRegistrado, sentido: d.t });
+    }
+    if (d.enemigo) {
+      s.contadores.enemigosPoliticos = (s.contadores.enemigosPoliticos || 0) + 1;
+      this.log('Te acabas de ganar un enemigo con memoria.', 'mal');
+    }
     if (d.viajar) this.abrirMapaViaje = true;
     if (d.fuerzaMenu) this.cola.unshift(this.prepararGen(this.menuFuerza()));
     if (d.clinica) this.cola.unshift(this.prepararGen(this.menuClinica()));
@@ -15234,8 +16005,27 @@ body.en-juego::before {
     if (d.apuesta === 'pierde') { const g = Math.round(Math.max(0, s.stats.creditos) * 0.5); s.stats.creditos -= g; this.log('Pierdes ' + U.cr(g) + '.', 'mal'); }
     if (d.legado) { s.legado = d.legado; this.hito('Deja un legado: ' + d.legado); }
     if (d.chequeo) this.chequeoMedico();
-    if (d.mover) this.mover(d.mover === 'casa' ? s.mundoNatal : (d.mover === 'cerca' ? this.mundoCercano() : null), d.motivo);
+    if (d.mover) this.mover(d.mover === 'casa' ? (s.mundoSecuestro || s.mundoNatal) : (d.mover === 'cerca' ? this.mundoCercano() : null), d.motivo);
     if (d.mueveA) this.mover(U.fill(d.mueveA, slots), d.motivo);
+    // te secuestran: apareces lejos y tienes que resolverlo
+    if (d.secuestrar) {
+      const lejos = SW.mundoAleatorioNormal ? SW.mundoAleatorioNormal(rng, s.mundo) : this.mundoCercano();
+      s.mundoSecuestro = s.mundo;
+      this.mover(lejos, 'te trajeron aquí en contra de tu voluntad');
+    }
+    if (d.pagarDeuda) {
+      const deuda = s.contadores.deuda || 10000;
+      s.stats.creditos -= deuda;
+      s.contadores.deuda = 0;
+      this.log('Saldas ' + U.cr(deuda) + '. Se acabó.', 'cr');
+    }
+    if (d.limpiarBusca) { s.buscado = 0; this.log('Ya no te busca nadie.', 'bien'); }
+    if (d.evacuar) {
+      const dest = SW.refugioDe ? SW.refugioDe(rng, s.mundo) : this.mundoCercano();
+      s.flags['evacuado_' + s.mundo] = true;
+      this.mover(dest, 'porque allí ya no se podía estar');
+    }
+    if (d.evacuarA) this.mover(d.evacuarA === 'cerca' ? this.mundoCercano() : d.evacuarA, d.motivo || 'sin mirar atrás');
     if (d.guerra) {
       s.flags.veterano = true; s.contadores.batallas++;
       s.flags.en_el_frente = true;
@@ -15561,6 +16351,9 @@ body.en-juego::before {
       this.tomarEmpleo('jedi', 0);
       s.stats.alineamiento += 15;
       this.hito('Entra en la Orden Jedi');
+      // el Templo está donde está: no se es jedi por correspondencia
+      const dest = SW.destinoDeCargo ? SW.destinoDeCargo(s, 'jedi') : 'Coruscant';
+      if (dest && s.mundo !== dest) this.mover(dest, 'te llevan al Templo');
     } else {
       this.tomarEmpleo('sith', 0);
       s.stats.alineamiento -= 25;
@@ -15820,6 +16613,8 @@ body.en-juego::before {
       cfg: cfg || {},
       ronda: 1,
       maxRondas: 5,
+      // duelo de sables: solo si los dos llevan uno. Cambia el tono y el riesgo.
+      sables: !!(cfg && cfg.sable && this.s.sable),
       // el rival duro AGUANTA más y PEGA más: antes todos tenían 100 de vida
       hpEnemigo: Math.round(80 + ((cfg && cfg.dif) || 50) * 0.85),
       hpMaxEnemigo: Math.round(80 + ((cfg && cfg.dif) || 50) * 0.85),
@@ -15834,11 +16629,16 @@ body.en-juego::before {
 
   Game.prototype.escenaCombateEvento = function () {
     const e = this.escena, s = this.s;
-    const desc = e.cfg.duelo ? 'DUELO' : (e.cfg.bestia ? 'BESTIA' : 'COMBATE');
+    const desc = e.sables ? 'DUELO DE SABLES' : (e.cfg.duelo ? 'DUELO' : (e.cfg.bestia ? 'BESTIA' : 'COMBATE'));
     const barra = function (v) {
       const n = U.clamp(Math.round(v / 10), 0, 10);
       return '█'.repeat(n) + '░'.repeat(10 - n);
     };
+    // El rival duro tiene más de 100 puntos de vida. Mostrarlos crudos
+    // hacía creer que no le hacías nada ("140%" → le pegas → "90%").
+    // Se enseña siempre sobre su propio total.
+    const pctRival = U.clamp((e.hpEnemigo / (e.hpMaxEnemigo || 100)) * 100, 0, 100);
+    const dureza = e.hpMaxEnemigo > 120 ? ' <i class="dim">(aguanta mucho)</i>' : '';
     const p = POSTURAS[e.postura];
     const c = [
       { t: '⚔ Ataque agresivo', tactica: 'agresivo', sub: 'Rompe fintas. Se estrella contra la defensa. Gasta aguante.' },
@@ -15851,7 +16651,7 @@ body.en-juego::before {
     return this.prepararGen({
       id: 'escena_combate', gen: true,
       t: '<span class="scene-tag">' + desc + ' · ASALTO ' + e.ronda + '/' + e.maxRondas + '</span>' +
-         '<div class="hp"><span>Rival</span><code>[' + barra(e.hpEnemigo) + ']</code> ' + Math.max(0, Math.round(e.hpEnemigo)) + '%</div>' +
+         '<div class="hp"><span>Rival</span><code>[' + barra(pctRival) + ']</code> ' + Math.round(pctRival) + '%' + dureza + '</div>' +
          '<div class="hp"><span>Tú</span><code>[' + barra(s.stats.salud) + ']</code> ' + s.stats.salud + '%</div>' +
          '<div class="hp"><span>Aguante</span><code>[' + barra(e.aguante) + ']</code> ' + Math.round(e.aguante) + '%</div>' +
          '<p class="tell">' + p.tell + '</p>',
@@ -15981,6 +16781,26 @@ body.en-juego::before {
   Game.prototype.resolverMinijuego = function (grado) {
     const e = this.escena, s = this.s, rng = this.rng;
     if (!e) return;
+
+    // si el minijuego era el disparo de aturdimiento de una caza,
+    // el grado decide si te lo llevas vivo o se lía
+    if (e.capturaCaza && s.contrato) {
+      this.escena = null;
+      if (grado >= 1) {
+        this.log('Disparo limpio. Cae sin enterarse.', 'bien');
+        s.contrato.estado = 'vivo'; s.contrato.fase = 'entrega';
+        this.aplicarFx({ destreza: 6 }, {});
+      } else if (grado === 0) {
+        this.log('Le rozas. Reacciona.', 'mal');
+        s.contrato.estado = 'vivo'; s.contrato.fase = 'entrega';
+        this.aplicarFx({ salud: -12 }, {});
+      } else {
+        this.log('Fallas. Y ahora sabe que estás ahí.', 'mal');
+        s.contrato.estado = 'muerto'; s.contrato.fase = 'entrega';
+        this.iniciarCombate({ dif: s.contrato.dif + 10, contrato: true });
+      }
+      return;
+    }
     // grado: 2 crítico · 1 bien · 0 flojo · -1 fallo
     let dmg = 0, recib = 0, txt = '';
     const pega = (e.golpe || 1);
@@ -16034,6 +16854,7 @@ body.en-juego::before {
     this.escena = {
       tipo: 'dogfight', cfg: cfg || {}, ronda: 1, maxRondas: 4,
       hpEnemigo: 100,
+      hpMaxEnemigo: 100,
       dif: (cfg && cfg.dif) || 50,
       postura: this.rng.pick(['embestida', 'guardia', 'finta']),
       poder: s.stats.destreza * 0.5 + s.nave.vel * 4 + s.nave.arm * 4 +
@@ -16048,6 +16869,9 @@ body.en-juego::before {
       const n = U.clamp(Math.round(v / 10), 0, 10);
       return '█'.repeat(n) + '░'.repeat(10 - n);
     };
+    // el caza rival también se enseña sobre su propio total
+    const pctRival = U.clamp((e.hpEnemigo / (e.hpMaxEnemigo || 100)) * 100, 0, 100);
+    const dureza = e.hpMaxEnemigo > 120 ? ' <i class="dim">(bien blindado)</i>' : '';
     const tells = {
       embestida: 'Viene de frente, sin desviarse. Quiere el choque.',
       guardia: 'Cierra el giro y se pega a la chatarra. Espera.',
@@ -16056,7 +16880,7 @@ body.en-juego::before {
     return this.prepararGen({
       id: 'escena_dogfight', gen: true,
       t: '<span class="scene-tag">COMBATE ESPACIAL · PASADA ' + e.ronda + '/' + e.maxRondas + '</span>' +
-         '<div class="hp"><span>Rival</span><code>[' + barra(e.hpEnemigo) + ']</code> ' + Math.max(0, Math.round(e.hpEnemigo)) + '%</div>' +
+         '<div class="hp"><span>Rival</span><code>[' + barra(pctRival) + ']</code> ' + Math.round(pctRival) + '%' + dureza + '</div>' +
          '<div class="hp"><span>Casco</span><code>[' + barra(s.naveEstado) + ']</code> ' + s.naveEstado + '%</div>' +
          '<p class="tell">' + tells[e.postura] + '</p>',
       c: [
@@ -16363,7 +17187,9 @@ body.en-juego::before {
   /* ---------------- Actividades ---------------- */
   Game.prototype.menuActividades = function () {
     const s = this.s;
+    const s0 = this.s;
     return SW.ACTIVIDADES.filter(function (a) {
+      if (SW.actividadPermitida && SW.actividadPermitida(s0, a.id) === false) return false;
       if (s.edadBio < a.min) return false;
       if (a.req) { try { return a.req(s); } catch (e) { return false; } }
       return true;
@@ -16376,6 +17202,28 @@ body.en-juego::before {
     s.acciones--;
     this.actividadEnCurso = id;
     if (id === 'viaje') { this.abrirMapaViaje = true; this.actividadUsada = s.acciones <= 0; this.fase = 'menu'; return; }
+
+    // La clínica no compite con eventos: si la pides, se abre la clínica.
+    // Antes «Cuerpo y mente» te soltaba cualquier cosa menos curarte.
+    if (id === 'clinica') { this.cola.push(this.prepararGen(this.menuClinica())); this.fase = 'evento'; return; }
+    // Los bajos fondos se adaptan: un clon en servicio no monta un cártel
+    if (id === 'crimen' && SW.actividadPermitida &&
+        SW.actividadPermitida(s, 'crimen') === 'limitado' && SW.GEN.crimenLimitado) {
+      this.cola.push(this.prepararGen(SW.GEN.crimenLimitado(rng, s)));
+      this.fase = 'evento'; return;
+    }
+    // El gremio y el taller tienen su propia pantalla, no sorteo de eventos
+    if (id === 'gremio' && SW.GEN.contratoCaza) {
+      const paso = s.contrato && SW.pasoCaza ? SW.pasoCaza(this) : null;
+      this.cola.push(this.prepararGen(paso || SW.GEN.contratoCaza(rng, s)));
+      this.fase = 'evento'; return;
+    }
+    if (id === 'taller' && SW.menuTaller && s.nave) {
+      this.cola.push(this.prepararGen(SW.menuTaller(this))); this.fase = 'evento'; return;
+    }
+    if (id === 'senado' && SW.menuPolitica) {
+      this.cola.push(this.prepararGen(SW.menuPolitica(this))); this.fase = 'evento'; return;
+    }
     const pool = SW.ACTOS[id] || [];
     let posibles = this.eventosPosibles(pool);
     // si ya has vivido todo lo escrito para esa vía, se genera algo nuevo
@@ -16403,6 +17251,8 @@ body.en-juego::before {
       else if (id === 'viaje') this.abrirMapaViaje = true;
       else if (id === 'mercado') this.cola.push(this.prepararGen(this.menuTienda()));
       else if (id === 'salud') this.cola.push(this.prepararGen(this.menuClinica()));
+      else if (id === 'clinica') this.cola.push(this.prepararGen(this.menuClinica()));
+      else if (id === 'senado' && SW.menuPolitica) this.cola.push(this.prepararGen(SW.menuPolitica(this)));
       else if (id === 'fuerza') this.cola.push(this.prepararGen(this.menuFuerza()));
       else if (id === 'taller' && SW.menuTaller && s.nave) this.cola.push(this.prepararGen(SW.menuTaller(this)));
       else if (id === 'gremio' && SW.GEN.contratoCaza) {
