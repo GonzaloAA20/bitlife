@@ -48,7 +48,16 @@
     return a;
   };
 
+  /** filtro de pantalla y animaciones: se recuerdan entre partidas */
+  UI.aplicarPreferencias = function () {
+    const crt = localStorage.getItem('holovida_crt') !== 'no';
+    document.body.classList.toggle('sin-crt', !crt);
+    UI.sinAnimacion = localStorage.getItem('holovida_anim') === 'no';
+    document.body.classList.toggle('sin-anim', !!UI.sinAnimacion);
+  };
+
   UI.init = function () {
+    UI.aplicarPreferencias();
     UI.app = $('#app');
     const hash = location.hash || '';
     if (hash.indexOf('#v=') === 0) { UI.pantallaCompartida(hash.slice(3)); return; }
@@ -59,6 +68,7 @@
      INICIO
      ============================================================ */
   UI.pantallaInicio = function () {
+    UI.herencia = null;
     document.body.classList.remove('en-juego');
     const m = SW.metricas();
     const guardada = localStorage.getItem('holovida_save');
@@ -115,13 +125,16 @@
      ============================================================ */
   UI.pantallaCrear = function () {
     const rng = new SW.RNG('creador' + Date.now());
-    const esp = SW.ESPECIES[0];
+    const h = UI.herencia;                 // si vienes de una vida anterior
+    const esp = h ? (SW.ESPECIES.filter(function (e) { return e.id === h.especie; })[0] || SW.ESPECIES[0]) : SW.ESPECIES[0];
+    let nombre = SW.genNombreCompleto(rng, esp.id);
+    if (h && h.apellido) nombre = nombre.split(' ')[0] + ' ' + h.apellido;
     UI.creador = {
       rng: rng,
-      nombre: SW.genNombreCompleto(rng, esp.id),
+      nombre: nombre,
       especie: esp.id,
-      era: 'rebelion',
-      mundo: rng.pick(esp.home),
+      era: h ? h.era : 'rebelion',
+      mundo: h ? h.mundo : rng.pick(esp.home),
       rasgo: 'ninguno',
       pronombre: 'él',
       semilla: '',
@@ -339,6 +352,8 @@
       rasgo: rasgo, apariencia: c.apariencia, pronombre: c.pronombre
     });
     UI.app.onchange = null;
+    // la sangre pesa: dinero, nombre, reputación y un talento heredados
+    if (UI.herencia && SW.aplicarHerencia) { SW.aplicarHerencia(UI.juego, UI.herencia); UI.herencia = null; }
     UI.renderJuego();
   };
 
@@ -378,6 +393,7 @@
       '<div class="tb-mundo"><b><i class="bioma-punto"></i>' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + '</span></div>' +
       '<div class="tb-cr"><b>' + U.cr(s.stats.creditos) + '</b><span>créditos</span></div>' +
       '<div class="tb-acc"><b>' + UI.pips(s) + '</b><span>acciones</span></div>' +
+      UI.tbAvisos(s) +
       '<div class="tb-mini">' + UI.miniBarras(s) + '</div>' +
       '<button class="btn mini tb-mapa" data-a="mapa" title="carta estelar">◎</button>' +
       '<button class="btn mini tb-menu" data-a="menu" title="menú">≡</button>' +
@@ -423,6 +439,22 @@
     UI.guardarPartida();
   };
 
+  /** avisos de la barra: guerra en curso y racha. Lo que cambia el año. */
+  UI.tbAvisos = function (s) {
+    let h = '';
+    if (SW.guerraActiva && SW.guerraActiva(s)) {
+      const w = s.guerra;
+      h += '<div class="tb-aviso guerra" title="' + U.esc(w.n) + ' · frente en ' + U.esc(w.frente) + '">' +
+        '<b>⚔ ' + U.esc(w.frente) + '</b><span>' + (SW.frenteAqui(s) ? 'estás en el frente' : 'frente') + '</span></div>';
+    }
+    const r = SW.etiquetaRacha ? SW.etiquetaRacha(s) : null;
+    if (r) h += '<div class="tb-aviso racha ' + r.c + '"><b>' + (r.c === 'buena' ? '▲' : '▼') + ' ' + r.t + '</b><span>racha</span></div>';
+    if (s.mision) h += '<div class="tb-aviso mision" title="misión de la Orden en ' + U.esc(s.mision.mundo) + '"><b>✷ misión</b><span>' + U.esc(s.mision.mundo) + '</span></div>';
+    // la barra es una rejilla con áreas con nombre: sin envoltorio, esto
+    // se colocaría solo en la primera casilla y se comería el nombre
+    return h ? '<div class="tb-avisos">' + h + '</div>' : '';
+  };
+
   UI.pips = function (s) {
     let h = '';
     for (let i = 0; i < s.accionesMax; i++) h += '<i class="pip' + (i < s.acciones ? ' on' : '') + '"></i>';
@@ -441,7 +473,9 @@
   };
 
   UI.htmlPanel = function (s) {
-    let h = '<div class="holo-mini">' + SW.retrato(s.apariencia, 116, s.especie) + '</div>';
+    // la cara envejece con el personaje
+    const ap = Object.assign({}, s.apariencia || {}, { edad: s.edadBio });
+    let h = '<div class="holo-mini">' + SW.retrato(ap, 116, s.especie) + '</div>';
 
     h += '<div class="stats">';
     [['salud', 'Salud'], ['fisico', 'Físico'], ['destreza', 'Destreza'], ['intelecto', 'Intelecto'],
@@ -500,6 +534,61 @@
         '</p></div>';
     }
 
+    /* --- hilos largos: lo que llevas abierto y lo que cerraste --- */
+    if (SW.tramasDe) {
+      const tr = SW.tramasDe(s);
+      if (tr.length) {
+        const vivas = tr.filter(function (x) { return !x.cerrada; });
+        const hechas = tr.filter(function (x) { return x.cerrada; });
+        h += '<div class="ficha tramas"><h4>Tu historia</h4>';
+        vivas.forEach(function (x) {
+          const pct = Math.round((x.etapa / Math.max(1, x.total)) * 100);
+          h += '<div class="trama viva"><b>' + x.ico + ' ' + U.esc(x.n) + '</b>' +
+            '<span class="trama-sub">' + U.esc(x.resumen) + '</span>' +
+            '<span class="trama-años">desde los ' + x.desde + '</span>' +
+            '<i style="width:' + pct + '%"></i></div>';
+        });
+        hechas.forEach(function (x) {
+          h += '<div class="trama hecha"><b>' + x.ico + ' ' + U.esc(x.n) + '</b>' +
+            '<span class="trama-sub">' + U.esc(x.final || '') + '</span>' +
+            '<span class="trama-años">' + x.desde + '–' + (x.hasta != null ? x.hasta : '?') + '</span></div>';
+        });
+        h += '</div>';
+      }
+    }
+
+    /* --- talentos --- */
+    if (SW.TALENTOS && (s.talentos || []).length) {
+      h += '<div class="ficha"><h4>Se te da bien</h4><p class="mini-lista">' +
+        s.talentos.map(function (id) {
+          const T = SW.TALENTOS.filter(function (x) { return x.id === id; })[0];
+          return '<span class="tag mini tal" title="' + U.esc(T ? T.d : '') + '">' + U.esc(T ? T.n : id) + '</span>';
+        }).join('') + '</p></div>';
+    }
+
+    /* --- cómo te ven las facciones --- */
+    if (SW.prestigioDe) {
+      const pr = SW.prestigioDe(s);
+      if (pr.length) {
+        h += '<div class="ficha facs"><h4>Quién te debe qué</h4>';
+        pr.forEach(function (f) {
+          h += '<div class="fac"><span>' + U.esc(f.n) + '</span>' +
+            '<div class="fac-barra"><i class="' + (f.v >= 0 ? 'pos' : 'neg') + '" style="width:' + Math.abs(f.v) / 2 + '%"></i></div>' +
+            '<em>' + U.esc(SW.etiquetaPrestigio(f.v)) + '</em></div>';
+        });
+        h += '</div>';
+      }
+    }
+
+    /* --- hitos --- */
+    if (s.hitos && s.hitos.length) {
+      h += '<div class="ficha hitos"><h4>Hitos (' + s.hitos.length + ')</h4>';
+      s.hitos.slice(-10).reverse().forEach(function (x) {
+        h += '<div class="hito-row"><b>' + x.edad + '</b><span>' + U.esc(x.txt) + '</span></div>';
+      });
+      h += '</div>';
+    }
+
     if (s.relaciones.length) {
       h += '<div class="ficha rels"><h4>Gente (' + s.relaciones.length + ')</h4>';
       s.relaciones.slice(-12).forEach(function (r) {
@@ -514,16 +603,33 @@
     return h;
   };
 
+  /** en qué momento de la vida estás: tiñe el log y da contexto */
+  UI.etapaVital = function (e) {
+    if (e <= 5) return { c: 'cuna', n: 'infancia' };
+    if (e <= 12) return { c: 'niñez', n: 'niñez' };
+    if (e <= 19) return { c: 'juventud', n: 'juventud' };
+    if (e <= 35) return { c: 'adulto', n: 'adulto joven' };
+    if (e <= 55) return { c: 'madurez', n: 'madurez' };
+    if (e <= 70) return { c: 'mayor', n: 'ya mayor' };
+    return { c: 'vejez', n: 'vejez' };
+  };
+
   UI.htmlConsola = function () {
     const s = UI.juego.s;
     let h = '';
     let ultimaEdad = -1;
+    let etapaPrev = null;
     s.historia.slice(-90).forEach(function (l) {
       if (l.edad !== ultimaEdad) {
-        h += '<div class="año"><span>' + (l.edad === 0 ? 'AÑO 0' : 'AÑO ' + l.edad) + '</span></div>';
+        const et = UI.etapaVital(l.edad);
+        const cambio = etapaPrev !== et.c;
+        h += '<div class="año e-' + et.c + (cambio ? ' cambio' : '') + '">' +
+          '<span>' + (l.edad === 0 ? 'AÑO 0' : 'AÑO ' + l.edad) + '</span>' +
+          (cambio ? '<em>' + et.n + '</em>' : '') + '</div>';
         ultimaEdad = l.edad;
+        etapaPrev = et.c;
       }
-      h += '<p class="l l-' + l.tipo + '">' + l.txt + '</p>';
+      h += '<p class="l l-' + l.tipo + ' e-' + UI.etapaVital(l.edad).c + '">' + l.txt + '</p>';
     });
     return h;
   };
@@ -700,7 +806,7 @@
     try {
       const arte = cont.querySelector('.vit-arte');
       const cv = (SW.tienePixel2 && SW.tienePixel2(p.sprite))
-        ? SW.pixel2(p.sprite, { escala: 5, dinamico: p.color || null })
+        ? SW.pixel2(p.sprite, { escala: 2, dinamico: p.color || null })
         : SW.pixel(p.sprite, { escala: 7, dinamico: p.color || '#c8d4e0' });
       arte.appendChild(cv);
       if (p.color) arte.style.setProperty('--halo', p.color);
@@ -721,7 +827,8 @@
     if (!inst) return;
     const mini = inst.ref && inst.ref.minijuego;
 
-    let h = '<div class="evento-overlay"><div class="evento">';
+    const esTrama = !!(inst.ref && inst.ref.esTrama);
+    let h = '<div class="evento-overlay"><div class="evento' + (esTrama ? ' de-trama' : '') + '">';
     h += '<div class="ev-texto">' + inst.texto + '</div>';
     if (mini) {
       h += UI.htmlMinijuego(inst.ref);
@@ -729,6 +836,7 @@
     h += '<div class="ev-ops">';
     inst.opciones.forEach(function (o, i) {
       h += '<button class="op' + (o.bloqueada ? ' bloq' : '') + '" data-op="' + i + '"' + (o.bloqueada ? ' disabled' : '') + '>' +
+        (i < 9 ? '<u class="op-n">' + (i + 1) + '</u>' : '') +
         '<span class="op-t">' + U.esc(o.txt) + '</span>' +
         (o.sub ? '<span class="op-s">' + U.esc(o.sub) + '</span>' : '') + '</button>';
     });
@@ -738,9 +846,93 @@
     div.innerHTML = h;
     UI.app.querySelector('.hud').appendChild(div.firstChild);
     if (mini) UI.arrancarMinijuego(inst.ref);
+    else UI.escribirTexto();
+  };
+
+  /* ------------------------------------------------------------
+     El texto se escribe solo, rápido. Un clic lo completa: nunca
+     te hace esperar, sólo hace que la escena entre mejor.
+     ------------------------------------------------------------ */
+  UI.escribirTexto = function () {
+    const cont = document.querySelector('.evento .ev-texto');
+    if (!cont || UI.sinAnimacion) return;
+    const html = cont.innerHTML;
+    const plano = cont.textContent || '';
+    if (plano.length < 24 || plano.length > 700) return;
+    UI._maquina = { activa: true, html: html, cont: cont, t: 0 };
+    cont.classList.add('escribiendo');
+    // se revela por caracteres visibles sin romper las etiquetas
+    let i = 0;
+    const total = plano.length;
+    const paso = Math.max(1, Math.round(total / 46));
+    const tick = function () {
+      const m = UI._maquina;
+      if (!m || !m.activa) return;
+      i += paso;
+      if (i >= total) { UI.completarTexto(); return; }
+      cont.style.setProperty('--rev', (i / total * 100).toFixed(2) + '%');
+      m.t = setTimeout(tick, 16);
+    };
+    cont.style.setProperty('--rev', '0%');
+    UI._maquina.t = setTimeout(tick, 16);
+  };
+
+  UI.completarTexto = function () {
+    const m = UI._maquina;
+    if (!m) return;
+    if (m.t) clearTimeout(m.t);
+    m.activa = false;
+    if (m.cont) { m.cont.classList.remove('escribiendo'); m.cont.style.removeProperty('--rev'); }
+    UI._maquina = null;
+  };
+
+  /* ============================================================
+     TECLADO
+     1-9 elige opción, Enter/Espacio avanza el año, M el mapa,
+     F la ficha, Esc cierra lo que haya abierto.
+     ============================================================ */
+  UI.bindTeclado = function () {
+    if (UI._tecladoPuesto) return;
+    UI._tecladoPuesto = true;
+    document.addEventListener('keydown', function (e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const foco = document.activeElement;
+      if (foco && /^(INPUT|TEXTAREA|SELECT)$/.test(foco.tagName)) return;
+      const g = UI.juego;
+
+      if (e.key === 'Escape') {
+        if (UI._modal) { UI.cerrarModal(); e.preventDefault(); return; }
+        // la vitrina se cierra por su botón, para que siga el flujo normal
+        const vit = document.querySelector('.vitrina-overlay [data-vit]');
+        if (vit) { vit.click(); e.preventDefault(); return; }
+        const ov = document.querySelector('.mapa-overlay, .popup-overlay');
+        if (ov) { ov.remove(); UI.pararMapa(); e.preventDefault(); return; }
+        document.body.classList.remove('panel-abierto');
+        return;
+      }
+      if (!g || document.querySelector('.pantalla')) return;
+
+      // si hay texto escribiéndose, la primera tecla lo completa
+      if (UI._maquina && UI._maquina.activa) { UI.completarTexto(); e.preventDefault(); return; }
+
+      const ops = [].slice.call(document.querySelectorAll('.evento .op:not([disabled])'));
+      if (ops.length) {
+        const n = parseInt(e.key, 10);
+        if (n >= 1 && n <= 9 && ops[n - 1]) { ops[n - 1].click(); e.preventDefault(); }
+        return;
+      }
+      if (e.key === 'Enter' || e.key === ' ') {
+        const av = document.querySelector('[data-a="avanzar"], [data-a="fin"]');
+        if (av) { av.click(); e.preventDefault(); }
+        return;
+      }
+      if (e.key === 'm' || e.key === 'M') { const b = document.querySelector('[data-a="mapa"]'); if (b) b.click(); return; }
+      if (e.key === 'f' || e.key === 'F') { document.body.classList.toggle('panel-abierto'); return; }
+    });
   };
 
   UI.bindJuego = function () {
+    UI.bindTeclado();
     UI.app.onclick = function (e) {
       const b = e.target.closest('[data-a],[data-act],[data-op]');
       if (!b || b.disabled) return;
@@ -776,10 +968,29 @@
       UI.mesaAzar(d, inst);
       return;
     }
+    const saludAntes = g.s.stats.salud;
+    const credAntes = g.s.stats.creditos;
     g.resolverEleccion(inst, i);
+    UI.reaccion(saludAntes - g.s.stats.salud, g.s.stats.creditos - credAntes);
 
     if (!g.cola.length && !g.s.muerto) g.fase = 'menu';
     UI.renderJuego();
+  };
+
+  /** Feedback físico: si te han hecho daño, la pantalla lo acusa. */
+  UI.reaccion = function (daño, dinero) {
+    if (UI.sinAnimacion) return;
+    const b = document.body;
+    if (daño >= 18) {
+      b.classList.add('golpe-fuerte');
+      setTimeout(function () { b.classList.remove('golpe-fuerte'); }, 420);
+    } else if (daño >= 6) {
+      b.classList.add('golpe');
+      setTimeout(function () { b.classList.remove('golpe'); }, 300);
+    } else if (dinero >= 20000) {
+      b.classList.add('destello-oro');
+      setTimeout(function () { b.classList.remove('destello-oro'); }, 500);
+    }
   };
 
   /** Enseña la tirada y solo después aplica el resultado. */
@@ -987,6 +1198,8 @@
       '<button class="btn" data-m="seguir">▸ Seguir jugando</button>' +
       '<button class="btn" data-m="resumen">▸ Ver ficha completa</button>' +
       '<button class="btn" data-m="guardar">▸ Guardar partida</button>' +
+      '<button class="btn" data-m="crt">▸ Filtro de pantalla: ' + (localStorage.getItem('holovida_crt') === 'no' ? 'apagado' : 'encendido') + '</button>' +
+      '<button class="btn" data-m="anim">▸ Animaciones: ' + (UI.sinAnimacion ? 'apagadas' : 'encendidas') + '</button>' +
       '<button class="btn peligro" data-m="nueva">▸ Abandonar y empezar de cero</button>' +
       '</div>', null,
       function (root) {
@@ -998,6 +1211,16 @@
           if (m === 'resumen') UI.modal('FICHA', SW.tarjetaResumen(SW.construirResumen(UI.juego.s)), function () { UI.renderJuego(); });
           else if (m === 'guardar') { UI.guardarPartida(); UI.flash('Partida guardada.'); UI.renderJuego(); }
           else if (m === 'nueva') { localStorage.removeItem('holovida_save'); UI.pantallaInicio(); }
+          else if (m === 'crt') {
+            const apagado = localStorage.getItem('holovida_crt') === 'no';
+            localStorage.setItem('holovida_crt', apagado ? 'si' : 'no');
+            UI.aplicarPreferencias(); UI.renderJuego();
+          }
+          else if (m === 'anim') {
+            UI.sinAnimacion = !UI.sinAnimacion;
+            localStorage.setItem('holovida_anim', UI.sinAnimacion ? 'no' : 'si');
+            UI.renderJuego();
+          }
           else UI.renderJuego();
         };
       });
@@ -1017,10 +1240,29 @@
     h += '<div class="fin-cab"><h2>' + (s.muerto ? 'FIN DE TRANSMISIÓN' : 'INFORME DE VIDA') + '</h2>' +
       '<p class="epitafio">' + U.esc(epi) + '</p></div>';
     h += SW.tarjetaResumen(d);
+
+    /* --- lo que dejaste a medias y lo que cerraste --- */
+    if (SW.tramasDe) {
+      const tr = SW.tramasDe(s);
+      if (tr.length) {
+        h += '<div class="fin-tramas"><h3>TUS HISTORIAS</h3>';
+        tr.forEach(function (x) {
+          const dur = (x.hasta != null ? x.hasta : s.edad) - x.desde;
+          h += '<div class="fin-trama ' + (x.cerrada ? 'ok' : 'abierta') + '">' +
+            '<b>' + x.ico + ' ' + U.esc(x.n) + '</b>' +
+            '<span>' + (x.cerrada ? U.esc(x.final) : 'quedó abierta') + '</span>' +
+            '<em>' + dur + ' años</em></div>';
+        });
+        h += '</div>';
+      }
+    }
+
+    const puede = SW.puedeHeredar && SW.puedeHeredar(s);
     h += '<div class="fin-acciones">' +
       '<button class="btn grande" data-a="link">⧉ COPIAR ENLACE PARA COMPARTIR</button>' +
       '<button class="btn" data-a="texto">⧉ COPIAR RESUMEN EN TEXTO</button>' +
       '<button class="btn" data-a="descargar">⭳ DESCARGAR TARJETA</button>' +
+      (puede ? '<button class="btn legado" data-a="heredero">⚘ SEGUIR CON SU DESCENDIENTE</button>' : '') +
       '<button class="btn fantasma" data-a="otra">▸ OTRA VIDA</button></div>';
     h += '<div id="zona-link" class="zona-link"></div></div></div>';
     UI.app.innerHTML = h;
@@ -1042,6 +1284,11 @@
         $('#zona-link').innerHTML = '<p class="ok">Resumen copiado al portapapeles.</p><pre class="txt-resumen">' + U.esc(SW.resumenTexto(s)) + '</pre>';
       }
       if (a === 'descargar') UI.descargarTarjeta(s);
+      if (a === 'heredero') {
+        UI.herencia = SW.herenciaDe(s);
+        localStorage.removeItem('holovida_save');
+        UI.pantallaCrear();
+      }
     };
   };
 

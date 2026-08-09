@@ -103,7 +103,10 @@
       acciones: 3,            // acciones por año
       accionesMax: 3,
       historia: [],
-      hitos: []
+      hitos: [],
+      tramas: {},             // hilos largos que cruzan la vida entera
+      racha: 0,               // buenas o malas seguidas: da suerte o te la quita
+      talentos: []            // lo que has ido eligiendo aprender
     };
 
     // el dinero de la familia es inmediato; el resto es potencial
@@ -349,6 +352,11 @@
     return inst;
   };
 
+  /** suerte real: la de la ficha más lo que arrastra la racha */
+  Game.prototype.suerte = function () {
+    return U.clamp(this.s.stats.suerte + (SW.efectoRacha ? SW.efectoRacha(this.s) : 0), 0, 100);
+  };
+
   /* ---------------- Ciclo anual ---------------- */
   Game.prototype.avanzarAño = function () {
     const s = this.s;
@@ -415,6 +423,24 @@
       if (ev.hazlo) { const g = ev.hazlo(this); if (g) { inst = this.prepararGen(g); this.marcarVisto(ev.id); } }
       else inst = this.prepararEvento(ev);
       if (inst) this.cola.push(inst);
+    }
+
+    // cada tantos años eliges en qué te has convertido
+    if (SW.tocaTalento && SW.tocaTalento(s) && SW.menuTalento && !this.cola.length) {
+      const mt = SW.menuTalento(this);
+      if (mt) this.cola.push(this.prepararGen(mt));
+    }
+
+    // el mundo sigue girando aunque no te toque
+    if (SW.titularDeEra && this.rng.chance(0.22)) {
+      const tit = SW.titularDeEra(this.rng, s.era);
+      if (tit) this.log('<i class="titular">' + tit + '</i>', 'res');
+    }
+
+    // los hilos largos: lo que decidiste hace veinte años vuelve
+    if (SW.pasoTramas && !this.cola.length) {
+      const tr = SW.pasoTramas(this);
+      if (tr) this.cola.push(this.prepararGen(tr));
     }
 
     // una misión de la Orden sin cerrar te persigue igual que un contrato
@@ -654,6 +680,17 @@
       partes.push('<i class="fx ' + (v > 0 ? 'fx-mas' : 'fx-menos') + '">' + txt + '</i>');
     });
     if (partes.length) this.log(partes.join(' '), 'efectos');
+
+    // rachas: el balance de lo que acaba de pasar
+    if (SW.marcarRacha) {
+      let bal = 0;
+      Object.keys(c).forEach(function (k) {
+        if (k === 'creditos') { bal += c[k] > 0 ? 1 : c[k] < 0 ? -1 : 0; return; }
+        if (k === 'notoriedad') return;
+        bal += c[k] > 0 ? 1 : c[k] < 0 ? -1 : 0;
+      });
+      if (bal !== 0) SW.marcarRacha(this, bal > 0);
+    }
   };
 
   Game.prototype.despertar = function () {
@@ -734,6 +771,15 @@
     if (d.pendiente) this.añadirPendiente(U.fill(d.pendiente, slots));
     if (d.buscado) { s.buscado = Math.min(100, s.buscado + d.buscado); this.log('Hay gente buscándote en ' + s.mundo + '.', 'mal'); }
     if (d.darItem) this.darObjeto(d.darItem);
+    // lo que te vas haciendo
+    if (d.talento && SW.darTalento) SW.darTalento(this, d.talento);
+    if (d.hab && s.habilidades.indexOf(d.hab) < 0) s.habilidades.push(d.hab);
+
+    // hilos largos
+    if (d.abreTrama && SW.abrirTrama) SW.abrirTrama(this, d.abreTrama);
+    if (d.tramaAvanza && SW.avanzarTrama) SW.avanzarTrama(this, d.tramaAvanza.id, d.tramaAvanza.a, d.tramaAvanza.datos);
+    if (d.tramaCierra && SW.cerrarTrama) SW.cerrarTrama(this, d.tramaCierra.id, d.tramaCierra.final);
+
     // misiones de la Orden
     if (d.aceptaMision && SW.aceptarMision) SW.aceptarMision(this, d.aceptaMision);
     if (d.pista && s.mision) s.mision.pistas = (s.mision.pistas || 0) + d.pista;
@@ -1493,6 +1539,9 @@
       ? SW.mundoAleatorioNormal(rng, s.mundo)
       : rng.pick(SW.MUNDO_NOMBRES.filter(function (m) { return m !== s.mundo; })));
     if (d === s.mundo) { this.log('Te quedas en ' + s.mundo + '.', 'viaje'); return; }
+    // un destino que no existe en la tabla dejaría el mundo en un
+    // nombre inventado y todos los textos saldrían con el hueco sin rellenar
+    if (!SW.mundo(d)) { this.log('No hay forma de llegar allí.', 'mal'); return; }
     const m = SW.mundo(d);
     const anterior = s.mundo;
     s.mundo = d;

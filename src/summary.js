@@ -112,6 +112,15 @@
       esp: s.especie,
       ct: s.contadores,
       ra: s.rasgoN,
+      // los hilos largos son la mitad de la gracia de una vida: van al enlace
+      tm: (SW.tramasDe ? SW.tramasDe(s) : []).map(function (x) {
+        return [x.ico + ' ' + x.n, x.cerrada ? x.final : 'quedó abierta',
+                x.desde, x.hasta == null ? s.edad : x.hasta, x.cerrada ? 1 : 0];
+      }),
+      tl: (s.talentos || []).map(function (id) {
+        const T = (SW.TALENTOS || []).filter(function (x) { return x.id === id; })[0];
+        return T ? T.n : id;
+      }),
       sem: s.semilla
     };
   };
@@ -146,6 +155,14 @@
     if (s.conocidos && s.conocidos.length) L.push('║ Se cruzó con: ' + s.conocidos.join(', '));
     if (s.nave) L.push('║ Nave: ' + (s.naveNombre || s.nave.n));
     L.push('║ Mundos visitados: ' + s.contadores.mundosVisitados);
+    const tms = SW.tramasDe ? SW.tramasDe(s) : [];
+    if (tms.length) {
+      L.push('╠══ SUS HISTORIAS ═════════════');
+      tms.forEach(function (x) {
+        L.push('║ ' + x.n + ' (' + x.desde + '–' + (x.hasta == null ? s.edad : x.hasta) + '): ' +
+               (x.cerrada ? x.final : 'quedó abierta'));
+      });
+    }
     L.push('╠══ MOMENTOS ══════════════════');
     s.hitos.slice(-8).forEach(function (h) { L.push('║ ' + h.edad + ' — ' + h.txt); });
     L.push('╚══════════════════════════════');
@@ -202,6 +219,21 @@
     if (d.ct && d.ct.derribos) h += '<span class="tag">' + d.ct.derribos + ' derribos</span>';
     if (d.ct && d.ct.cazas) h += '<span class="tag">' + d.ct.cazas + ' contratos</span>';
     h += '</div>';
+
+    if (d.tm && d.tm.length) {
+      h += '<div class="cv-seccion"><h3>Sus historias</h3><div class="cv-tramas">';
+      d.tm.forEach(function (x) {
+        h += '<div class="cv-trama ' + (x[4] ? 'ok' : 'abierta') + '">' +
+          '<b>' + U.esc(x[0]) + '</b>' +
+          '<span>' + U.esc(x[1]) + '</span>' +
+          '<em>' + x[2] + '–' + x[3] + '</em></div>';
+      });
+      h += '</div></div>';
+    }
+
+    if (d.tl && d.tl.length) {
+      h += '<div class="cv-seccion"><h3>Se le daba bien</h3><p>' + d.tl.map(U.esc).join(' · ') + '</p></div>';
+    }
 
     if (d.he && d.he.length) {
       h += '<div class="cv-seccion"><h3>Heridas sin cerrar</h3><p class="cv-heridas">' + d.he.map(U.esc).join(' · ') + '</p></div>';

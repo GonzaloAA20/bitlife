@@ -819,11 +819,56 @@
     return c;
   }
 
+  /* ============================================================
+     LA CARA ENVEJECE
+     Antes tenías la misma cara con 8 que con 80. Ahora el pelo
+     encanece, salen líneas y las mejillas se hunden.
+     ============================================================ */
+  function canas(color, edad) {
+    if (!color || edad < 42) return color;
+    const t = Math.min(0.9, (edad - 42) / 44);
+    return mezcla(color, '#c8ccd2', t);
+  }
+
+  function envejecer(lz, edad) {
+    if (edad < 38) return;
+    const t = Math.min(1, (edad - 38) / 45);
+    const marca = function (x, y, f) {
+      const c = lz.get(x, y);
+      if (c) lz.set(x, y, mezcla(c, '#2a1c18', f));
+    };
+    // patas de gallo
+    const n = Math.round(1 + t * 3);
+    for (let i = 0; i < n; i++) {
+      marca(20 - i, 26 + i, 0.20 + t * 0.20);
+      marca(44 + i, 26 + i, 0.20 + t * 0.20);
+    }
+    // surcos nasogenianos
+    if (t > 0.25) for (let i = 0; i < Math.round(2 + t * 4); i++) {
+      marca(26 - Math.round(i / 3), 32 + i, 0.16 + t * 0.18);
+      marca(38 + Math.round(i / 3), 32 + i, 0.16 + t * 0.18);
+    }
+    // frente
+    if (t > 0.45) for (let x = 24; x < 41; x++) {
+      marca(x, 17, 0.14 + t * 0.14);
+      if (t > 0.7) marca(x, 20, 0.12 + t * 0.12);
+    }
+    // mejillas hundidas y ojeras
+    if (t > 0.55) for (let x = 23; x < 42; x++) marca(x, 30, 0.10 + t * 0.12);
+    if (t > 0.3) { for (let x = 20; x < 27; x++) marca(x, 28, 0.14); for (let x = 38; x < 45; x++) marca(x, 28, 0.14); }
+  }
+
   /** devuelve un <img> con el retrato dentro, listo para innerHTML */
   SW.retratoPixel = function (ap, tam, especie) {
     const t = tam || 160;
     const escala = Math.max(2, Math.round(t / N));
-    const lz = dibujar(ap || {}, especie || (ap && ap.especie) || 'humano');
+    const edad = (ap && ap.edad) || 0;
+    let apn = ap || {};
+    if (edad >= 42 && apn.pelo && apn.pelo !== 'ninguno') {
+      apn = Object.assign({}, apn, { pelo: canas(apn.pelo, edad) });
+    }
+    const lz = dibujar(apn, especie || (ap && ap.especie) || 'humano');
+    envejecer(lz, edad);
     const c = aCanvas(lz, escala);
     return '<img class="retrato" width="' + t + '" height="' + t + '" alt="" ' +
            'style="image-rendering:pixelated;image-rendering:crisp-edges;display:block" src="' +

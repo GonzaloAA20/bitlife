@@ -782,11 +782,12 @@ body.en-juego::before {
    ============================================================ */
 .topbar {
   display: grid;
-  grid-template-areas: "ficha id edad mundo cr acc mini mapa menu";
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto auto auto auto;
+  grid-template-areas: "ficha id edad mundo cr acc avisos mini mapa menu";
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto auto auto auto auto;
   gap: 0 14px;
   align-items: center;
 }
+.topbar > .tb-avisos { grid-area: avisos; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
 .tb-ficha { grid-area: ficha; }
 .tb-id    { grid-area: id; min-width: 0; }
 .tb-edad  { grid-area: edad; }
@@ -805,8 +806,9 @@ body.en-juego::before {
 @media (max-width: 900px) {
   .topbar {
     grid-template-areas:
-      "ficha id    id   mapa menu"
-      "edad  mundo cr   acc  acc";
+      "ficha id     id     mapa   menu"
+      "edad  mundo  cr     acc    acc"
+      "avisos avisos avisos avisos avisos";
     grid-template-columns: auto minmax(0, 1fr) auto auto auto;
     gap: 2px 10px;
     padding: 7px 10px;
@@ -903,6 +905,171 @@ body.en-juego::before {
 
 /* quién es quién, dentro del texto de una decisión */
 .quien { font-style: normal; font-size: 11px; color: var(--txt-dim); letter-spacing: .02em; }
+
+/* ============================================================
+   MEJORAS: tramas, avisos, etapas de vida, teclado y acabado
+   ============================================================ */
+
+/* --- avisos de la barra superior --- */
+.tb-aviso {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 0 10px; border-left: 1px solid var(--linea); min-width: 0;
+}
+.tb-aviso b { font-size: 11.5px; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-aviso span { font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--txt-dim); }
+.tb-aviso.guerra b { color: var(--rojo); }
+.tb-aviso.racha.buena b { color: var(--verde); }
+.tb-aviso.racha.mala b { color: var(--ambar); }
+.tb-aviso.mision b { color: var(--cian); }
+
+/* --- hilos largos en la ficha --- */
+.ficha.tramas .trama {
+  position: relative; padding: 6px 8px 8px; margin-bottom: 5px;
+  border: 1px solid var(--linea); background: rgba(255,255,255,.015);
+}
+.ficha.tramas .trama b { display: block; font-size: 11.5px; color: var(--txt); }
+.trama-sub { display: block; font-size: 10px; color: var(--txt-dim); line-height: 1.35; margin-top: 2px; }
+.trama-años { display: block; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #5a6470; margin-top: 3px; }
+.ficha.tramas .trama i {
+  position: absolute; left: 0; bottom: 0; height: 2px; background: var(--cian); opacity: .55;
+}
+.ficha.tramas .trama.hecha { opacity: .62; border-style: dashed; }
+.ficha.tramas .trama.hecha b { color: var(--txt-dim); }
+
+/* --- prestigio por facción --- */
+.facs .fac { display: grid; grid-template-columns: 1fr 54px; gap: 4px 8px; align-items: center; margin-bottom: 5px; }
+.facs .fac span { font-size: 11px; color: var(--txt); }
+.facs .fac em { grid-column: 1 / -1; font-size: 9px; color: var(--txt-dim); font-style: normal; letter-spacing: .06em; }
+.fac-barra { position: relative; height: 4px; background: #171b21; overflow: hidden; }
+.fac-barra i { position: absolute; top: 0; bottom: 0; left: 50%; }
+.fac-barra i.pos { background: var(--verde); }
+.fac-barra i.neg { background: var(--rojo); transform: translateX(-100%); }
+
+/* --- hitos --- */
+.hitos .hito-row { display: grid; grid-template-columns: 26px 1fr; gap: 6px; font-size: 10.5px; padding: 2px 0; }
+.hitos .hito-row b { color: var(--ambar); font-size: 10px; text-align: right; }
+.hitos .hito-row span { color: var(--txt-dim); line-height: 1.35; }
+
+.tag.mini.tal { border-color: #4a6a52; color: #9fd8b0; }
+
+/* --- separadores de año con etapa vital --- */
+.año { display: flex; align-items: center; gap: 8px; }
+.año em {
+  font-style: normal; font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--txt-dim); border: 1px solid var(--linea); padding: 1px 6px;
+}
+.año.cambio span { color: var(--ambar); }
+.l.e-cuna     { border-left: 2px solid rgba(122,200,255,.22); padding-left: 8px; }
+.l.e-niñez    { border-left: 2px solid rgba(122,255,190,.18); padding-left: 8px; }
+.l.e-juventud { border-left: 2px solid rgba(190,255,122,.16); padding-left: 8px; }
+.l.e-adulto   { border-left: 2px solid rgba(255,214,122,.14); padding-left: 8px; }
+.l.e-madurez  { border-left: 2px solid rgba(255,168,122,.14); padding-left: 8px; }
+.l.e-mayor    { border-left: 2px solid rgba(200,150,190,.16); padding-left: 8px; }
+.l.e-vejez    { border-left: 2px solid rgba(160,160,180,.20); padding-left: 8px; }
+
+.titular { color: #7f8a97; font-style: italic; }
+.trama-abre  { color: var(--cian); font-style: normal; letter-spacing: .04em; }
+.trama-cierra { color: var(--ambar); font-style: normal; }
+
+/* --- escenas de trama: se distinguen de un vistazo --- */
+.trama-tag {
+  display: inline-block; font-family: var(--disp); font-size: 9.5px; letter-spacing: .18em;
+  color: #0b0e13; background: var(--cian); padding: 2px 8px; margin-bottom: 10px;
+}
+.evento.de-trama { border-color: rgba(58,214,255,.4); box-shadow: 0 0 0 1px rgba(58,214,255,.12), 0 22px 60px rgba(0,0,0,.6); }
+
+/* --- número de atajo en las opciones --- */
+.op { position: relative; }
+.op-n {
+  position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+  font-family: var(--disp); font-size: 10px; color: #5a6470; text-decoration: none;
+  border: 1px solid var(--linea); width: 16px; height: 16px; line-height: 14px; text-align: center;
+}
+.op:hover .op-n { color: var(--cian); border-color: var(--cian); }
+.op .op-t, .op .op-s { padding-left: 20px; display: block; }
+@media (max-width: 560px) { .op-n { display: none; } .op .op-t, .op .op-s { padding-left: 0; } }
+
+/* --- el texto del evento se materializa de arriba abajo --- */
+.ev-texto.escribiendo {
+  -webkit-mask-image: linear-gradient(180deg, #000 var(--rev, 0%), rgba(0,0,0,.25) calc(var(--rev, 0%) + 8%), transparent calc(var(--rev, 0%) + 16%));
+  mask-image: linear-gradient(180deg, #000 var(--rev, 0%), rgba(0,0,0,.25) calc(var(--rev, 0%) + 8%), transparent calc(var(--rev, 0%) + 16%));
+}
+body.sin-anim .ev-texto.escribiendo { -webkit-mask-image: none; mask-image: none; }
+
+/* --- la pantalla acusa los golpes --- */
+@keyframes sacudida {
+  0%,100% { transform: translate(0,0); }
+  20% { transform: translate(-3px, 2px); }
+  40% { transform: translate(3px, -2px); }
+  60% { transform: translate(-2px, -1px); }
+  80% { transform: translate(2px, 1px); }
+}
+body.golpe #app { animation: sacudida .3s steps(2) 1; }
+body.golpe-fuerte #app { animation: sacudida .42s steps(2) 2; }
+body.golpe::after, body.golpe-fuerte::after, body.destello-oro::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 900;
+}
+body.golpe::after { background: radial-gradient(ellipse at center, transparent 45%, rgba(255,60,60,.22) 100%); }
+body.golpe-fuerte::after { background: radial-gradient(ellipse at center, transparent 30%, rgba(255,40,40,.4) 100%); }
+body.destello-oro::after { background: radial-gradient(ellipse at center, rgba(255,214,120,.16) 0%, transparent 60%); }
+body.sin-anim.golpe #app, body.sin-anim.golpe-fuerte #app { animation: none; }
+
+/* --- filtro de pantalla retro, apagable ---
+   OJO: body::before es la escena del planeta y body::after son las
+   líneas de barrido, así que el viñeteado va en #app::after. */
+#app::after {
+  content: ''; position: fixed; inset: 0; z-index: 800; pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.45) 100%),
+    linear-gradient(180deg, rgba(58,214,255,.03), transparent 30%);
+}
+body.sin-crt #app::after { display: none; }
+body.sin-crt::after { display: none; }
+
+/* --- historias en la pantalla final --- */
+.fin-tramas { margin: 18px 0 6px; }
+.fin-tramas h3 { font-family: var(--disp); font-size: 12px; letter-spacing: .2em; color: var(--txt-dim); margin: 0 0 8px; }
+.fin-trama {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 12px;
+  border-left: 2px solid var(--linea); padding: 6px 10px; margin-bottom: 6px;
+  background: rgba(255,255,255,.015);
+}
+.fin-trama b { grid-column: 1; font-size: 12.5px; }
+.fin-trama span { grid-column: 1; font-size: 11px; color: var(--txt-dim); }
+.fin-trama em { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; font-size: 10px; letter-spacing: .08em; color: #5a6470; }
+.fin-trama.ok { border-left-color: var(--verde); }
+.fin-trama.abierta { border-left-color: var(--ambar); }
+.fin-trama.abierta span { color: var(--ambar); }
+
+.btn.legado { border-color: #5a6a44; color: #c8e0a0; }
+
+/* el sprite del escaparate es de 96px: se muestra a escala entera */
+.vitrina-overlay .sprite { max-width: 100%; height: auto; }
+
+/* los avisos de la barra, en móvil, van en su propia fila, en horizontal
+   y en una sola línea: si no, la barra crece y se come la pantalla */
+@media (max-width: 900px) {
+  .topbar > .tb-avisos {
+    flex-direction: row; overflow-x: auto; scrollbar-width: none; gap: 0;
+  }
+  .topbar > .tb-avisos::-webkit-scrollbar { display: none; }
+  .tb-aviso { flex-direction: row; align-items: baseline; gap: 5px; padding: 0 8px; white-space: nowrap; }
+  .tb-aviso span { font-size: 7.5px; }
+  .tb-aviso:first-child { border-left: 0; padding-left: 0; }
+}
+
+/* historias en la tarjeta compartible */
+.cv-tramas { display: grid; gap: 5px; }
+.cv-trama {
+  display: grid; grid-template-columns: 1fr auto; gap: 1px 10px;
+  border-left: 2px solid var(--linea); padding: 5px 9px; background: rgba(255,255,255,.015);
+}
+.cv-trama b { grid-column: 1; font-size: 12px; }
+.cv-trama span { grid-column: 1; font-size: 10.5px; color: var(--txt-dim); }
+.cv-trama em { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; font-size: 9.5px; color: #5a6470; }
+.cv-trama.ok { border-left-color: var(--verde); }
+.cv-trama.abierta { border-left-color: var(--ambar); }
+.cv-trama.abierta span { color: var(--ambar); }
 
 </style>
 </head>
@@ -2510,63 +2677,175 @@ body.en-juego::before {
   'use strict';
   const SW = (global.SW = global.SW || {});
 
-  const N = 48;   // lienzo lógico
+  /* El lienzo real pasa de 48 a 96 píxeles de lado: cuatro veces más
+     puntos. Los sprites se siguen dibujando en coordenadas de 48
+     (U = 2 píxeles reales por unidad lógica), así que la silueta y la
+     estética no cambian; lo que cambia es que las curvas, los
+     degradados y los detalles finos se calculan a resolución real.
+     Encima pasa una tubería de acabado: oclusión en los recodos, luz
+     de canto arriba-izquierda, brillo especular y grano por material. */
+  const N = 96;   // lienzo real
+  const U = 2;    // píxeles reales por unidad lógica
+
+  /* Bayer 4x4 para degradar sin bandas ni antialias */
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  function trama(x, y) { return BAYER[(y & 3) * 4 + (x & 3)] / 16; }
 
   /* ---------- mini motor de dibujo por píxel ---------- */
-  function Lienzo(n) {
+  function Lienzo(n, u) {
     this.n = n || N;
+    this.u = u == null ? U : u;
     this.px = new Array(this.n * this.n).fill(null);
   }
-  Lienzo.prototype.set = function (x, y, c) {
+  /** píxel real, sin escalar */
+  Lienzo.prototype.p1 = function (x, y, c) {
     x = Math.round(x); y = Math.round(y);
     if (x < 0 || y < 0 || x >= this.n || y >= this.n || !c) return;
     this.px[y * this.n + x] = c;
   };
-  Lienzo.prototype.get = function (x, y) {
+  Lienzo.prototype.g1 = function (x, y) {
     if (x < 0 || y < 0 || x >= this.n || y >= this.n) return null;
     return this.px[y * this.n + x];
   };
+  /** píxel lógico: rellena un bloque de u×u */
+  Lienzo.prototype.set = function (x, y, c) {
+    const u = this.u;
+    const bx = Math.round(x) * u, by = Math.round(y) * u;
+    for (let j = 0; j < u; j++) for (let i = 0; i < u; i++) this.p1(bx + i, by + j, c);
+  };
+  Lienzo.prototype.get = function (x, y) { return this.g1(Math.round(x) * this.u, Math.round(y) * this.u); };
   Lienzo.prototype.rect = function (x, y, w, h, c) {
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.set(x + i, y + j, c);
   };
-  /** rectángulo con volumen: luz arriba-izquierda, sombra abajo-derecha */
+  /** rectángulo con volumen: luz arriba-izquierda, sombra abajo-derecha.
+      El canto se pinta a resolución real: media unidad, no una entera. */
   Lienzo.prototype.bloque = function (x, y, w, h, pal) {
     this.rect(x, y, w, h, pal[1]);
-    for (let i = 0; i < w; i++) { this.set(x + i, y, pal[0]); this.set(x + i, y + h - 1, pal[3] || pal[2]); }
-    for (let j = 0; j < h; j++) { this.set(x, y + j, pal[0]); this.set(x + w - 1, y + j, pal[2]); }
-    this.set(x, y, pal[0]); this.set(x + w - 1, y + h - 1, pal[3] || pal[2]);
-  };
-  /** cilindro vertical: degradado horizontal de tonos */
-  Lienzo.prototype.cilindro = function (x, y, w, h, pal) {
-    for (let i = 0; i < w; i++) {
-      const t = i / (w - 1);
-      const idx = t < 0.18 ? 0 : t < 0.45 ? 1 : t < 0.75 ? 2 : 3;
-      for (let j = 0; j < h; j++) this.set(x + i, y + j, pal[Math.min(idx, pal.length - 1)]);
+    const u = this.u, X = x * u, Y = y * u, W = w * u, H = h * u;
+    for (let i = 0; i < W; i++) {
+      this.p1(X + i, Y, pal[0]);
+      this.p1(X + i, Y + H - 1, pal[3] || pal[2]);
+      this.p1(X + i, Y + H - 2, pal[2]);
+    }
+    for (let j = 0; j < H; j++) {
+      this.p1(X, Y + j, pal[0]);
+      this.p1(X + W - 1, Y + j, pal[3] || pal[2]);
+      this.p1(X + W - 2, Y + j, pal[2]);
     }
   };
+  /** cilindro vertical con degradado tramado: ya no son cuatro franjas */
+  Lienzo.prototype.cilindro = function (x, y, w, h, pal) {
+    const u = this.u, X = x * u, Y = y * u, W = w * u, H = h * u;
+    for (let i = 0; i < W; i++) {
+      const t = W > 1 ? i / (W - 1) : 0;
+      // curva de iluminación de un cilindro: brillo cerca del 25%
+      const lum = 1 - Math.abs(t - 0.26) * 1.75;
+      const f = (1 - lum) * (pal.length - 1);
+      const lo = Math.max(0, Math.min(pal.length - 1, Math.floor(f)));
+      const hi = Math.min(pal.length - 1, lo + 1);
+      const frac = f - lo;
+      for (let j = 0; j < H; j++) {
+        this.p1(X + i, Y + j, trama(X + i, Y + j) < frac ? pal[hi] : pal[lo]);
+      }
+    }
+  };
+  /** elipse calculada en píxeles reales: bordes mucho más limpios */
   Lienzo.prototype.elipse = function (cx, cy, rx, ry, c) {
-    for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++)
-      for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
-        const dx = (x - cx) / rx, dy = (y - cy) / ry;
-        if (dx * dx + dy * dy <= 1) this.set(x, y, c);
+    const u = this.u, CX = cx * u + (u - 1) / 2, CY = cy * u + (u - 1) / 2, RX = rx * u, RY = ry * u;
+    for (let y = Math.floor(CY - RY); y <= Math.ceil(CY + RY); y++)
+      for (let x = Math.floor(CX - RX); x <= Math.ceil(CX + RX); x++) {
+        const dx = (x - CX) / RX, dy = (y - CY) / RY;
+        if (dx * dx + dy * dy <= 1) this.p1(x, y, c);
+      }
+  };
+  /** anillo de un píxel real: sirve para lentes, juntas y visores */
+  Lienzo.prototype.anillo = function (cx, cy, rx, ry, c, gr) {
+    const u = this.u, CX = cx * u + (u - 1) / 2, CY = cy * u + (u - 1) / 2, RX = rx * u, RY = ry * u;
+    const g = (gr || 1);
+    for (let y = Math.floor(CY - RY) - 1; y <= Math.ceil(CY + RY) + 1; y++)
+      for (let x = Math.floor(CX - RX) - 1; x <= Math.ceil(CX + RX) + 1; x++) {
+        const d = Math.sqrt(Math.pow((x - CX) / RX, 2) + Math.pow((y - CY) / RY, 2));
+        if (d <= 1 && d > 1 - g / Math.min(RX, RY)) this.p1(x, y, c);
       }
   };
   Lienzo.prototype.linea = function (x0, y0, x1, y1, c, gr) {
-    const pasos = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 2 + 1;
+    const u = this.u;
+    const X0 = x0 * u, Y0 = y0 * u, X1 = x1 * u, Y1 = y1 * u;
+    const pasos = Math.round(Math.max(Math.abs(X1 - X0), Math.abs(Y1 - Y0))) + 1;
+    const g = (gr || 1) * u;
     for (let i = 0; i <= pasos; i++) {
       const t = i / pasos;
-      const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
-      const g = gr || 1;
-      for (let a = 0; a < g; a++) for (let b = 0; b < g; b++) this.set(x + a, y + b, c);
+      const x = Math.round(X0 + (X1 - X0) * t), y = Math.round(Y0 + (Y1 - Y0) * t);
+      for (let a = 0; a < g; a++) for (let b = 0; b < g; b++) this.p1(x + a, y + b, c);
     }
   };
-  /** contorno oscuro alrededor de todo lo dibujado */
+  /** degradado vertical tramado dentro de un rectángulo lógico */
+  Lienzo.prototype.gradV = function (x, y, w, h, pal) {
+    const u = this.u, X = x * u, Y = y * u, W = w * u, H = h * u;
+    for (let j = 0; j < H; j++) {
+      const f = (j / Math.max(1, H - 1)) * (pal.length - 1);
+      const lo = Math.max(0, Math.min(pal.length - 1, Math.floor(f)));
+      const hi = Math.min(pal.length - 1, lo + 1);
+      const frac = f - lo;
+      for (let i = 0; i < W; i++) this.p1(X + i, Y + j, trama(X + i, Y + j) < frac ? pal[hi] : pal[lo]);
+    }
+  };
+  /** Grano fino: no pinta encima, mezcla un poco. Es la diferencia
+      entre metal usado y una superficie llena de puntos sueltos. */
+  Lienzo.prototype.grano = function (c, dens) {
+    const d = dens == null ? 0.05 : dens;
+    const mz = SW.mezclaColor;
+    for (let y = 0; y < this.n; y++) for (let x = 0; x < this.n; x++) {
+      const base = this.g1(x, y);
+      if (!base) continue;
+      let h = (x * 374761393 + y * 668265263) | 0;
+      h = (h ^ (h >>> 13)) * 1274126177 | 0;
+      h = (h ^ (h >>> 16)) >>> 0;
+      const r = (h % 1000) / 1000;
+      if (r >= d) continue;
+      // intensidad variable: unos puntos casi no se ven
+      const fuerza = 0.12 + (r / d) * 0.22;
+      this.p1(x, y, mz ? mz(base, c, fuerza) : base);
+    }
+  };
+  /** remaches: puntos de un píxel real repartidos por una línea */
+  Lienzo.prototype.remaches = function (x, y, w, paso, cLuz, cSom) {
+    const u = this.u, X = x * u, Y = y * u, W = w * u;
+    for (let i = 0; i < W; i += paso) {
+      this.p1(X + i, Y, cLuz);
+      this.p1(X + i, Y + 1, cSom);
+    }
+  };
+  /** oclusión: oscurece el píxel real pegado al borde interior */
+  Lienzo.prototype.oclusion = function (fuerza) {
+    const f = fuerza == null ? 0.30 : fuerza;
+    const copia = this.px.slice();
+    const at = (x, y) => (x < 0 || y < 0 || x >= this.n || y >= this.n) ? null : copia[y * this.n + x];
+    for (let y = 0; y < this.n; y++) for (let x = 0; x < this.n; x++) {
+      const c = at(x, y);
+      if (!c) continue;
+      // vacío abajo o a la derecha = canto en sombra
+      if (!at(x + 1, y) || !at(x, y + 1)) this.p1(x, y, SW.mezclaColor ? SW.mezclaColor(c, '#05070c', f) : c);
+    }
+  };
+  /** luz de canto: aclara el píxel real pegado al borde superior-izquierdo */
+  Lienzo.prototype.luzCanto = function (fuerza) {
+    const f = fuerza == null ? 0.26 : fuerza;
+    const copia = this.px.slice();
+    const at = (x, y) => (x < 0 || y < 0 || x >= this.n || y >= this.n) ? null : copia[y * this.n + x];
+    for (let y = 0; y < this.n; y++) for (let x = 0; x < this.n; x++) {
+      const c = at(x, y);
+      if (!c) continue;
+      if (!at(x - 1, y) || !at(x, y - 1)) this.p1(x, y, SW.mezclaColor ? SW.mezclaColor(c, '#eaf4ff', f) : c);
+    }
+  };
+  /** contorno oscuro alrededor de todo lo dibujado (píxeles reales) */
   Lienzo.prototype.contorno = function (c) {
     const copia = this.px.slice();
     const at = (x, y) => (x < 0 || y < 0 || x >= this.n || y >= this.n) ? null : copia[y * this.n + x];
     for (let y = 0; y < this.n; y++) for (let x = 0; x < this.n; x++) {
       if (at(x, y)) continue;
-      if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) this.set(x, y, c);
+      if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) this.p1(x, y, c);
     }
   };
 
@@ -3159,11 +3438,27 @@ body.en-juego::before {
   };
 
 
+  /** Qué sprites llevan grano y de qué color: el metal no es plástico. */
+  const GRANO = {
+    nave_carguero: ['#3a4652', 0.16], nave_capital: ['#3a4652', 0.13],
+    nave_lanzadera: ['#3a4652', 0.12], nave_caza: ['#3a4652', 0.12],
+    armadura: ['#4a5460', 0.11], casco: ['#4a5460', 0.05],
+    casco_soldado: ['#5a6470', 0.10], casco_piloto: ['#5a6470', 0.10],
+    carga: ['#2c2012', 0.18], reliquia: ['#4a3c1c', 0.16],
+    geoda: ['#2c2838', 0.16], torreta: ['#3a4652', 0.13],
+    motor: ['#3a4652', 0.13], trofeo: ['#5e4818', 0.12],
+    rifle: ['#2e343c', 0.13], blaster: ['#2e343c', 0.13],
+    droide: ['#3a4652', 0.10], astromec: ['#3a4652', 0.10],
+    criatura: ['#2a1c10', 0.16]
+  };
+
   /** dibuja `nombre` en un canvas y lo devuelve */
   SW.pixel2 = function (nombre, opts) {
     const o = opts || {};
     const fn = S2[nombre];
-    const esc = o.escala || 5;
+    // el lienzo es el doble de grande que antes, así que la escala por
+    // defecto baja a la mitad para que el sprite ocupe lo mismo en pantalla
+    const esc = o.escala || 3;
     const cv = document.createElement('canvas');
     cv.width = N * esc; cv.height = N * esc;
     cv.className = 'sprite';
@@ -3171,8 +3466,14 @@ body.en-juego::before {
     cx.imageSmoothingEnabled = false;
     if (!fn) return cv;
 
-    const L = new Lienzo(N);
+    const L = new Lienzo(N, U);
     fn(L, o.dinamico);
+
+    /* --- acabado: lo que convierte bloques en volumen --- */
+    const gr = GRANO[nombre];
+    if (gr) L.grano(gr[0], gr[1]);
+    L.oclusion(0.30);
+    L.luzCanto(0.24);
     L.contorno('#0a0d12');
 
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
@@ -3202,8 +3503,417 @@ body.en-juego::before {
   };
   SW.Lienzo = Lienzo;
   SW.PAL_PIXEL = PAL;
+  SW.S2 = S2;          // para que la capa de detalle fino pueda envolverlos
+  SW.PX_N = N; SW.PX_U = U;
+  SW.pxTrama = trama;
 
 })(window);
+
+/* ===== src/pixelart2-detalle.js ===== */
+/* ============================================================
+   HOLOVIDA :: CAPA DE DETALLE FINO
+   El lienzo pasó de 48 a 96 píxeles, así que ahora caben cosas
+   que antes no: costuras de un píxel, remaches, rejillas, luces
+   de posición, reflejos y arañazos. Esta capa envuelve los
+   sprites que más se ven y les añade ese detalle encima, sin
+   tocar la silueta ni la paleta originales.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const S2 = SW.S2;
+  if (!S2) return;
+  const PAL = SW.PAL_PIXEL;
+  const U = SW.PX_U || 2;
+  const mez = SW.mezclaColor || function (a) { return a; };
+
+  /* coordenadas lógicas → píxel real, para poder pintar a media unidad */
+  function R(v) { return Math.round(v * U); }
+
+  /* ---------- pinceles finos, todos en píxeles reales ---------- */
+
+  /** línea horizontal de un píxel real, sólo donde ya hay pintura */
+  function costuraH(L, x, y, w, c) {
+    const X = R(x), Y = R(y), W = R(w);
+    for (let i = 0; i < W; i++) if (L.g1(X + i, Y)) L.p1(X + i, Y, c);
+  }
+  function costuraV(L, x, y, h, c) {
+    const X = R(x), Y = R(y), H = R(h);
+    for (let j = 0; j < H; j++) if (L.g1(X, Y + j)) L.p1(X, Y + j, c);
+  }
+  /** puntos repartidos: remaches, tornillos, luces */
+  function puntos(L, x, y, w, paso, c, cSom) {
+    const X = R(x), Y = R(y), W = R(w);
+    for (let i = 0; i < W; i += paso) {
+      if (!L.g1(X + i, Y)) continue;
+      L.p1(X + i, Y, c);
+      if (cSom) L.p1(X + i, Y + 1, cSom);
+    }
+  }
+  /** reflejo especular: una diagonal corta y brillante */
+  function reflejo(L, x, y, largo, c) {
+    const X = R(x), Y = R(y);
+    for (let i = 0; i < largo; i++) if (L.g1(X + i, Y + i)) L.p1(X + i, Y + i, c);
+  }
+  /** arañazos: rayas cortas y aleatorias pero deterministas */
+  function arañazos(L, n, semilla, c) {
+    let h = semilla | 0;
+    const sig = function () { h = (h * 1103515245 + 12345) & 0x7fffffff; return h / 0x7fffffff; };
+    for (let k = 0; k < n; k++) {
+      const x = Math.floor(sig() * L.n), y = Math.floor(sig() * L.n);
+      const largo = 2 + Math.floor(sig() * 4);
+      const dx = sig() < 0.5 ? 1 : -1;
+      for (let i = 0; i < largo; i++) if (L.g1(x + i * dx, y + i)) L.p1(x + i * dx, y + i, c);
+    }
+  }
+  /** rejilla de ventilación: puntos en malla dentro de un rectángulo */
+  function rejilla(L, x, y, w, h, c) {
+    const X = R(x), Y = R(y), W = R(w), H = R(h);
+    for (let j = 0; j < H; j += 2) for (let i = (j / 2) % 2; i < W; i += 2) {
+      if (L.g1(X + i, Y + j)) L.p1(X + i, Y + j, c);
+    }
+  }
+  /** halo suave alrededor de una fuente de luz, tramado */
+  function halo(L, cx, cy, r, c) {
+    const CX = R(cx), CY = R(cy), R2 = r * U;
+    for (let y = CY - R2; y <= CY + R2; y++) for (let x = CX - R2; x <= CX + R2; x++) {
+      const d = Math.hypot(x - CX, y - CY) / R2;
+      if (d > 1) continue;
+      if (SW.pxTrama(x, y) > 1 - d) continue;
+      const base = L.g1(x, y);
+      if (base) L.p1(x, y, mez(base, c, (1 - d) * 0.55));
+    }
+  }
+
+  /** envuelve un sprite: primero lo original, después el detalle */
+  function detalle(nombre, fn) {
+    const orig = S2[nombre];
+    if (!orig) return;
+    S2[nombre] = function (L, din) { orig(L, din); try { fn(L, din); } catch (e) { /* el sprite base ya está */ } };
+  }
+
+  /* ══════════════════════ ARMAS ══════════════════════ */
+
+  detalle('sable', function (L, din) {
+    const hoja = din || '#3ad6ff';
+    // la hoja se afila hacia la punta y tiene un núcleo caliente
+    halo(L, 24, 14, 9, hoja);
+    for (let y = R(1); y < R(29); y++) {
+      L.p1(R(23) + 1, y, '#ffffff');
+      L.p1(R(24), y, '#ffffff');
+    }
+    // punta redondeada de un píxel real
+    L.p1(R(23) + 1, R(1) - 1, '#ffffff'); L.p1(R(24), R(1) - 1, '#ffffff');
+    L.p1(R(23), R(1) - 1, mez(hoja, '#ffffff', 0.5));
+    L.p1(R(25), R(1) - 1, mez(hoja, '#ffffff', 0.5));
+    // empuñadura: estrías finas, ranuras y tornillos
+    for (let y = R(35); y < R(39); y += 2) costuraH(L, 20, y / U, 8, PAL.hierro[3]);
+    costuraH(L, 20, 30.5, 8, PAL.acero[0]);
+    costuraH(L, 20, 41.5, 8, PAL.hierro[3]);
+    puntos(L, 20.5, 32.5, 7, 5, PAL.acero[0], PAL.hierro[3]);
+    reflejo(L, 21, 30, 5, '#ffffff');
+    // aletas del emisor
+    L.p1(R(19), R(30), PAL.acero[0]); L.p1(R(28) + 1, R(30), PAL.acero[2]);
+  });
+
+  detalle('sable_oscuro', function (L) {
+    for (let y = R(2); y < R(28); y++) {
+      if (L.g1(R(24), y)) L.p1(R(24), y, '#2a2440');
+    }
+    for (let y = R(35); y < R(39); y += 2) costuraH(L, 20, y / U, 8, '#3a3358');
+    reflejo(L, 21, 30, 4, '#cfc8ff');
+  });
+
+  detalle('blaster', function (L) {
+    // aletas de refrigeración sobre el cañón
+    for (let x = 30; x < 40; x += 2) costuraV(L, x, 19, 3, PAL.hierro[3]);
+    costuraH(L, 12, 15.5, 8, PAL.acero[0]);      // riel superior
+    costuraH(L, 12, 18.5, 26, PAL.hierro[3]);    // línea de recámara
+    puntos(L, 9, 29, 7, 5, PAL.cuero[0], PAL.cuero[3]);  // tachuelas de la culata
+    halo(L, 7, 24, 3, '#ff6a5a');                // piloto de carga
+    L.p1(R(6) + 1, R(22) + 1, '#ffd0c8');
+    reflejo(L, 26, 16, 4, '#eef6ff');
+    L.p1(R(40), R(21), '#ffb03a');               // boca del cañón
+  });
+
+  detalle('rifle', function (L) {
+    for (let x = 26; x < 40; x += 2) costuraV(L, x, 20, 2, PAL.hierro[3]);
+    costuraH(L, 8, 21.5, 32, PAL.acero[0]);
+    costuraH(L, 8, 24.5, 32, PAL.hierro[3]);
+    puntos(L, 10, 26, 8, 4, PAL.cuero[0], PAL.cuero[3]);
+    halo(L, 20, 23, 3, '#6aff8a');
+    arañazos(L, 6, 4471, PAL.acero[0]);
+  });
+
+  /* ══════════════════════ ARMADURA ══════════════════════ */
+
+  detalle('casco', function (L, din) {
+    const pal = din === 'beskar' ? PAL.beskar : PAL.acero;
+    // visor: degradado interno con reflejo largo
+    const X = R(14), Y = R(16), W = R(20), H = R(5);
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+      const t = j / H;
+      L.p1(X + i, Y + j, t < 0.3 ? '#2b4a5e' : t < 0.65 ? '#16303e' : '#0b1c26');
+    }
+    for (let i = 2; i < W - 6; i++) L.p1(X + i, Y + 1, i % 7 === 0 ? '#9fd8ee' : '#3f6f88');
+    reflejo(L, 16, 17, 6, '#bfe6f7');
+    // el pie de la T también es cristal, no un agujero negro
+    const SX = R(21), SY = R(21), SW_ = R(6), SH = R(11);
+    for (let j = 0; j < SH; j++) for (let i = 0; i < SW_; i++) {
+      const t2 = j / SH;
+      L.p1(SX + i, SY + j, t2 < 0.4 ? '#16303e' : t2 < 0.75 ? '#0f242f' : '#0a1a23');
+    }
+    for (let j = 1; j < SH - 2; j += 3) L.p1(SX + 1, SY + j, '#3f6f88');
+    // costura de las mejillas y de la cresta
+    costuraV(L, 14, 21, 12, pal[3]); costuraV(L, 34, 21, 12, pal[3]);
+    costuraV(L, 24, 6, 10, pal[0]);
+    costuraH(L, 12, 15.5, 24, pal[3]);        // ceja
+    costuraH(L, 12, 21.5, 24, pal[3]);
+    // telémetro
+    L.p1(R(34) + 1, R(14), '#ff6a5a'); L.p1(R(34) + 1, R(15), pal[3]);
+    // rejilla de respiración
+    rejilla(L, 20, 33, 8, 4, pal[3]);
+    arañazos(L, 8, 991, pal[0]);
+  });
+
+  detalle('armadura', function (L, din) {
+    const pal = din === 'beskar' ? PAL.beskar : PAL.hierro;
+    costuraH(L, 12, 21.5, 24, pal[3]);
+    costuraH(L, 12, 27.5, 24, pal[3]);
+    costuraV(L, 24, 12, 6, pal[3]);
+    puntos(L, 13, 13, 22, 6, pal[0], pal[3]);      // remaches del peto
+    puntos(L, 5, 15, 8, 5, pal[0], pal[3]);
+    puntos(L, 36, 15, 8, 5, pal[0], pal[3]);
+    halo(L, 24, 22, 4, '#ff6a5a');                 // lámpara del pectoral
+    reflejo(L, 14, 14, 7, mez(pal[0], '#ffffff', 0.5));
+    arañazos(L, 10, 7717, pal[0]);
+  });
+
+  detalle('casco_soldado', function (L) {
+    costuraV(L, 24, 8, 8, '#dfe7f0');
+    costuraH(L, 14, 27.5, 20, '#9aa6b4');
+    rejilla(L, 20, 30, 8, 3, '#7d8896');
+    reflejo(L, 17, 13, 6, '#ffffff');
+    arañazos(L, 6, 313, '#c8d2de');
+  });
+
+  detalle('casco_piloto', function (L) {
+    costuraH(L, 12, 19.5, 24, '#5f6b78');
+    puntos(L, 13, 15, 22, 6, '#eef4fb', '#7c8894');
+    reflejo(L, 16, 21, 7, '#bfe6f7');
+    halo(L, 34, 22, 3, '#6aff8a');
+  });
+
+  /* ══════════════════════ NAVES ══════════════════════ */
+
+  function panelesNave(L, y0, y1, x0, x1, c) {
+    for (let y = R(y0); y < R(y1); y += 5) {
+      for (let x = R(x0); x < R(x1); x++) if (L.g1(x, y)) L.p1(x, y, c);
+    }
+  }
+
+  detalle('nave_carguero', function (L) {
+    panelesNave(L, 18, 32, 6, 42, '#5d6874');
+    costuraV(L, 20, 18, 14, '#5d6874');
+    costuraV(L, 30, 18, 14, '#5d6874');
+    puntos(L, 8, 20, 30, 7, '#cbd5e1', '#4a5460');
+    halo(L, 40, 26, 4, '#ffb03a');                  // tobera
+    L.p1(R(7), R(30), '#6aff8a');                   // luces de posición
+    L.p1(R(41), R(19), '#ff6a5a');
+    reflejo(L, 26, 20, 5, '#e8f1fb');
+    arañazos(L, 14, 5501, '#8b98a6');
+  });
+
+  detalle('nave_caza', function (L) {
+    costuraV(L, 24, 16, 16, '#5d6874');
+    puntos(L, 20, 22, 8, 5, '#cbd5e1', '#4a5460');
+    halo(L, 24, 34, 5, '#ffb03a');
+    L.p1(R(17), R(15), '#6aff8a'); L.p1(R(31), R(15), '#ff6a5a');
+    reflejo(L, 22, 18, 4, '#e8f1fb');
+  });
+
+  detalle('nave_lanzadera', function (L) {
+    panelesNave(L, 22, 40, 10, 38, '#5d6874');
+    costuraV(L, 24, 12, 26, '#5d6874');
+    halo(L, 18, 40, 3, '#ffb03a'); halo(L, 30, 40, 3, '#ffb03a');
+    reflejo(L, 20, 24, 6, '#e8f1fb');
+    arañazos(L, 8, 2027, '#8b98a6');
+  });
+
+  detalle('nave_capital', function (L) {
+    for (let y = 20; y < 42; y += 3) costuraH(L, 8, y + 0.5, 32, '#59636f');
+    // ventanas de las cubiertas: puntos de luz en filas
+    for (let y = 24; y < 40; y += 3) puntos(L, 12, y, 24, 4, '#ffd98a', null);
+    halo(L, 24, 20, 5, '#8ad8ff');
+    arañazos(L, 12, 6101, '#8b98a6');
+  });
+
+  detalle('motor', function (L) {
+    for (let x = 14; x < 34; x += 2) costuraV(L, x, 16, 16, PAL.hierro[3]);
+    halo(L, 24, 38, 6, '#ffb03a');
+    reflejo(L, 16, 18, 5, '#eef6ff');
+  });
+
+  detalle('torreta', function (L) {
+    costuraH(L, 12, 27.5, 24, PAL.hierro[3]);
+    puntos(L, 13, 24, 22, 6, PAL.acero[0], PAL.hierro[3]);
+    L.p1(R(40), R(20), '#ff6a5a');
+    reflejo(L, 16, 22, 5, '#eef6ff');
+  });
+
+  /* ══════════════════════ DROIDES ══════════════════════ */
+
+  detalle('droide', function (L) {
+    costuraH(L, 14, 25.5, 20, '#5d6874');
+    costuraH(L, 14, 33.5, 20, '#5d6874');
+    puntos(L, 15, 20, 18, 6, '#e2e9f1', '#4a5460');
+    // fila de pilotos
+    for (let i = 0; i < 4; i++) L.p1(R(18) + i * 4, R(30) + 1, i === 1 ? '#6aff8a' : '#3a4652');
+    reflejo(L, 17, 16, 6, '#ffffff');
+    arañazos(L, 6, 1213, '#b8c4d2');
+  });
+
+  detalle('astromec', function (L) {
+    costuraH(L, 12, 24.5, 24, '#5d6874');
+    costuraV(L, 18, 22, 18, '#5d6874');
+    costuraV(L, 30, 22, 18, '#5d6874');
+    puntos(L, 13, 21, 22, 6, '#e2e9f1', '#4a5460');
+    halo(L, 30, 14, 3, '#8ad8ff');                 // ojo
+    L.p1(R(30), R(14), '#ffffff');
+    reflejo(L, 16, 13, 5, '#ffffff');
+  });
+
+  detalle('rival', function (L) {
+    costuraH(L, 16, 27.5, 16, '#1a2029');
+    puntos(L, 17, 20, 14, 6, '#39424f', '#12171e');
+    L.p1(R(20), R(19) + 1, '#ffd0d0'); L.p1(R(28), R(19) + 1, '#ffd0d0');
+  });
+
+  /* ══════════════════════ OBJETOS ══════════════════════ */
+
+  detalle('holocron', function (L, din) {
+    const luz = din || '#8ad8ff';
+    // retícula interna de glifos
+    for (let y = R(19); y < R(33); y += 3) for (let x = R(17); x < R(31); x += 3) {
+      if (L.g1(x, y)) L.p1(x, y, mez(luz, '#ffffff', 0.75));
+    }
+    // aristas doradas de un píxel
+    costuraH(L, 14, 16, 20, PAL.oro[0]);
+    costuraH(L, 14, 35.5, 20, PAL.oro[3]);
+    costuraV(L, 14, 16, 20, PAL.oro[0]);
+    costuraV(L, 33.5, 16, 20, PAL.oro[3]);
+    halo(L, 24, 26, 8, luz);
+  });
+
+  detalle('kyber', function (L, din) {
+    const c = din || '#dff4ff';
+    // facetas: dos aristas finas que cruzan el cristal
+    for (let i = 0; i < R(20); i++) {
+      L.p1(R(24) - i / 2, R(14) + i, mez(c, '#ffffff', 0.7));
+      L.p1(R(24) + i / 2, R(14) + i, mez(c, '#334455', 0.35));
+    }
+    costuraV(L, 24, 8, 32, '#ffffff');
+    halo(L, 24, 24, 9, c);
+  });
+
+  detalle('geoda', function (L) {
+    arañazos(L, 14, 8821, '#8a8296');
+    halo(L, 24, 24, 7, '#8ad8ff');
+  });
+
+  detalle('carga', function (L) {
+    costuraH(L, 10, 19.5, 28, '#3b3022');
+    costuraH(L, 10, 32.5, 28, '#3b3022');
+    puntos(L, 11, 17, 26, 7, '#8a6a44', '#2c2012');
+    arañazos(L, 10, 3301, '#6a4e30');
+  });
+
+  detalle('reliquia', function (L) {
+    for (let y = R(16); y < R(38); y += 4) costuraH(L, 15, y / U, 18, '#6a5a3a');
+    puntos(L, 16, 15, 16, 6, '#e0c98a', '#4a3c1c');
+    reflejo(L, 18, 18, 6, '#fff0c0');
+  });
+
+  detalle('criatura', function (L, din) {
+    // pelaje: trazos cortos siguiendo el lomo
+    let h = 4099;
+    const sig = function () { h = (h * 1103515245 + 12345) & 0x7fffffff; return h / 0x7fffffff; };
+    for (let k = 0; k < 90; k++) {
+      const x = R(12) + Math.floor(sig() * R(24));
+      const y = R(18) + Math.floor(sig() * R(12));
+      const c = L.g1(x, y);
+      if (!c) continue;
+      const tono = sig() < 0.5 ? mez(c, '#ffffff', 0.22) : mez(c, '#000000', 0.22);
+      L.p1(x, y, tono); L.p1(x, y + 1, tono);
+    }
+    L.p1(R(18), R(17), '#ffffff');   // brillo del ojo
+  });
+
+  detalle('trofeo', function (L) {
+    reflejo(L, 18, 16, 7, '#fff4c8');
+    puntos(L, 16, 34, 16, 5, PAL.oro[0], PAL.oro[3]);
+  });
+
+  detalle('medalla', function (L) {
+    halo(L, 24, 28, 6, '#ffe9a8');
+    reflejo(L, 20, 24, 5, '#fffbe8');
+  });
+
+  detalle('bacta', function (L) {
+    for (let y = R(14); y < R(40); y += 3) costuraH(L, 16, y / U, 16, '#7ad8e8');
+    halo(L, 24, 26, 7, '#8ad8ff');
+  });
+
+  detalle('especia', function (L) {
+    let h = 771;
+    const sig = function () { h = (h * 1103515245 + 12345) & 0x7fffffff; return h / 0x7fffffff; };
+    for (let k = 0; k < 70; k++) {
+      const x = Math.floor(sig() * L.n), y = Math.floor(sig() * L.n);
+      const c = L.g1(x, y);
+      if (c) L.p1(x, y, mez(c, '#ffffff', 0.35));
+    }
+  });
+
+  detalle('holomapa', function (L, din) {
+    const luz = din || '#8ad8ff';
+    for (let y = R(14); y < R(34); y += 3) costuraH(L, 12, y / U, 24, mez(luz, '#ffffff', 0.5));
+    halo(L, 24, 24, 10, luz);
+  });
+
+  detalle('credencial', function (L) {
+    for (let y = R(20); y < R(32); y += 3) costuraH(L, 20, y / U, 14, '#5d6874');
+    reflejo(L, 14, 18, 5, '#ffffff');
+  });
+
+  detalle('herramienta', function (L) {
+    reflejo(L, 16, 16, 6, '#eef6ff');
+    arañazos(L, 8, 6607, PAL.acero[0]);
+  });
+
+  detalle('talisman', function (L, din) {
+    halo(L, 24, 26, 6, din || '#c98aff');
+    reflejo(L, 20, 20, 4, '#ffffff');
+  });
+
+  detalle('datachip', function (L) {
+    for (let x = 14; x < 34; x += 2) costuraV(L, x, 20, 8, '#3a4652');
+    halo(L, 24, 24, 4, '#6aff8a');
+  });
+
+  detalle('copa', function (L) {
+    reflejo(L, 19, 15, 6, '#fff4c8');
+  });
+
+  detalle('vaina', function (L) {
+    puntos(L, 12, 18, 24, 6, '#e2e9f1', '#4a5460');
+    halo(L, 24, 30, 4, '#8ad8ff');
+  });
+
+  detalle('sigilo', function (L, din) {
+    halo(L, 24, 24, 10, din || '#8a7ad8');
+  });
+
+})(typeof window !== 'undefined' ? window : globalThis);
 
 /* ===== src/pixelart-retrato.js ===== */
 /* ============================================================
@@ -4027,11 +4737,56 @@ body.en-juego::before {
     return c;
   }
 
+  /* ============================================================
+     LA CARA ENVEJECE
+     Antes tenías la misma cara con 8 que con 80. Ahora el pelo
+     encanece, salen líneas y las mejillas se hunden.
+     ============================================================ */
+  function canas(color, edad) {
+    if (!color || edad < 42) return color;
+    const t = Math.min(0.9, (edad - 42) / 44);
+    return mezcla(color, '#c8ccd2', t);
+  }
+
+  function envejecer(lz, edad) {
+    if (edad < 38) return;
+    const t = Math.min(1, (edad - 38) / 45);
+    const marca = function (x, y, f) {
+      const c = lz.get(x, y);
+      if (c) lz.set(x, y, mezcla(c, '#2a1c18', f));
+    };
+    // patas de gallo
+    const n = Math.round(1 + t * 3);
+    for (let i = 0; i < n; i++) {
+      marca(20 - i, 26 + i, 0.20 + t * 0.20);
+      marca(44 + i, 26 + i, 0.20 + t * 0.20);
+    }
+    // surcos nasogenianos
+    if (t > 0.25) for (let i = 0; i < Math.round(2 + t * 4); i++) {
+      marca(26 - Math.round(i / 3), 32 + i, 0.16 + t * 0.18);
+      marca(38 + Math.round(i / 3), 32 + i, 0.16 + t * 0.18);
+    }
+    // frente
+    if (t > 0.45) for (let x = 24; x < 41; x++) {
+      marca(x, 17, 0.14 + t * 0.14);
+      if (t > 0.7) marca(x, 20, 0.12 + t * 0.12);
+    }
+    // mejillas hundidas y ojeras
+    if (t > 0.55) for (let x = 23; x < 42; x++) marca(x, 30, 0.10 + t * 0.12);
+    if (t > 0.3) { for (let x = 20; x < 27; x++) marca(x, 28, 0.14); for (let x = 38; x < 45; x++) marca(x, 28, 0.14); }
+  }
+
   /** devuelve un <img> con el retrato dentro, listo para innerHTML */
   SW.retratoPixel = function (ap, tam, especie) {
     const t = tam || 160;
     const escala = Math.max(2, Math.round(t / N));
-    const lz = dibujar(ap || {}, especie || (ap && ap.especie) || 'humano');
+    const edad = (ap && ap.edad) || 0;
+    let apn = ap || {};
+    if (edad >= 42 && apn.pelo && apn.pelo !== 'ninguno') {
+      apn = Object.assign({}, apn, { pelo: canas(apn.pelo, edad) });
+    }
+    const lz = dibujar(apn, especie || (ap && ap.especie) || 'humano');
+    envejecer(lz, edad);
     const c = aCanvas(lz, escala);
     return '<img class="retrato" width="' + t + '" height="' + t + '" alt="" ' +
            'style="image-rendering:pixelated;image-rendering:crisp-edges;display:block" src="' +
@@ -18619,6 +19374,1338 @@ body.en-juego::before {
 
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* ===== src/data-tramas.js ===== */
+/* ============================================================
+   HOLOVIDA :: TRAMAS LARGAS
+   Hilos que se abren por algo que decidiste y siguen ahí veinte
+   años después. Cada trama tiene etapas, memoria propia y varios
+   finales; lo que elegiste en la etapa 1 cambia lo que se te
+   ofrece en la 5. Se ven en la ficha y salen en el resumen final.
+
+   Modelo:
+     s.tramas[id] = { etapa, desde, prox, datos:{}, cerrada, final }
+   Cada etapa devuelve un evento generado. Las opciones llevan
+     tramaAvanza: { id, a: n, datos: {...} }   → siguiente etapa
+     tramaCierra: { id, final: 'texto' }       → se acaba
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+
+  /* ------------------------------------------------------------
+     Utilidades
+     ------------------------------------------------------------ */
+  function esperar(rng, a, b) { return rng.int(a, b); }
+
+  SW.abrirTrama = function (g, id, datos) {
+    const s = g.s, rng = g.rng;
+    const T = SW.TRAMAS[id];
+    if (!T || (s.tramas && s.tramas[id])) return false;
+    s.tramas = s.tramas || {};
+    s.tramas[id] = {
+      etapa: 0, desde: s.edad, prox: s.edad + esperar(rng, T.primera ? T.primera[0] : 1, T.primera ? T.primera[1] : 3),
+      datos: datos || {}, cerrada: false, final: null
+    };
+    g.log('<i class="trama-abre">◈ Empieza algo:</i> ' + T.n + '.', 'res');
+    return true;
+  };
+
+  SW.tramaActiva = function (s, id) {
+    const t = (s.tramas || {})[id];
+    return t && !t.cerrada ? t : null;
+  };
+
+  SW.cerrarTrama = function (g, id, final) {
+    const s = g.s;
+    const t = (s.tramas || {})[id];
+    if (!t || t.cerrada) return;
+    t.cerrada = true;
+    t.final = final || 'Se acabó.';
+    t.hasta = s.edad;
+    const T = SW.TRAMAS[id];
+    g.log('<i class="trama-cierra">◈ ' + (T ? T.n : 'Una historia') + ' — ' + t.final + '</i>', 'res');
+    g.hito((T ? T.n : 'Una historia') + ': ' + t.final);
+  };
+
+  SW.avanzarTrama = function (g, id, a, datos) {
+    const s = g.s, rng = g.rng;
+    const t = (s.tramas || {})[id];
+    const T = SW.TRAMAS[id];
+    if (!t || !T) return;
+    t.etapa = a != null ? a : t.etapa + 1;
+    if (datos) for (const k in datos) t.datos[k] = datos[k];
+    if (t.etapa >= T.etapas.length) { SW.cerrarTrama(g, id, T.finalPorDefecto || 'Se apagó sola.'); return; }
+    const e = T.etapas[t.etapa];
+    t.prox = s.edad + esperar(rng, (e.espera && e.espera[0]) || 2, (e.espera && e.espera[1]) || 5);
+  };
+
+  /** Tick anual: abre tramas nuevas y saca la etapa que toque. */
+  SW.pasoTramas = function (g) {
+    const s = g.s, rng = g.rng;
+    s.tramas = s.tramas || {};
+
+    // como mucho tres hilos vivos a la vez: si no, se diluyen
+    let vivas = 0;
+    for (const k in s.tramas) if (!s.tramas[k].cerrada) vivas++;
+
+    // ¿se abre alguna?
+    if (vivas < 3) for (const id in SW.TRAMAS) {
+      const T = SW.TRAMAS[id];
+      if (s.tramas[id]) continue;
+      if (T.min != null && s.edadBio < T.min) continue;
+      let ok = false;
+      try { ok = T.arranca(s); } catch (e) { ok = false; }
+      if (ok && rng.chance(T.p == null ? 0.7 : T.p)) { SW.abrirTrama(g, id); break; }
+    }
+
+    // ¿toca escena de alguna?
+    const listas = [];
+    for (const id in s.tramas) {
+      const t = s.tramas[id];
+      if (t.cerrada) continue;
+      const T = SW.TRAMAS[id];
+      if (!T) continue;
+      if (s.edad < t.prox) continue;
+      listas.push({ id: id, t: t, T: T });
+    }
+    if (!listas.length) return null;
+    // una por año como mucho: la más antigua manda
+    listas.sort(function (a, b) { return a.t.prox - b.t.prox; });
+    const el = listas[0];
+    const etapa = el.T.etapas[el.t.etapa];
+    if (!etapa) { SW.cerrarTrama(g, el.id, el.T.finalPorDefecto || 'Se apagó sola.'); return null; }
+    let ev = null;
+    try { ev = etapa.escena(g, el.t); } catch (e) { ev = null; }
+    if (!ev) { el.t.prox = s.edad + 2; return null; }
+    ev.gen = true;
+    ev.id = 'trama_' + el.id + '_' + el.t.etapa;
+    ev.esTrama = el.id;
+    // cabecera común: se ve que esto viene de lejos
+    const años = s.edad - el.t.desde;
+    ev.t = '<span class="trama-tag">' + U.esc(el.T.n.toUpperCase()) + (años > 0 ? ' · ' + años + ' AÑOS' : '') + '</span>' + ev.t;
+    // por si el jugador no elige nada que mueva la trama, que no se atasque
+    el.t.prox = s.edad + 3;
+    return ev;
+  };
+
+  /* ============================================================
+     LAS TRAMAS
+     ============================================================ */
+  const T = {};
+  SW.TRAMAS = T;
+
+  /* ---------------------------------------------------------- 1
+     LA DEUDA
+     Empieza por pedir prestado a quien no deberías y acaba
+     contigo pagando, huyendo o trabajando para ellos.
+     ---------------------------------------------------------- */
+  T.deuda = {
+    n: 'La deuda', ico: '⛓', min: 16, p: 0.9,
+    resumen: 'Debes dinero a gente que no olvida.',
+    arranca: function (s) { return !!s.flags.debe_a_usureros; },
+    primera: [1, 2],
+    finalPorDefecto: 'Al final se cansaron de buscarte.',
+    etapas: [
+      { espera: [2, 3], escena: function (g, t) {
+        t.datos.monto = t.datos.monto || 18000;
+        return { t: '<p>Vienen a recordarte lo que debes. Con educación, de momento: ' + U.cr(t.datos.monto) + '.</p>',
+          c: [
+            { t: 'Pagar entero', req: function (s) { return s.stats.creditos >= t.datos.monto; },
+              coste: t.datos.monto, tramaCierra: { id: 'deuda', final: 'la pagaste y se acabó' }, fx: { cordura: 12 } },
+            { t: 'Pagar la mitad y ganar tiempo', coste: Math.round(t.datos.monto / 2),
+              tramaAvanza: { id: 'deuda', a: 1, datos: { monto: Math.round(t.datos.monto * 0.8), buen_pagador: true } } },
+            { t: 'Decirles que no tienes', tramaAvanza: { id: 'deuda', a: 1, datos: { monto: Math.round(t.datos.monto * 1.6) } }, fx: { cordura: -8 } },
+            { t: 'Trabajar para ellos a cuenta', tramaAvanza: { id: 'deuda', a: 2, datos: { trabajas: true } },
+              fx: { notoriedad: 12, alineamiento: -10 } }
+          ] };
+      } },
+      { espera: [3, 5], escena: function (g, t) {
+        const m = t.datos.monto || 30000;
+        return { t: '<p>Han pasado años y la cifra ha crecido sola: ' + U.cr(m) + '. Esta vez traen a alguien grande.</p>',
+          c: [
+            { t: 'Pagar', req: function (s) { return s.stats.creditos >= m; }, coste: m,
+              tramaCierra: { id: 'deuda', final: 'la saldaste tarde pero entera' }, fx: { cordura: 14, reputacion: 6 } },
+            { t: 'Pelear', combate: { dif: 62 }, tramaAvanza: { id: 'deuda', a: 3 }, fx: { notoriedad: 10 } },
+            { t: 'Huir del planeta', mover: 'cerca', motivo: 'huyendo de una deuda',
+              tramaAvanza: { id: 'deuda', a: 3, datos: { huiste: true } }, fx: { cordura: -6 } },
+            { t: 'Ofrecerles tu negocio como pago', req: function (s) { return !!s.flags.tiene_local; },
+              tramaCierra: { id: 'deuda', final: 'les diste el local y saliste limpio' }, fx: { creditos: -5000 } }
+          ] };
+      } },
+      { espera: [2, 4], escena: function (g, t) {
+        return { t: '<p>Llevas años haciéndoles trabajos. Ya no sabes si sigues debiendo algo o simplemente eres suyo.</p>',
+          c: [
+            { t: 'Pedir las cuentas', fx: { intelecto: 10 },
+              tramaAvanza: { id: 'deuda', a: 3, datos: { sabes_la_verdad: true } } },
+            { t: 'Seguir sin preguntar', fx: { creditos: 12000, alineamiento: -10, cordura: -8 },
+              tramaAvanza: { id: 'deuda', a: 2 } },
+            { t: 'Hacerte imprescindible', fx: { carisma: 14, notoriedad: 12 },
+              tramaAvanza: { id: 'deuda', a: 4, datos: { dentro: true } } },
+            { t: 'Denunciarlos', fx: { alineamiento: 16 }, buscado: 30,
+              tramaAvanza: { id: 'deuda', a: 3, datos: { delataste: true } } }
+          ] };
+      } },
+      { espera: [4, 8], escena: function (g, t) {
+        const dur = g.s.edad - t.desde;
+        return { t: '<p>' + dur + ' años arrastrando esto. Hoy te encuentran otra vez, en otro planeta, con otro nombre y la misma cara.</p>',
+          c: [
+            { t: 'Acabar con esto a la mala', combate: { dif: 70, aMuerte: true },
+              tramaCierra: { id: 'deuda', final: 'lo cerraste a golpes' }, fx: { notoriedad: 16 } },
+            { t: 'Pagar el triple y que te dejen en paz', coste: 60000,
+              req: function (s) { return s.stats.creditos >= 60000; },
+              tramaCierra: { id: 'deuda', final: 'pagaste tres veces lo que debías' }, fx: { cordura: 16 } },
+            { t: 'Comprarles a ellos', req: function (s) { return s.stats.creditos >= 120000; }, coste: 120000,
+              tramaCierra: { id: 'deuda', final: 'acabaste siendo su dueño' }, fx: { notoriedad: 20, carisma: 14 } },
+            { t: 'Aceptar que esto no se acaba', fx: { cordura: -14 },
+              tramaAvanza: { id: 'deuda', a: 3 } }
+          ] };
+      } },
+      { espera: [5, 9], escena: function (g, t) {
+        return { t: '<p>Ya no eres el que debe: eres uno de ellos. Y ahora hay alguien nuevo que no puede pagar.</p>',
+          c: [
+            { t: 'Hacerle lo que te hicieron', fx: { creditos: 25000, alineamiento: -22, cordura: -10 },
+              tramaCierra: { id: 'deuda', final: 'te convertiste en lo que te perseguía' } },
+            { t: 'Perdonarle la deuda de tu bolsillo', coste: 20000, fx: { alineamiento: 24, cordura: 18 },
+              tramaCierra: { id: 'deuda', final: 'rompiste la cadena con alguien' } },
+            { t: 'Dejarlo todo y desaparecer', mover: 'cerca', motivo: 'dejándolo todo atrás',
+              fx: { cordura: 10, creditos: -20000 },
+              tramaCierra: { id: 'deuda', final: 'lo dejaste y te fuiste' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 2
+     EL ENEMIGO PACIENTE
+     Alguien a quien humillaste crece durante décadas.
+     ---------------------------------------------------------- */
+  T.enemigo = {
+    n: 'El enemigo paciente', ico: '☍', min: 14, p: 0.55,
+    resumen: 'Alguien te tiene ganas y tiene tiempo.',
+    arranca: function (s) {
+      return (s.contadores.enemigosPoliticos || 0) > 0 || s.stats.notoriedad > 45 ||
+             (s.relaciones || []).some(function (r) { return r.tipo === 'rival' && r.afecto < -40; });
+    },
+    primera: [2, 5],
+    finalPorDefecto: 'Se murió antes de cobrárselo.',
+    etapas: [
+      { espera: [3, 6], escena: function (g, t) {
+        const rng = g.rng;
+        t.datos.n = t.datos.n || SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'duros']), rng.chance(0.5) ? 'm' : 'f');
+        return { t: '<p>Te llega el nombre de quien lleva tiempo hablando mal de ti: <b>' + t.datos.n + '</b>. Todavía no es nadie.</p>',
+          c: [
+            { t: 'Ir a hablar con él', fx: { carisma: 12 },
+              tramaAvanza: { id: 'enemigo', a: 1, datos: { hablasteis: true } } },
+            { t: 'Aplastarle ahora que puedes', fx: { notoriedad: 12, alineamiento: -14 },
+              tramaAvanza: { id: 'enemigo', a: 1, datos: { humillado: true } } },
+            { t: 'Comprarle', coste: 15000, fx: { alineamiento: -6 },
+              tramaAvanza: { id: 'enemigo', a: 1, datos: { comprado: true } } },
+            { t: 'No darle importancia', fx: { cordura: 4 },
+              tramaAvanza: { id: 'enemigo', a: 1 } }
+          ] };
+      } },
+      { espera: [5, 9], escena: function (g, t) {
+        const n = t.datos.n || 'aquel al que humillaste';
+        const como = t.datos.humillado ? 'Te odia más que antes y ahora tiene con qué.'
+                   : t.datos.comprado ? 'Se quedó tu dinero y ahora tiene el suyo.'
+                   : t.datos.hablasteis ? 'Sigue sin tragarte, pero ha aprendido a esperar.'
+                   : 'Nunca supo que existías para ti. Tú sí que existes para él.';
+        return { t: '<p><b>' + n + '</b> ha subido. Puesto, dinero, gente. ' + como + '</p>',
+          c: [
+            { t: 'Adelantarte y hundirle', fx: { notoriedad: 16, alineamiento: -16, intelecto: 10 },
+              tramaAvanza: { id: 'enemigo', a: 2, datos: { guerra: true } } },
+            { t: 'Buscar una tregua', fx: { carisma: 16 },
+              tramaAvanza: { id: 'enemigo', a: 2, datos: { tregua: true } } },
+            { t: 'Prepararte para lo que venga', fx: { intelecto: 10, fisico: 8, cordura: -4 },
+              tramaAvanza: { id: 'enemigo', a: 2, datos: { listo: true } } },
+            { t: 'Irte donde no llegue', mover: 'cerca', motivo: 'poniendo tierra de por medio',
+              tramaAvanza: { id: 'enemigo', a: 2, datos: { huiste: true } } }
+          ] };
+      } },
+      { espera: [6, 12], escena: function (g, t) {
+        const n = t.datos.n || 'tu enemigo';
+        const c = [];
+        if (t.datos.tregua) {
+          c.push({ t: 'Confiar en la tregua', fx: { cordura: 10 },
+            tramaCierra: { id: 'enemigo', final: 'la tregua aguantó hasta el final' } });
+        }
+        c.push({ t: 'Enfrentarle', combate: { dif: 74, aMuerte: !!t.datos.guerra },
+          tramaAvanza: { id: 'enemigo', a: 3, datos: { chocasteis: true } } });
+        c.push({ t: 'Darle lo que quiere', fx: { creditos: -50000, reputacion: -14, cordura: 8 },
+          tramaCierra: { id: 'enemigo', final: 'le diste lo que quería y te dejó vivir' } });
+        c.push({ t: 'Destaparle en público', fx: { intelecto: 14, reputacion: 12, notoriedad: 12 },
+          tramaAvanza: { id: 'enemigo', a: 3, datos: { destapado: true } } });
+        return { t: '<p>Después de todos estos años, <b>' + n + '</b> hace su movimiento. Va a por lo que más te importa.</p>', c: c };
+      } },
+      { espera: [3, 7], escena: function (g, t) {
+        const n = t.datos.n || 'él';
+        return { t: '<p>Uno de los dos tiene que soltar. <b>' + n + '</b> ya está viejo y tú también.</p>',
+          c: [
+            { t: 'Terminarlo', combate: { dif: 66, duelo: true, aMuerte: true },
+              tramaCierra: { id: 'enemigo', final: 'lo terminasteis de la única forma que sabíais' } },
+            { t: 'Sentaros a hablar de una vez', fx: { cordura: 20, carisma: 14, alineamiento: 14 },
+              tramaCierra: { id: 'enemigo', final: 'acabasteis hablando, cuarenta años tarde' } },
+            { t: 'Dejar que gane', fx: { reputacion: -16, cordura: 12, alineamiento: 8 },
+              tramaCierra: { id: 'enemigo', final: 'le dejaste ganar y respiraste' } },
+            { t: 'Pasarle la cuenta a tus hijos', req: function (s) { return (s.contadores.hijos || 0) > 0; },
+              fx: { alineamiento: -18, cordura: -10 },
+              tramaCierra: { id: 'enemigo', final: 'lo heredaron los tuyos' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 3
+     EL HIJO
+     Crece, te mira, y acaba pareciéndose a lo que hiciste.
+     ---------------------------------------------------------- */
+  T.hijo = {
+    n: 'El hijo que te mira', ico: '☖', min: 20, p: 0.85,
+    resumen: 'Uno de tus hijos está aprendiendo de ti sin que se lo enseñes.',
+    arranca: function (s) { return (s.contadores.hijos || 0) > 0; },
+    primera: [3, 5],
+    finalPorDefecto: 'Hizo su vida lejos.',
+    etapas: [
+      { espera: [4, 6], escena: function (g, t) {
+        const rng = g.rng;
+        t.datos.n = t.datos.n || SW.genNombreCompleto(rng, g.s.especie === 'humano' ? 'humano' : 'humano', rng.chance(0.5) ? 'm' : 'f').split(' ')[0];
+        return { t: '<p><b>' + t.datos.n + '</b> tiene ocho años y te copia todo: cómo andas, cómo hablas, cómo tratas a la gente.</p>',
+          c: [
+            { t: 'Enseñarle a hacer las cosas bien', fx: { alineamiento: 12, cordura: 10 },
+              tramaAvanza: { id: 'hijo', a: 1, datos: { via: 'recto' } } },
+            { t: 'Enseñarle a buscarse la vida', fx: { intelecto: 8, carisma: 8 },
+              tramaAvanza: { id: 'hijo', a: 1, datos: { via: 'listo' } } },
+            { t: 'Enseñarle a pelear', fx: { fisico: 8 },
+              tramaAvanza: { id: 'hijo', a: 1, datos: { via: 'duro' } } },
+            { t: 'No estar mucho por casa', fx: { creditos: 10000, cordura: -8 },
+              tramaAvanza: { id: 'hijo', a: 1, datos: { via: 'ausente' } } }
+          ] };
+      } },
+      { espera: [5, 8], escena: function (g, t) {
+        const n = t.datos.n, via = t.datos.via;
+        const pinta = via === 'recto' ? 'Es honrado y eso aquí se paga caro.'
+                    : via === 'listo' ? 'Ya sabe conseguir cosas sin pedirlas.'
+                    : via === 'duro' ? 'Le han abierto la ceja dos veces y no se ha rajado.'
+                    : 'Apenas le conoces y él a ti tampoco.';
+        return { t: '<p><b>' + n + '</b> tiene dieciséis. ' + pinta + ' Y hoy te pide algo.</p>',
+          c: [
+            { t: 'Pagarle los estudios', coste: 20000, fx: { alineamiento: 12 },
+              tramaAvanza: { id: 'hijo', a: 2, datos: { rumbo: 'estudia' } } },
+            { t: 'Meterle en lo tuyo', fx: { carisma: 8 },
+              tramaAvanza: { id: 'hijo', a: 2, datos: { rumbo: 'contigo' } } },
+            { t: 'Decirle que se busque la vida', fx: { cordura: -6 },
+              tramaAvanza: { id: 'hijo', a: 2, datos: { rumbo: 'solo' } } },
+            { t: 'Preguntarle qué quiere él', fx: { carisma: 14, cordura: 12, alineamiento: 10 },
+              tramaAvanza: { id: 'hijo', a: 2, datos: { rumbo: 'suyo' } } }
+          ] };
+      } },
+      { espera: [6, 10], escena: function (g, t) {
+        const n = t.datos.n;
+        const c = [];
+        if (t.datos.rumbo === 'contigo') {
+          c.push({ t: 'Dejarle el negocio', fx: { cordura: 14, reputacion: 10 },
+            tramaAvanza: { id: 'hijo', a: 3, datos: { heredero: true } } });
+          c.push({ t: 'Mantenerle debajo', fx: { alineamiento: -12, cordura: -8 },
+            tramaAvanza: { id: 'hijo', a: 3, datos: { resentido: true } } });
+        }
+        c.push({ t: 'Ayudarle con dinero', coste: 25000, fx: { alineamiento: 10 },
+          tramaAvanza: { id: 'hijo', a: 3, datos: { apoyado: true } } });
+        c.push({ t: 'Ayudarle con tiempo', fx: { cordura: 16, carisma: 10, alineamiento: 12 },
+          tramaAvanza: { id: 'hijo', a: 3, datos: { cerca: true } } });
+        c.push({ t: 'Que se apañe', fx: { cordura: -10 },
+          tramaAvanza: { id: 'hijo', a: 3, datos: { lejos: true } } });
+        return { t: '<p><b>' + n + '</b> se ha metido en un lío de adulto y viene a ti.</p>', c: c };
+      } },
+      { espera: [8, 14], escena: function (g, t) {
+        const n = t.datos.n;
+        const bien = t.datos.cerca || t.datos.apoyado || t.datos.heredero;
+        return { t: '<p><b>' + n + '</b> ya tiene su vida. ' +
+            (bien ? 'Viene a verte sin que se lo pidas.' : 'Hace años que no le ves y te has enterado por terceros de cómo le va.') + '</p>',
+          c: [
+            { t: 'Decirle lo que nunca le dijiste', fx: { cordura: 22, alineamiento: 12 },
+              tramaCierra: { id: 'hijo', final: bien ? 'acabasteis bien' : 'llegasteis a tiempo por poco' } },
+            { t: 'Dejarle todo lo que tienes', fx: { creditos: -40000, cordura: 14 },
+              tramaCierra: { id: 'hijo', final: 'le dejaste todo lo que tenías' }, legado: 'lo dejó todo a su hijo' },
+            { t: 'Pedirle perdón', fx: { cordura: 18, alineamiento: 14 },
+              tramaCierra: { id: 'hijo', final: 'pediste perdón y te escuchó' } },
+            { t: 'No decir nada, como siempre', fx: { cordura: -16 },
+              tramaCierra: { id: 'hijo', final: 'nunca llegasteis a hablarlo' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 4
+     EL NEGOCIO
+     De un puesto en el mercado a algo con nombre propio.
+     ---------------------------------------------------------- */
+  T.negocio = {
+    n: 'Tu propio nombre en una puerta', ico: '⌂', min: 18, p: 0.7,
+    resumen: 'Lo que montaste puede crecer o comerte.',
+    arranca: function (s) { return !!s.flags.tiene_local || !!s.flags.autonomo || !!s.flags.produce; },
+    primera: [2, 4],
+    finalPorDefecto: 'Se fue apagando.',
+    etapas: [
+      { espera: [3, 5], escena: function (g, t) {
+        return { t: '<p>Lo tuyo funciona lo justo para seguir abierto. Hay que decidir hacia dónde.</p>',
+          c: [
+            { t: 'Crecer deprisa pidiendo dinero', fx: { creditos: 30000 }, flag: 'debe_a_usureros',
+              tramaAvanza: { id: 'negocio', a: 1, datos: { via: 'deuda' } } },
+            { t: 'Crecer despacio con lo que hay', fx: { creditos: 6000, cordura: 8 },
+              tramaAvanza: { id: 'negocio', a: 1, datos: { via: 'lento' } } },
+            { t: 'Especializarte en algo caro', fx: { intelecto: 12, creditos: -8000 },
+              tramaAvanza: { id: 'negocio', a: 1, datos: { via: 'nicho' } } },
+            { t: 'Meter a un socio con dinero', fx: { creditos: 25000, carisma: 8 },
+              tramaAvanza: { id: 'negocio', a: 1, datos: { via: 'socio' } } }
+          ] };
+      } },
+      { espera: [4, 7], escena: function (g, t) {
+        const v = t.datos.via;
+        const cab = v === 'deuda' ? 'Creces rápido y el interés crece más rápido todavía.'
+                  : v === 'socio' ? 'Tu socio ha empezado a tomar decisiones sin ti.'
+                  : v === 'nicho' ? 'Te has hecho un nombre en algo muy concreto y muy bien pagado.'
+                  : 'Va lento, pero es tuyo entero.';
+        return { t: '<p>' + cab + ' Y ahora aparece alguien grande que quiere comprarte.</p>',
+          c: [
+            { t: 'Vender y retirarte', fx: { creditos: 90000, cordura: 10 },
+              tramaCierra: { id: 'negocio', final: 'vendiste bien y te retiraste' } },
+            { t: 'Negarte y competir', fx: { intelecto: 12, cordura: -10 },
+              tramaAvanza: { id: 'negocio', a: 2, datos: { guerra: true } } },
+            { t: 'Venderles una parte', fx: { creditos: 45000 },
+              tramaAvanza: { id: 'negocio', a: 2, datos: { compartido: true } } },
+            { t: 'Comprarles tú algo a ellos', req: function (s) { return s.stats.creditos > 60000; },
+              coste: 60000, fx: { carisma: 12, reputacion: 10 },
+              tramaAvanza: { id: 'negocio', a: 2, datos: { ambicion: true } } }
+          ] };
+      } },
+      { espera: [5, 9], escena: function (g, t) {
+        return { t: '<p>Empleas a gente. Hay familias que comen de esto. Y hay un año malo.</p>',
+          c: [
+            { t: 'Poner tu dinero para no despedir a nadie', coste: 40000,
+              fx: { alineamiento: 22, reputacion: 20 },
+              tramaAvanza: { id: 'negocio', a: 3, datos: { querido: true } } },
+            { t: 'Recortar y aguantar', fx: { creditos: 15000, alineamiento: -10, reputacion: -8 },
+              tramaAvanza: { id: 'negocio', a: 3, datos: { duro: true } } },
+            { t: 'Cambiar de negocio entero', fx: { intelecto: 14, creditos: -20000 },
+              tramaAvanza: { id: 'negocio', a: 3, datos: { pivote: true } } },
+            { t: 'Cerrar mientras se pueda cerrar bien', fx: { creditos: 20000, cordura: 12 },
+              tramaCierra: { id: 'negocio', final: 'cerraste a tiempo y sin deber nada' } }
+          ] };
+      } },
+      { espera: [8, 15], escena: function (g, t) {
+        const q = t.datos.querido;
+        return { t: '<p>Ya eres viejo y esto te sobrevive. Toca decidir de quién es cuando tú no estés.</p>',
+          c: [
+            { t: 'Dejárselo a tus hijos', req: function (s) { return (s.contadores.hijos || 0) > 0; },
+              fx: { cordura: 14 }, legado: 'dejó el negocio a los suyos',
+              tramaCierra: { id: 'negocio', final: 'quedó en la familia' } },
+            { t: 'Dejárselo a los que trabajan ahí', fx: { alineamiento: 26, reputacion: 24, cordura: 18 },
+              legado: 'dejó su negocio a quienes lo levantaron',
+              tramaCierra: { id: 'negocio', final: 'lo heredaron los que lo levantaron contigo' } },
+            { t: 'Venderlo al mejor postor', fx: { creditos: 140000 },
+              tramaCierra: { id: 'negocio', final: 'lo vendiste al mejor postor' } },
+            { t: 'Que se muera contigo', fx: { cordura: -10, creditos: 20000 },
+              tramaCierra: { id: 'negocio', final: (q ? 'lo cerraste y dolió a mucha gente' : 'lo cerraste y no lo notó nadie') } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 5
+     EL SECRETO
+     Ser sensible a la Fuerza cuando eso te mata.
+     ---------------------------------------------------------- */
+  T.secreto = {
+    n: 'Lo que no puedes contar', ico: '◍', min: 8, p: 0.85,
+    resumen: 'Sabes hacer algo por lo que te matarían.',
+    arranca: function (s) {
+      return s.sensible && s.trabajo !== 'jedi' && s.trabajo !== 'sith' &&
+             (s.era === 'imperio_temprano' || s.era === 'rebelion' || s.era === 'primera_orden');
+    },
+    primera: [2, 4],
+    finalPorDefecto: 'Te lo llevaste a la tumba.',
+    etapas: [
+      { espera: [3, 6], escena: function (g, t) {
+        return { t: '<p>Se te ha escapado delante de alguien. Un vaso que no se cayó, una puerta que se abrió sola.</p>',
+          c: [
+            { t: 'Reírte y cambiar de tema', fx: { carisma: 10 },
+              tramaAvanza: { id: 'secreto', a: 1, datos: { disimulaste: true } } },
+            { t: 'Borrárselo de la cabeza', fx: { fuerza: 8, alineamiento: -12, cordura: -6 },
+              tramaAvanza: { id: 'secreto', a: 1, datos: { borraste: true } } },
+            { t: 'Contárselo de verdad', fx: { cordura: 14 },
+              tramaAvanza: { id: 'secreto', a: 1, datos: { confiaste: true } },
+              rel: { tipo: 'confidente', afecto: 50 } },
+            { t: 'Marcharte de ese sitio hoy', mover: 'cerca', motivo: 'antes de que hablaran',
+              tramaAvanza: { id: 'secreto', a: 1, datos: { huiste: true } } }
+          ] };
+      } },
+      { espera: [4, 8], escena: function (g, t) {
+        const cab = t.datos.confiaste ? 'La persona a la que se lo contaste ha empezado a hablar más de la cuenta.'
+                  : t.datos.borraste ? 'Aquello que borraste ha vuelto a la cabeza de alguien en trozos.'
+                  : 'Alguien lleva semanas haciendo preguntas por el barrio.';
+        return { t: '<p>' + cab + '</p>',
+          c: [
+            { t: 'Cortar tu conexión del todo', fx: { fuerza: -18, cordura: -10, notoriedad: -14 },
+              tramaAvanza: { id: 'secreto', a: 2, datos: { cortaste: true } } },
+            { t: 'Buscar a otros como tú', fx: { fuerza: 10, cordura: 10 }, buscado: 14,
+              tramaAvanza: { id: 'secreto', a: 2, datos: { red: true } } },
+            { t: 'Quitar de en medio a quien pregunta', fx: { alineamiento: -24, notoriedad: 12 },
+              tramaAvanza: { id: 'secreto', a: 2, datos: { manchado: true } } },
+            { t: 'Entregarte y negociar', fx: { alineamiento: -14, creditos: 20000 },
+              tramaAvanza: { id: 'secreto', a: 3, datos: { colaboras: true } } }
+          ] };
+      } },
+      { espera: [5, 10], escena: function (g, t) {
+        const c = [];
+        if (t.datos.red) {
+          c.push({ t: 'Sacar a los tuyos del planeta', fx: { alineamiento: 24, reputacion: 12, creditos: -25000 },
+            tramaAvanza: { id: 'secreto', a: 3, datos: { salvaste: true } } });
+        }
+        c.push({ t: 'Plantar cara a quien viene', combate: { dif: 80, duelo: true, sable: false },
+          tramaAvanza: { id: 'secreto', a: 3, datos: { peleaste: true } } });
+        c.push({ t: 'Cambiar de nombre y de cara', coste: 25000, fx: { notoriedad: -30, cordura: -8 },
+          tramaAvanza: { id: 'secreto', a: 3, datos: { otro: true } } });
+        c.push({ t: 'Usar lo que sabes hacer, por una vez, delante de todos',
+          fx: { fuerza: 16, reputacion: 20, notoriedad: 30 }, buscado: 40,
+          tramaAvanza: { id: 'secreto', a: 3, datos: { publico: true } } });
+        return { t: '<p>Han venido a por ti. Esta vez con nombre y apellidos, y con orden.</p>', c: c };
+      } },
+      { espera: [6, 14], escena: function (g, t) {
+        return { t: '<p>Han pasado los años y sigues aquí. Y ahora hay un crío en el barrio que mueve cosas sin tocarlas.</p>',
+          c: [
+            { t: 'Enseñarle a esconderlo', fx: { alineamiento: 14, cordura: 12, fuerza: 6 },
+              tramaCierra: { id: 'secreto', final: 'enseñaste a otro a sobrevivir con lo mismo' } },
+            { t: 'Enseñarle a usarlo', fx: { fuerza: 14, alineamiento: 16 }, buscado: 20,
+              tramaCierra: { id: 'secreto', final: 'pasaste lo que sabías, con todo el riesgo' } },
+            { t: 'Sacarle del planeta y no volver a saber', fx: { alineamiento: 18, creditos: -20000, cordura: 10 },
+              tramaCierra: { id: 'secreto', final: 'le pusiste a salvo y nunca supiste el resto' } },
+            { t: 'No meterte', fx: { cordura: -16, alineamiento: -12 },
+              tramaCierra: { id: 'secreto', final: 'no hiciste nada y lo sabes' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 6
+     LA PROMESA
+     Alguien se muere y te pide una cosa. Tarda una vida.
+     ---------------------------------------------------------- */
+  T.promesa = {
+    n: 'La promesa', ico: '✎', min: 16, p: 0.5,
+    resumen: 'Le dijiste que sí a alguien que ya no puede reclamártelo.',
+    arranca: function (s) {
+      return (s.relacionesPasadas || []).length > 0 || (s.contadores.batallas || 0) > 0;
+    },
+    primera: [1, 3],
+    finalPorDefecto: 'Se te fue quedando en el cajón.',
+    etapas: [
+      { espera: [2, 4], escena: function (g, t) {
+        const rng = g.rng;
+        t.datos.quien = t.datos.quien || SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'rodiano']), rng.chance(0.5) ? 'm' : 'f');
+        t.datos.que = t.datos.que || rng.pick([
+          'que encuentres a su hermana', 'que le lleves una carta a su madre',
+          'que le devuelvas una cosa a su dueño', 'que no dejes que se olvide su nombre',
+          'que cuides de alguien que no conoce a nadie', 'que termines lo que él empezó'
+        ]);
+        t.datos.donde = t.datos.donde || (SW.mundoAleatorioNormal ? SW.mundoAleatorioNormal(rng, g.s.mundo) : 'otro sistema');
+        return { t: '<p><b>' + t.datos.quien + '</b> se muere y te pide una cosa: ' + t.datos.que + '. Es en ' + t.datos.donde + '.</p>',
+          c: [
+            { t: 'Prometérselo y decirlo en serio', fx: { alineamiento: 14, cordura: 8 },
+              tramaAvanza: { id: 'promesa', a: 1, datos: { enSerio: true } } },
+            { t: 'Prometérselo para que descanse', fx: { cordura: 4 },
+              tramaAvanza: { id: 'promesa', a: 1 } },
+            { t: 'Decirle la verdad: que no vas a poder', fx: { cordura: -8, alineamiento: 6 },
+              tramaCierra: { id: 'promesa', final: 'al menos no le mentiste' } },
+            { t: 'Ir hoy mismo', mueveA: t.datos.donde, motivo: 'a cumplir una promesa',
+              fx: { alineamiento: 18, creditos: -8000 },
+              tramaAvanza: { id: 'promesa', a: 2, datos: { enSerio: true, corriendo: true } } }
+          ] };
+      } },
+      { espera: [5, 12], escena: function (g, t) {
+        const años = g.s.edad - t.desde;
+        return { t: '<p>Han pasado ' + años + ' años. Lo de ' + t.datos.quien + ' sigue sin hacerse. Hoy te has acordado otra vez.</p>',
+          c: [
+            { t: 'Dejar todo e ir a ' + t.datos.donde, mueveA: t.datos.donde, motivo: 'a cumplir una promesa vieja',
+              fx: { cordura: 10, creditos: -10000 },
+              tramaAvanza: { id: 'promesa', a: 2 } },
+            { t: 'Pagar a alguien para que lo haga', coste: 18000, fx: { cordura: 4, alineamiento: 4 },
+              tramaAvanza: { id: 'promesa', a: 3, datos: { delegado: true } } },
+            { t: 'Otro año más', fx: { cordura: -8 },
+              tramaAvanza: { id: 'promesa', a: 1 } },
+            { t: 'Aceptar que no lo vas a hacer', fx: { cordura: -14, alineamiento: -8 },
+              tramaCierra: { id: 'promesa', final: 'nunca la cumpliste' } }
+          ] };
+      } },
+      { espera: [1, 2], escena: function (g, t) {
+        return { t: '<p>Estás en ' + t.datos.donde + '. Y resulta que la cosa no es tan simple como te la contaron.</p>',
+          c: [
+            { t: 'Llegar hasta el final cueste lo que cueste', fx: { alineamiento: 20, cordura: 16, salud: -10 },
+              tramaAvanza: { id: 'promesa', a: 3, datos: { cumplida: true } } },
+            { t: 'Hacer la versión fácil', fx: { cordura: 6 },
+              tramaAvanza: { id: 'promesa', a: 3, datos: { media: true } } },
+            { t: 'Descubrir por qué te lo pidió a ti', fx: { intelecto: 14, cordura: -8 },
+              tramaAvanza: { id: 'promesa', a: 3, datos: { verdad: true } } },
+            { t: 'Volverte', fx: { cordura: -12 },
+              tramaCierra: { id: 'promesa', final: 'llegaste hasta la puerta y no llamaste' } }
+          ] };
+      } },
+      { espera: [3, 8], escena: function (g, t) {
+        const cab = t.datos.cumplida ? 'Está hecho. Y ahora hay alguien que te debe a ti lo que tú debías.'
+                  : t.datos.verdad ? 'Sabes por qué te eligió a ti, y no te gusta la respuesta.'
+                  : t.datos.delegado ? 'Te llega la confirmación de que se hizo. No estabas tú.'
+                  : 'Se hizo, más o menos.';
+        return { t: '<p>' + cab + '</p>',
+          c: [
+            { t: 'Cerrar el círculo y soltarlo', fx: { cordura: 22, alineamiento: 12 },
+              tramaCierra: { id: 'promesa', final: 'la cumpliste y te quitaste un peso' } },
+            { t: 'Quedarte con quien encontraste', fx: { cordura: 14 }, rel: { tipo: 'amigo', afecto: 55 },
+              tramaCierra: { id: 'promesa', final: 'de aquella promesa te quedó alguien' } },
+            { t: 'Pedir tú otra promesa a alguien', fx: { cordura: 10, carisma: 8 },
+              tramaCierra: { id: 'promesa', final: 'pasaste la cadena a otro' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 7
+     LA ENFERMEDAD LARGA
+     ---------------------------------------------------------- */
+  T.enfermedad = {
+    n: 'Lo que llevas dentro', ico: '✚', min: 32, p: 0.5,
+    resumen: 'Algo del cuerpo que no se cura, solo se lleva.',
+    arranca: function (s) { return !!s.flags.cronica || (s.stats.salud < 38 && s.edadBio > 42); },
+    primera: [1, 3],
+    finalPorDefecto: 'Aprendiste a vivir con ello.',
+    etapas: [
+      { espera: [2, 4], escena: function (g, t) {
+        return { t: '<p>Ya tiene nombre. El médico habla despacio y usa la palabra "crónico".</p>',
+          c: [
+            { t: 'Tratamiento caro y constante', coste: 20000, fx: { salud: 18 },
+              tramaAvanza: { id: 'enfermedad', a: 1, datos: { tratas: true } } },
+            { t: 'Cambiar de vida entera', fx: { salud: 14, cordura: 12, creditos: -10000 },
+              tramaAvanza: { id: 'enfermedad', a: 1, datos: { cambio: true } } },
+            { t: 'Seguir como si nada', fx: { salud: -12, cordura: 6 },
+              tramaAvanza: { id: 'enfermedad', a: 1, datos: { niegas: true } } },
+            { t: 'Buscar algo que no sea medicina', fx: { creditos: -12000, cordura: 8 },
+              tramaAvanza: { id: 'enfermedad', a: 1, datos: { alternativa: true } } }
+          ] };
+      } },
+      { espera: [4, 7], escena: function (g, t) {
+        return { t: '<p>Un brote malo. Dos meses sin poder trabajar y las facturas siguen llegando.</p>',
+          c: [
+            { t: 'Aguantar y volver', fx: { salud: -8, fisico: -6, cordura: 8 },
+              tramaAvanza: { id: 'enfermedad', a: 2 } },
+            { t: 'Vender lo que haga falta', fx: { creditos: -30000, salud: 16 },
+              tramaAvanza: { id: 'enfermedad', a: 2, datos: { vendiste: true } } },
+            { t: 'Pedir ayuda a los tuyos', fx: { salud: 10, cordura: 12, alineamiento: 4 },
+              tramaAvanza: { id: 'enfermedad', a: 2, datos: { arropado: true } } },
+            { t: 'Cibernética para lo que ya no funciona', coste: 30000, fx: { fisico: 14, salud: 8 },
+              cibernetica: 'sustitución interna', tramaAvanza: { id: 'enfermedad', a: 2, datos: { ciber: true } } }
+          ] };
+      } },
+      { espera: [5, 10], escena: function (g, t) {
+        return { t: '<p>Te dan una estimación. No es una sentencia, pero se le parece.</p>',
+          c: [
+            { t: 'Hacer todo lo que no has hecho', fx: { cordura: 24, creditos: -25000, salud: -6 },
+              tramaCierra: { id: 'enfermedad', final: 'lo aprovechaste todo' } },
+            { t: 'Poner tus asuntos en orden', fx: { cordura: 16, alineamiento: 12 },
+              legado: 'dejó todo atado', tramaCierra: { id: 'enfermedad', final: 'lo dejaste todo en orden' } },
+            { t: 'Pelearlo hasta el final', fx: { salud: 12, cordura: -8, creditos: -40000 },
+              tramaCierra: { id: 'enfermedad', final: 'lo peleaste año a año' } },
+            { t: 'No decírselo a nadie', fx: { cordura: -18 },
+              tramaCierra: { id: 'enfermedad', final: 'lo llevaste solo' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 8
+     EL CULTO
+     Alguien decide que tú eres una señal.
+     ---------------------------------------------------------- */
+  T.culto = {
+    n: 'La gente que cree en ti', ico: '☉', min: 20, p: 0.45,
+    resumen: 'Unos cuantos han decidido que eres algo que no eres.',
+    arranca: function (s) {
+      return s.stats.reputacion > 55 || (s.sensible && s.stats.fuerza > 45) || (s.contadores.duelos || 0) > 2;
+    },
+    primera: [2, 5],
+    finalPorDefecto: 'Se cansaron y se fueron con otro.',
+    etapas: [
+      { espera: [3, 5], escena: function (g, t) {
+        return { t: '<p>Hay un grupito que te espera a la salida. Han pintado tu cara en una pared y le rezan.</p>',
+          c: [
+            { t: 'Decirles que se vayan a casa', fx: { cordura: 8, alineamiento: 10 },
+              tramaAvanza: { id: 'culto', a: 1, datos: { rechazo: true } } },
+            { t: 'Escucharles', fx: { carisma: 10, cordura: -4 },
+              tramaAvanza: { id: 'culto', a: 1, datos: { escuchas: true } } },
+            { t: 'Aprovecharlo', fx: { creditos: 20000, carisma: 12, alineamiento: -16 },
+              tramaAvanza: { id: 'culto', a: 1, datos: { usas: true } } },
+            { t: 'Enseñarles algo útil de verdad', fx: { alineamiento: 16, carisma: 14, reputacion: 10 },
+              tramaAvanza: { id: 'culto', a: 1, datos: { escuela: true } } }
+          ] };
+      } },
+      { espera: [4, 8], escena: function (g, t) {
+        const cab = t.datos.rechazo ? 'Los echaste y volvieron más, porque negarlo es lo que haría un elegido de verdad.'
+                  : t.datos.usas ? 'Son cuatrocientos y te mantienen sin trabajar.'
+                  : t.datos.escuela ? 'Ya no rezan: aprenden. Y son muchos.'
+                  : 'Son más y tienen normas que tú no has escrito.';
+        return { t: '<p>' + cab + ' Alguien de dentro empieza a hablar en tu nombre.</p>',
+          c: [
+            { t: 'Ponerte tú al mando', fx: { carisma: 16, reputacion: 12, cordura: -8 },
+              tramaAvanza: { id: 'culto', a: 2, datos: { mandas: true } } },
+            { t: 'Dejar que lo lleve él', fx: { cordura: 6 },
+              tramaAvanza: { id: 'culto', a: 2, datos: { delegas: true } } },
+            { t: 'Disolverlo', fx: { alineamiento: 16, reputacion: -10, cordura: 10 },
+              tramaAvanza: { id: 'culto', a: 3, datos: { disuelto: true } } },
+            { t: 'Marcharte lejos y en silencio', mover: 'cerca', motivo: 'para que te olvidaran',
+              tramaAvanza: { id: 'culto', a: 2, datos: { huiste: true } } }
+          ] };
+      } },
+      { espera: [5, 10], escena: function (g, t) {
+        return { t: '<p>Han hecho algo grave en tu nombre. Hay gente herida y tu cara en todas partes.</p>',
+          c: [
+            { t: 'Dar la cara y asumirlo', fx: { alineamiento: 20, reputacion: -12, cordura: 12 },
+              tramaAvanza: { id: 'culto', a: 3, datos: { asumiste: true } } },
+            { t: 'Negar que tengas nada que ver', fx: { alineamiento: -12, cordura: -10 },
+              tramaAvanza: { id: 'culto', a: 3, datos: { negaste: true } } },
+            { t: 'Entregar a los responsables', fx: { alineamiento: 14, reputacion: 8 },
+              tramaAvanza: { id: 'culto', a: 3, datos: { entregaste: true } } },
+            { t: 'Usarlo para tomar el poder aquí', fx: { notoriedad: 26, alineamiento: -24, creditos: 40000 },
+              tramaAvanza: { id: 'culto', a: 3, datos: { poder: true } } }
+          ] };
+      } },
+      { espera: [6, 14], escena: function (g, t) {
+        return { t: '<p>Sigue existiendo. Ya no depende de ti y va a durar más que tú.</p>',
+          c: [
+            { t: 'Dejar por escrito lo que de verdad piensas', fx: { cordura: 18, intelecto: 12 },
+              legado: 'dejó escrito lo que pensaba de verdad',
+              tramaCierra: { id: 'culto', final: 'dejaste tu versión por escrito' } },
+            { t: 'Nombrar sucesor y desaparecer', fx: { cordura: 12 },
+              tramaCierra: { id: 'culto', final: 'nombraste a otro y te fuiste' } },
+            { t: 'Reventarlo desde dentro', fx: { alineamiento: 16, cordura: -12, notoriedad: 14 },
+              tramaCierra: { id: 'culto', final: 'lo desmontaste tú mismo' } },
+            { t: 'Dejar que sea lo que quiera ser', fx: { cordura: 6 },
+              tramaCierra: { id: 'culto', final: 'siguió sin ti, para bien y para mal' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 9
+     LA CASA
+     El sitio del que vienes y al que a lo mejor vuelves.
+     ---------------------------------------------------------- */
+  T.casa = {
+    n: 'La casa de donde vienes', ico: '⌂', min: 18, p: 0.55,
+    resumen: 'Tu mundo natal sigue ahí y sigue teniendo tu nombre.',
+    arranca: function (s) { return s.mundo !== s.mundoNatal && s.edadBio > 20; },
+    primera: [3, 7],
+    finalPorDefecto: 'Dejaste de pensar en ello.',
+    etapas: [
+      { espera: [4, 8], escena: function (g, t) {
+        return { t: '<p>Te llega noticia de tu mundo natal. Las cosas allí no van bien.</p>',
+          c: [
+            { t: 'Mandar dinero', fx: { creditos: -15000, alineamiento: 12 },
+              tramaAvanza: { id: 'casa', a: 1, datos: { dinero: true } } },
+            { t: 'Volver a ver qué pasa', mover: 'casa', motivo: 'a ver qué queda',
+              fx: { cordura: 8 }, tramaAvanza: { id: 'casa', a: 1, datos: { volviste: true } } },
+            { t: 'Traerte a alguien contigo', fx: { creditos: -8000, cordura: 10 },
+              rel: { tipo: 'familia', afecto: 45 },
+              tramaAvanza: { id: 'casa', a: 1, datos: { trajiste: true } } },
+            { t: 'No es tu problema desde hace años', fx: { cordura: -10, alineamiento: -8 },
+              tramaAvanza: { id: 'casa', a: 1, datos: { pasaste: true } } }
+          ] };
+      } },
+      { espera: [5, 10], escena: function (g, t) {
+        return { t: '<p>La casa donde creciste está en venta o en ruinas, según a quién preguntes.</p>',
+          c: [
+            { t: 'Comprarla', coste: 35000, fx: { cordura: 18 }, flag: 'casa_propia',
+              tramaAvanza: { id: 'casa', a: 2, datos: { compraste: true } } },
+            { t: 'Comprarla y darla al pueblo', coste: 35000, fx: { alineamiento: 22, reputacion: 20 },
+              tramaAvanza: { id: 'casa', a: 2, datos: { donaste: true } } },
+            { t: 'Ir a verla una última vez', mover: 'casa', motivo: 'a despedirte de una casa',
+              fx: { cordura: 12 }, tramaAvanza: { id: 'casa', a: 2, datos: { despediste: true } } },
+            { t: 'Dejar que se caiga', fx: { cordura: -8 },
+              tramaAvanza: { id: 'casa', a: 2 } }
+          ] };
+      } },
+      { espera: [8, 16], escena: function (g, t) {
+        return { t: '<p>Ya eres mayor. Allí queda gente que te recuerda de crío y aquí no queda casi nadie.</p>',
+          c: [
+            { t: 'Volver para quedarte', mover: 'casa', motivo: 'a terminar donde empezaste',
+              fx: { cordura: 24, salud: 6 },
+              tramaCierra: { id: 'casa', final: 'volviste a morir donde naciste' } },
+            { t: 'Dejar allí lo que tengas', fx: { creditos: -40000, alineamiento: 20, reputacion: 16 },
+              legado: 'dejó lo suyo en su mundo natal',
+              tramaCierra: { id: 'casa', final: 'lo tuyo se quedó allí aunque tú no' } },
+            { t: 'Mandar que te entierren allí', fx: { cordura: 12 },
+              tramaCierra: { id: 'casa', final: 'pediste que te llevaran de vuelta' } },
+            { t: 'Ese sitio ya no existe para ti', fx: { cordura: -10 },
+              tramaCierra: { id: 'casa', final: 'cortaste del todo' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 10
+     EL APRENDIZ
+     Alguien aprende de ti. Y un día sabe más.
+     ---------------------------------------------------------- */
+  T.aprendiz = {
+    n: 'El que aprendió de ti', ico: '⚘', min: 24, p: 0.6,
+    resumen: 'Le enseñaste. Ahora tiene vida propia.',
+    arranca: function (s) {
+      return (s.relaciones || []).some(function (r) { return r.tipo === 'aprendiz'; }) ||
+             !!s.aprendizSith || (s.contadores.misionesJedi || 0) > 3;
+    },
+    primera: [2, 4],
+    finalPorDefecto: 'Se perdió de vista.',
+    etapas: [
+      { espera: [3, 6], escena: function (g, t) {
+        const rng = g.rng;
+        t.datos.n = t.datos.n || ((g.s.aprendizSith && g.s.aprendizSith.n) ||
+          SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak']), rng.chance(0.5) ? 'm' : 'f'));
+        return { t: '<p><b>' + t.datos.n + '</b> ya hace las cosas casi tan bien como tú. Y quiere hacerlas a su manera.</p>',
+          c: [
+            { t: 'Dejarle probar', fx: { carisma: 10, alineamiento: 8 },
+              tramaAvanza: { id: 'aprendiz', a: 1, datos: { libre: true } } },
+            { t: 'Corregirle en público', fx: { reputacion: 4, alineamiento: -8 },
+              tramaAvanza: { id: 'aprendiz', a: 1, datos: { humillado: true } } },
+            { t: 'Enseñarle lo que te guardabas', fx: { carisma: 14, cordura: 8 },
+              tramaAvanza: { id: 'aprendiz', a: 1, datos: { todo: true } } },
+            { t: 'Frenarle', fx: { alineamiento: -12, cordura: -6 },
+              tramaAvanza: { id: 'aprendiz', a: 1, datos: { frenado: true } } }
+          ] };
+      } },
+      { espera: [5, 9], escena: function (g, t) {
+        const n = t.datos.n;
+        const cab = t.datos.humillado || t.datos.frenado
+          ? '<b>' + n + '</b> se ha ido por su cuenta y no ha dejado nota.'
+          : '<b>' + n + '</b> ha hecho algo grande y todo el mundo sabe quién le enseñó.';
+        return { t: '<p>' + cab + '</p>',
+          c: [
+            { t: 'Alegrarte de verdad', fx: { cordura: 16, alineamiento: 12 },
+              tramaAvanza: { id: 'aprendiz', a: 2, datos: { orgullo: true } } },
+            { t: 'Reclamar tu parte del mérito', fx: { reputacion: 10, alineamiento: -10 },
+              tramaAvanza: { id: 'aprendiz', a: 2, datos: { celos: true } } },
+            { t: 'Buscarle y hacer las paces', fx: { carisma: 14, cordura: 12 },
+              tramaAvanza: { id: 'aprendiz', a: 2, datos: { paces: true } } },
+            { t: 'Competir con él', fx: { intelecto: 10, fisico: 6, cordura: -8 },
+              tramaAvanza: { id: 'aprendiz', a: 2, datos: { rivales: true } } }
+          ] };
+      } },
+      { espera: [6, 14], escena: function (g, t) {
+        const n = t.datos.n;
+        const c = [];
+        if (t.datos.celos || t.datos.rivales || t.datos.humillado) {
+          c.push({ t: 'Enfrentarte a él', combate: { dif: 78, duelo: true, sable: !!g.s.sable },
+            tramaAvanza: { id: 'aprendiz', a: 3, datos: { chocasteis: true } } });
+        }
+        c.push({ t: 'Pedirle que te ayude ahora que no puedes solo', fx: { cordura: 18, alineamiento: 10 },
+          tramaCierra: { id: 'aprendiz', final: 'acabó cuidando de ti' } });
+        c.push({ t: 'Darle lo último que te queda por enseñar', fx: { cordura: 20, carisma: 12 },
+          legado: 'lo que sabía se lo quedó otro',
+          tramaCierra: { id: 'aprendiz', final: 'le diste lo último que sabías' } });
+        c.push({ t: 'Dejarle en paz de una vez', fx: { cordura: 10 },
+          tramaCierra: { id: 'aprendiz', final: 'le dejaste hacer su vida' } });
+        return { t: '<p>Eres viejo y <b>' + n + '</b> está en su mejor momento.</p>', c: c };
+      } },
+      { espera: [2, 5], escena: function (g, t) {
+        return { t: '<p>Después de aquello, uno de los dos tiene que decir algo.</p>',
+          c: [
+            { t: 'Perdonarle', fx: { cordura: 20, alineamiento: 16 },
+              tramaCierra: { id: 'aprendiz', final: 'os perdonasteis tarde' } },
+            { t: 'No perdonarle', fx: { cordura: -14 },
+              tramaCierra: { id: 'aprendiz', final: 'nunca os perdonasteis' } },
+            { t: 'Acabar lo que empezasteis', combate: { dif: 82, duelo: true, aMuerte: true },
+              tramaCierra: { id: 'aprendiz', final: 'acabó como tenía que acabar' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 11
+     LA RELIQUIA
+     Un objeto que llevas encima y que no te deja en paz.
+     ---------------------------------------------------------- */
+  T.reliquia = {
+    n: 'Lo que llevas encima', ico: '◈', min: 14, p: 0.5,
+    resumen: 'Un objeto que arrastras y que otros quieren.',
+    arranca: function (s) {
+      return (s.objetos || []).length > 2 || !!s.flags.carta_vieja || !!s.kyber;
+    },
+    primera: [2, 5],
+    finalPorDefecto: 'Se perdió en alguna mudanza.',
+    etapas: [
+      { espera: [3, 6], escena: function (g, t) {
+        const rng = g.rng;
+        t.datos.obj = t.datos.obj || rng.pick([
+          'una placa de metal con inscripciones que nadie sabe leer',
+          'un cilindro sellado que zumba de noche',
+          'un anillo con el sello de una casa que ya no existe',
+          'un cuaderno lleno de rutas que no llevan a ningún sitio conocido',
+          'una figura de piedra que pesa más de lo que debería'
+        ]);
+        return { t: '<p>Tienes ' + t.datos.obj + '. Hoy alguien te ha ofrecido dinero por ello sin que lo enseñaras.</p>',
+          c: [
+            { t: 'Venderlo', fx: { creditos: 25000 },
+              tramaAvanza: { id: 'reliquia', a: 2, datos: { vendido: true } } },
+            { t: 'Guardarlo mejor', fx: { intelecto: 6, cordura: -4 },
+              tramaAvanza: { id: 'reliquia', a: 1, datos: { guardado: true } } },
+            { t: 'Averiguar qué es', fx: { intelecto: 14 },
+              tramaAvanza: { id: 'reliquia', a: 1, datos: { investigas: true } } },
+            { t: 'Preguntar cómo sabía él que lo tenías', fx: { intelecto: 10, cordura: -8 },
+              tramaAvanza: { id: 'reliquia', a: 1, datos: { sospechas: true } } }
+          ] };
+      } },
+      { espera: [4, 8], escena: function (g, t) {
+        return { t: '<p>Han entrado en tu casa y no se han llevado nada de valor. Buscaban una cosa concreta.</p>',
+          c: [
+            { t: 'Esconderlo donde nadie mire', fx: { intelecto: 10, cordura: -6 },
+              tramaAvanza: { id: 'reliquia', a: 2, datos: { escondido: true } } },
+            { t: 'Llevarlo siempre encima', fx: { cordura: -10, destreza: 6 },
+              tramaAvanza: { id: 'reliquia', a: 2, datos: { encima: true } } },
+            { t: 'Dárselo a alguien de confianza', fx: { cordura: 6 },
+              tramaAvanza: { id: 'reliquia', a: 2, datos: { cedido: true } } },
+            { t: 'Ponerlo de cebo y esperarles', combate: { dif: 60 },
+              tramaAvanza: { id: 'reliquia', a: 2, datos: { emboscada: true } } }
+          ] };
+      } },
+      { espera: [5, 12], escena: function (g, t) {
+        const c = [];
+        if (t.datos.vendido) {
+          c.push({ t: 'Recuperarlo como sea', fx: { creditos: -40000, cordura: 10 },
+            tramaAvanza: { id: 'reliquia', a: 3, datos: { recuperado: true } } });
+          c.push({ t: 'Alegrarte de haberlo soltado', fx: { cordura: 12 },
+            tramaCierra: { id: 'reliquia', final: 'lo vendiste y fue lo mejor que hiciste' } });
+        }
+        c.push({ t: 'Descubrir de una vez para qué sirve', fx: { intelecto: 16, fuerza: 6, cordura: -10 },
+          tramaAvanza: { id: 'reliquia', a: 3, datos: { sabes: true } } });
+        c.push({ t: 'Destruirlo', fx: { cordura: 16, alineamiento: 10 },
+          tramaCierra: { id: 'reliquia', final: 'lo destruiste y dormiste mejor' } });
+        c.push({ t: 'Entregarlo a quien lo estudie bien', fx: { reputacion: 12, alineamiento: 14 },
+          tramaCierra: { id: 'reliquia', final: 'lo pusiste en buenas manos' } });
+        return { t: '<p>Sea lo que sea, lleva años marcando tu vida y ya no puedes hacer como que no.</p>', c: c };
+      } },
+      { espera: [4, 10], escena: function (g, t) {
+        return { t: '<p>Ya sabes lo que tienes. Y sabes lo que puede hacer si va a las manos equivocadas.</p>',
+          c: [
+            { t: 'Usarlo', fx: { fuerza: 18, creditos: 40000, alineamiento: -16, cordura: -12 },
+              tramaCierra: { id: 'reliquia', final: 'lo usaste y te cambió' } },
+            { t: 'Esconderlo donde no lo encuentre nadie nunca', fx: { cordura: 14, alineamiento: 16 },
+              legado: 'escondió algo que era mejor que siguiera escondido',
+              tramaCierra: { id: 'reliquia', final: 'lo enterraste tú mismo' } },
+            { t: 'Dejarlo a alguien con instrucciones', fx: { cordura: 10, carisma: 8 },
+              tramaCierra: { id: 'reliquia', final: 'lo pasaste con una advertencia' } },
+            { t: 'Destruirlo aunque cueste', fx: { salud: -20, cordura: 20, alineamiento: 20 },
+              tramaCierra: { id: 'reliquia', final: 'te costó salud, pero lo destruiste' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 12
+     EL NOMBRE
+     Un clon que decide quién es.
+     ---------------------------------------------------------- */
+  T.nombre = {
+    n: 'Un nombre que sea tuyo', ico: '✧', min: 8, p: 0.9,
+    resumen: 'Naciste con un número y estás decidiendo qué eres.',
+    arranca: function (s) { return s.especie === 'clon' || s.especie === 'clon_nulo'; },
+    primera: [1, 3],
+    finalPorDefecto: 'Te quedaste con el número.',
+    etapas: [
+      { espera: [2, 4], escena: function (g, t) {
+        return { t: '<p>Tus hermanos de lote se están poniendo nombres. Algunos por una cicatriz, otros por una manía.</p>',
+          c: [
+            { t: 'Ponerte uno tú', fx: { cordura: 14, carisma: 8 },
+              tramaAvanza: { id: 'nombre', a: 1, datos: { tuyo: true } } },
+            { t: 'Dejar que te lo pongan ellos', fx: { cordura: 10, carisma: 10 },
+              tramaAvanza: { id: 'nombre', a: 1, datos: { deEllos: true } } },
+            { t: 'Quedarte con el número', fx: { cordura: -6, fisico: 6 },
+              tramaAvanza: { id: 'nombre', a: 1, datos: { numero: true } } },
+            { t: 'Coger el nombre de uno que murió', fx: { cordura: 6, alineamiento: 8 },
+              tramaAvanza: { id: 'nombre', a: 1, datos: { heredado: true } } }
+          ] };
+      } },
+      { espera: [3, 6], escena: function (g, t) {
+        return { t: '<p>Un oficial te llama por el número delante de todos y corrige a quien usa tu nombre.</p>',
+          c: [
+            { t: 'Corregirle tú a él', fx: { cordura: 12, reputacion: -6, carisma: 10 },
+              tramaAvanza: { id: 'nombre', a: 2, datos: { plantaste: true } } },
+            { t: 'Tragar', fx: { cordura: -10 },
+              tramaAvanza: { id: 'nombre', a: 2 } },
+            { t: 'Tatuártelo donde se vea', fx: { cordura: 14, salud: -2, carisma: 8 },
+              tramaAvanza: { id: 'nombre', a: 2, datos: { tatuaje: true } } },
+            { t: 'Hacer que todos los de tu escuadra usen nombre', fx: { carisma: 16, reputacion: 10 },
+              tramaAvanza: { id: 'nombre', a: 2, datos: { escuadra: true } } }
+          ] };
+      } },
+      { espera: [4, 8], escena: function (g, t) {
+        return { t: '<p>La guerra o el Imperio se acaban para ti. Nadie va a decirte ya cómo llamarte, y nadie va a preguntarte tampoco.</p>',
+          c: [
+            { t: 'Empezar de cero con ese nombre', fx: { cordura: 20, carisma: 10 },
+              tramaAvanza: { id: 'nombre', a: 3, datos: { civil: true } } },
+            { t: 'Buscar a los de tu lote', fx: { cordura: 16, alineamiento: 12 },
+              rel: { tipo: 'hermano de lote', afecto: 60 },
+              tramaAvanza: { id: 'nombre', a: 3, datos: { hermanos: true } } },
+            { t: 'Cambiártelo otra vez y desaparecer', fx: { notoriedad: -25, cordura: 8 },
+              tramaAvanza: { id: 'nombre', a: 3, datos: { otro: true } } },
+            { t: 'Seguir siendo un soldado', fx: { fisico: 10, cordura: -8 },
+              tramaAvanza: { id: 'nombre', a: 3, datos: { soldado: true } } }
+          ] };
+      } },
+      { espera: [6, 14], escena: function (g, t) {
+        return { t: '<p>Eres viejo antes de tiempo, como todos los tuyos. Alguien te pregunta cómo te llamas.</p>',
+          c: [
+            { t: 'Decir tu nombre entero, sin número', fx: { cordura: 24 },
+              legado: 'murió con nombre propio',
+              tramaCierra: { id: 'nombre', final: 'moriste con nombre y no con número' } },
+            { t: 'Decir el número, por costumbre', fx: { cordura: -10 },
+              tramaCierra: { id: 'nombre', final: 'volviste al número al final' } },
+            { t: 'Contarle toda la historia', fx: { cordura: 18, carisma: 12 },
+              tramaCierra: { id: 'nombre', final: 'se lo contaste todo a un desconocido' } },
+            { t: 'Ponerle nombre a otro que no tiene', fx: { cordura: 20, alineamiento: 16 },
+              tramaCierra: { id: 'nombre', final: 'le pusiste nombre a otro' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 13
+     LA HERIDA DE GUERRA
+     ---------------------------------------------------------- */
+  T.guerra = {
+    n: 'Lo que te trajiste del frente', ico: '☓', min: 18, p: 0.75,
+    resumen: 'Volviste, pero no del todo.',
+    arranca: function (s) { return !!s.flags.veterano || (s.contadores.batallas || 0) > 1; },
+    primera: [1, 4],
+    finalPorDefecto: 'Se fue calmando con los años.',
+    etapas: [
+      { espera: [2, 4], escena: function (g, t) {
+        return { t: '<p>Vuelves y todo el mundo espera que sigas donde lo dejaste. Tú no encuentras el sitio.</p>',
+          c: [
+            { t: 'Buscar a los de tu unidad', fx: { cordura: 14 }, rel: { tipo: 'camarada', afecto: 55 },
+              tramaAvanza: { id: 'guerra', a: 1, datos: { unidad: true } } },
+            { t: 'No hablar de ello con nadie', fx: { cordura: -12, fisico: 4 },
+              tramaAvanza: { id: 'guerra', a: 1, datos: { callas: true } } },
+            { t: 'Contarlo todo a quien te escuche', fx: { cordura: 8, carisma: 8, reputacion: -4 },
+              tramaAvanza: { id: 'guerra', a: 1, datos: { cuentas: true } } },
+            { t: 'Volver a alistarte', menuAlistar: true,
+              tramaAvanza: { id: 'guerra', a: 1, datos: { volviste: true } } }
+          ] };
+      } },
+      { espera: [3, 7], escena: function (g, t) {
+        return { t: '<p>Un ruido cualquiera te ha tirado al suelo delante de la gente.</p>',
+          c: [
+            { t: 'Buscar ayuda de verdad', coste: 8000, fx: { cordura: 20 },
+              tramaAvanza: { id: 'guerra', a: 2, datos: { tratas: true } } },
+            { t: 'Beber', fx: { cordura: 6, salud: -16 },
+              tramaAvanza: { id: 'guerra', a: 2, datos: { bebes: true } } },
+            { t: 'Entrenar hasta caer rendido cada día', fx: { fisico: 14, cordura: 6, salud: -6 },
+              tramaAvanza: { id: 'guerra', a: 2, datos: { entrenas: true } } },
+            { t: 'Irte a vivir donde no haya nadie', mover: 'cerca', motivo: 'a un sitio sin ruido',
+              fx: { cordura: 12, carisma: -8 },
+              tramaAvanza: { id: 'guerra', a: 2, datos: { aislado: true } } }
+          ] };
+      } },
+      { espera: [5, 12], escena: function (g, t) {
+        return { t: '<p>Hay una placa con los nombres de los que no volvieron y te han pedido que hables.</p>',
+          c: [
+            { t: 'Hablar y decir la verdad', fx: { cordura: 22, reputacion: 12, alineamiento: 12 },
+              tramaCierra: { id: 'guerra', final: 'lo dijiste en voz alta y te soltó' } },
+            { t: 'Hablar y decir lo que quieren oír', fx: { reputacion: 14, cordura: -8 },
+              tramaCierra: { id: 'guerra', final: 'les diste el discurso que esperaban' } },
+            { t: 'Ir y no hablar', fx: { cordura: 10 },
+              tramaCierra: { id: 'guerra', final: 'fuiste, y con eso bastaba' } },
+            { t: 'No ir', fx: { cordura: -14 },
+              tramaCierra: { id: 'guerra', final: 'nunca volviste a mirar esa placa' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ---------------------------------------------------------- 14
+     LA CONSPIRACIÓN QUE TE ENVUELVE
+     ---------------------------------------------------------- */
+  T.complot = {
+    n: 'Algo que se cuece por encima de ti', ico: '⌬', min: 20, p: 0.5,
+    resumen: 'Te has cruzado con algo grande sin querer.',
+    arranca: function (s) {
+      return !!s.flags.en_el_senado || !!s.flags.espia || !!s.flags.dentro_del_senado ||
+             (s.contadores.tramas || 0) > 0 || !!s.flags.trabaja_para_dooku;
+    },
+    primera: [2, 5],
+    finalPorDefecto: 'Nunca supiste del todo qué era.',
+    etapas: [
+      { espera: [3, 6], escena: function (g, t) {
+        return { t: '<p>Un documento que no deberías tener menciona tres nombres y una fecha.</p>',
+          c: [
+            { t: 'Guardarlo y callar', fx: { intelecto: 8, cordura: -6 },
+              tramaAvanza: { id: 'complot', a: 1, datos: { guardas: true } } },
+            { t: 'Investigar los tres nombres', fx: { intelecto: 16 }, buscado: 12,
+              tramaAvanza: { id: 'complot', a: 1, datos: { investigas: true } } },
+            { t: 'Venderlo', fx: { creditos: 35000, alineamiento: -12 }, buscado: 18,
+              tramaAvanza: { id: 'complot', a: 1, datos: { vendiste: true } } },
+            { t: 'Destruirlo y olvidarlo', fx: { cordura: 8 },
+              tramaCierra: { id: 'complot', final: 'quemaste el papel y viviste tranquilo' } }
+          ] };
+      } },
+      { espera: [4, 8], escena: function (g, t) {
+        return { t: '<p>Uno de los tres nombres ha aparecido muerto. Los otros dos han subido de puesto.</p>',
+          c: [
+            { t: 'Ir a por los que quedan', fx: { intelecto: 12, notoriedad: 14 }, buscado: 22,
+              tramaAvanza: { id: 'complot', a: 2, datos: { cazas: true } } },
+            { t: 'Ponerte a cubierto', fx: { notoriedad: -12, cordura: -6 },
+              tramaAvanza: { id: 'complot', a: 2, datos: { cubierto: true } } },
+            { t: 'Ofrecerles tu silencio', fx: { creditos: 45000, alineamiento: -18 },
+              tramaAvanza: { id: 'complot', a: 2, datos: { comprado: true } } },
+            { t: 'Contárselo a la prensa', fx: { reputacion: 16, notoriedad: 22, alineamiento: 16 }, buscado: 30,
+              tramaAvanza: { id: 'complot', a: 2, datos: { publicaste: true } } }
+          ] };
+      } },
+      { espera: [5, 11], escena: function (g, t) {
+        return { t: '<p>Lo que se cocía ya ha pasado. Ha cambiado la vida de millones y tú lo sabías antes que nadie.</p>',
+          c: [
+            { t: 'Contar lo que sabías desde el principio', fx: { reputacion: 18, cordura: 14, notoriedad: 16 },
+              tramaCierra: { id: 'complot', final: 'lo contaste todo cuando ya no servía de nada' } },
+            { t: 'Ponerte del lado que ganó', fx: { creditos: 60000, alineamiento: -20, reputacion: 10 },
+              tramaCierra: { id: 'complot', final: 'te pusiste del lado que ganó' } },
+            { t: 'Buscar a los que quedaron debajo y ayudarles', fx: { alineamiento: 24, reputacion: 14, creditos: -20000 },
+              tramaCierra: { id: 'complot', final: 'ayudaste a los que quedaron debajo' } },
+            { t: 'No volver a hablar de esto jamás', fx: { cordura: -12 },
+              tramaCierra: { id: 'complot', final: 'te lo callaste para siempre' } }
+          ] };
+      } }
+    ]
+  };
+
+  /* ------------------------------------------------------------
+     Resumen para la ficha y el final
+     ------------------------------------------------------------ */
+  SW.tramasDe = function (s) {
+    const out = [];
+    for (const id in (s.tramas || {})) {
+      const t = s.tramas[id], T = SW.TRAMAS[id];
+      if (!T) continue;
+      out.push({
+        id: id, n: T.n, ico: T.ico, resumen: T.resumen,
+        etapa: t.etapa, total: T.etapas.length,
+        desde: t.desde, hasta: t.hasta, cerrada: t.cerrada, final: t.final
+      });
+    }
+    return out;
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== src/mejoras.js ===== */
+/* ============================================================
+   HOLOVIDA :: MEJORAS DE JUEGO
+   Sistemas pequeños que se notan mucho: rachas, talentos que
+   eliges tú, prestigio por facción, y la posibilidad de seguir
+   jugando con un descendiente cuando te mueres.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+
+  /* ============================================================
+     1 · RACHAS
+     Encadenar aciertos te pone fino; encadenar palos te hunde.
+     No es magia: mueve la suerte, que es una estadística real.
+     ============================================================ */
+  SW.RACHA_TOPE = 5;
+
+  SW.marcarRacha = function (g, bien) {
+    const s = g.s;
+    const antes = s.racha || 0;
+    if (bien) s.racha = antes >= 0 ? Math.min(SW.RACHA_TOPE, antes + 1) : 0;
+    else s.racha = antes <= 0 ? Math.max(-SW.RACHA_TOPE, antes - 1) : 0;
+    if (s.racha === 3) g.log('Te está saliendo todo. Se nota en cómo andas.', 'bien');
+    if (s.racha === -3) g.log('No te sale una. Y se te nota en la cara.', 'mal');
+  };
+
+  SW.efectoRacha = function (s) { return (s.racha || 0) * 2; };
+
+  SW.etiquetaRacha = function (s) {
+    const r = s.racha || 0;
+    if (r >= 4) return { t: 'imparable', c: 'buena' };
+    if (r >= 2) return { t: 'en racha', c: 'buena' };
+    if (r <= -4) return { t: 'hundido', c: 'mala' };
+    if (r <= -2) return { t: 'de capa caída', c: 'mala' };
+    return null;
+  };
+
+  /* ============================================================
+     2 · TALENTOS
+     Cada cierto tiempo eliges en qué te has convertido. No son
+     puntos sueltos: cambian cómo se resuelven las cosas.
+     ============================================================ */
+  SW.TALENTOS = [
+    { id: 'ojo', n: 'Ojo para la gente', d: 'Calas a quien tienes delante antes de que hable.',
+      mods: { carisma: 8, intelecto: 4 }, pasivo: 'Los tratos y las mediaciones te salen mejor.' },
+    { id: 'manos', n: 'Manos', d: 'Arreglas cosas que otros tiran.',
+      mods: { destreza: 8, intelecto: 4 }, hab: 'mecánico' },
+    { id: 'aguante', n: 'Aguante', d: 'Encajas más de lo que deberías.',
+      mods: { fisico: 8, salud: 8 }, pasivo: 'Menos probabilidad de morir al perder una pelea.' },
+    { id: 'sangre_fria', n: 'Sangre fría', d: 'Cuando todo se tuerce, tú bajas las pulsaciones.',
+      mods: { cordura: 10, destreza: 4 }, pasivo: 'Los minijuegos te dan más margen.' },
+    { id: 'memoria', n: 'Memoria de elefante', d: 'No se te olvida una cara ni una deuda.',
+      mods: { intelecto: 10 }, pasivo: 'Recuerdas quién te debe qué.' },
+    { id: 'labia', n: 'Labia', d: 'Has salido de sitios de los que no se sale hablando.',
+      mods: { carisma: 12 }, pasivo: 'Se abren opciones de convencer.' },
+    { id: 'olfato', n: 'Olfato', d: 'Hueles el problema antes de meterte en él.',
+      mods: { suerte: 10, intelecto: 4 }, pasivo: 'Menos accidentes tontos.' },
+    { id: 'nervio', n: 'Nervio', d: 'Vas primero y preguntas después.',
+      mods: { fisico: 6, destreza: 8 }, pasivo: 'Mejor en los ataques de apertura.' },
+    { id: 'paciencia', n: 'Paciencia', d: 'Sabes esperar años a que algo madure.',
+      mods: { cordura: 8, intelecto: 6 }, pasivo: 'Las tramas largas te salen mejor.' },
+    { id: 'contactos', n: 'Agenda', d: 'Siempre conoces a alguien que conoce a alguien.',
+      mods: { carisma: 6, reputacion: 8 }, pasivo: 'Más contactos útiles.' },
+    { id: 'ahorro', n: 'Cabeza para el dinero', d: 'Sabes lo que cuesta cada cosa.',
+      mods: { intelecto: 6 }, credito: 0.12, pasivo: 'Ganas un 12% más en todo lo que cobras.' },
+    { id: 'instinto', n: 'Instinto', d: 'A veces sabes cosas sin saber por qué.',
+      mods: { suerte: 8, fuerza: 6 }, pasivo: 'Algo se remueve cuando hay peligro.' }
+  ];
+
+  SW.tieneTalento = function (s, id) { return (s.talentos || []).indexOf(id) >= 0; };
+
+  SW.menuTalento = function (g) {
+    const s = g.s, rng = g.rng;
+    const libres = SW.TALENTOS.filter(function (t) { return !SW.tieneTalento(s, t.id); });
+    if (!libres.length) return null;
+    const copia = libres.slice();
+    const opciones = [];
+    for (let i = 0; i < 3 && copia.length; i++) {
+      opciones.push(copia.splice(rng.int(0, copia.length - 1), 1)[0]);
+    }
+    return {
+      gen: true, id: 'talento_' + s.edad,
+      t: '<span class="scene-tag">LO QUE TE VAS HACIENDO</span>' +
+         '<p>Han pasado unos años y algo se te ha quedado. ¿Qué se te da bien ahora?</p>',
+      c: opciones.map(function (t) {
+        return {
+          t: t.n, sub: t.d + (t.pasivo ? ' — ' + t.pasivo : ''),
+          talento: t.id, fx: t.mods, hab: t.hab
+        };
+      })
+    };
+  };
+
+  SW.darTalento = function (g, id) {
+    const s = g.s;
+    const t = SW.TALENTOS.filter(function (x) { return x.id === id; })[0];
+    if (!t || SW.tieneTalento(s, id)) return;
+    s.talentos = s.talentos || [];
+    s.talentos.push(id);
+    if (t.hab && s.habilidades.indexOf(t.hab) < 0) s.habilidades.push(t.hab);
+    g.log('Ahora se te da bien una cosa: <b>' + t.n + '</b>.', 'bien');
+    g.hito('Se hace con ' + t.n.toLowerCase());
+  };
+
+  /** ¿toca elegir talento este año? Cada 14 años, a partir de los 14. */
+  SW.tocaTalento = function (s) {
+    if (s.edadBio < 14) return false;
+    const n = (s.talentos || []).length;
+    return s.edadBio >= 14 + n * 14 && n < 5;
+  };
+
+  /* ============================================================
+     3 · PRESTIGIO POR FACCIÓN
+     Estaba guardado y no se veía en ninguna parte.
+     ============================================================ */
+  SW.prestigioDe = function (s) {
+    const out = [];
+    for (const id in (s.faccionRep || {})) {
+      const v = s.faccionRep[id];
+      if (!v) continue;
+      const f = SW.faccion ? SW.faccion(id) : null;
+      out.push({ id: id, n: f ? f.n : id, v: U.clamp(v, -100, 100) });
+    }
+    return out.sort(function (a, b) { return Math.abs(b.v) - Math.abs(a.v); }).slice(0, 6);
+  };
+
+  SW.etiquetaPrestigio = function (v) {
+    if (v >= 60) return 'te deben favores';
+    if (v >= 25) return 'bien visto';
+    if (v > -25) return 'les da igual';
+    if (v > -60) return 'mal visto';
+    return 'te quieren muerto';
+  };
+
+  /* ============================================================
+     4 · LEGADO: JUGAR CON UN DESCENDIENTE
+     Cuando te mueres puedes seguir con alguien de tu sangre. Se
+     hereda el apellido, el mundo, parte del dinero y un talento.
+     ============================================================ */
+  SW.puedeHeredar = function (s) {
+    return !!s && ((s.contadores.hijos || 0) > 0 || (s.relaciones || []).some(function (r) {
+      return r.tipo === 'aprendiz' || r.tipo === 'familia';
+    }));
+  };
+
+  SW.herenciaDe = function (s) {
+    const apellido = (s.nombre || '').split(' ').slice(1).join(' ');
+    const talento = (s.talentos || [])[0] || null;
+    // se hereda una parte del dinero, no todo: hay impuestos y hermanos
+    const dinero = Math.max(0, Math.round((s.stats.creditos || 0) * 0.35));
+    return {
+      apellido: apellido || null,
+      mundo: s.mundo,
+      especie: s.especie,
+      era: s.era,
+      creditos: dinero,
+      talento: talento,
+      sensible: !!s.sensible && Math.abs(s.stats.alineamiento) > 20,
+      deQuien: s.nombre,
+      reputacion: Math.round((s.stats.reputacion || 0) * 0.4),
+      notoriedad: Math.round((s.stats.notoriedad || 0) * 0.3),
+      tramas: (SW.tramasDe ? SW.tramasDe(s) : []).filter(function (t) { return !t.cerrada; }).map(function (t) { return t.n; })
+    };
+  };
+
+  /** Aplica la herencia a una partida recién creada. */
+  SW.aplicarHerencia = function (g, h) {
+    if (!h) return;
+    const s = g.s;
+    s.herencia = h;
+    s.stats.creditos += h.creditos;
+    s.stats.reputacion = U.clamp(s.stats.reputacion + h.reputacion, 0, 100);
+    s.stats.notoriedad = U.clamp(s.stats.notoriedad + h.notoriedad, 0, 100);
+    if (h.talento) SW.darTalento(g, h.talento);
+    g.log('Eres de la familia de <b>' + h.deQuien + '</b>. Eso abre puertas y cierra otras.', 'res');
+    if (h.creditos > 0) g.log('Te llega la herencia: ' + U.cr(h.creditos) + '.', 'cr');
+    if (h.tramas && h.tramas.length) {
+      g.log('Quedaron cosas sin cerrar: ' + h.tramas.join('; ') + '.', 'mal');
+    }
+    g.hito('Hereda el nombre de ' + h.deQuien);
+  };
+
+  /* ============================================================
+     5 · TITULARES DE ÉPOCA
+     Un poco de mundo alrededor, aunque no te toque a ti.
+     ============================================================ */
+  const TITULARES = {
+    alta_republica: ['Se inaugura otro Faro estelar.', 'La Frontera pide más jedi y llegan menos.', 'Otro ataque nihil en una ruta que se creía segura.'],
+    republica_tardia: ['El Senado debate el mismo asunto por sexto año.', 'Otro sistema pide entrar en la República.', 'Los gremios comerciales suben tasas otra vez.'],
+    guerras_clon: ['Nueva leva de clones sale de Kamino.', 'El Senado aprueba más poderes de emergencia.', 'Un mundo neutral deja de ser neutral.'],
+    imperio_temprano: ['Se disuelve otro consejo planetario.', 'Los astilleros de Kuat trabajan a triple turno.', 'Otra "reubicación de población" en el Borde.'],
+    rebelion: ['La Alianza reclama un golpe que nadie confirma.', 'El Imperio anuncia que la rebelión está acabada. Otra vez.', 'Suben las cuotas de reclutamiento imperial.'],
+    nueva_republica: ['El Senado nuevo discute dónde ponerse.', 'Los restos imperiales se reparten el Borde.', 'Vuelven a abrirse rutas cerradas hace veinte años.'],
+    primera_orden: ['Reclutamiento forzoso en tres sistemas más.', 'La Resistencia pide ayuda y no contesta nadie.', 'Otro planeta amanece bajo bandera nueva.']
+  };
+
+  SW.titularDeEra = function (rng, era) {
+    const l = TITULARES[era];
+    return l ? rng.pick(l) : null;
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== src/data-canon-consecuencias.js ===== */
 /* ============================================================
    HOLOVIDA :: LOS ENCUENTROS CANÓNICOS TIENEN CONSECUENCIAS
@@ -19354,7 +21441,10 @@ body.en-juego::before {
       acciones: 3,            // acciones por año
       accionesMax: 3,
       historia: [],
-      hitos: []
+      hitos: [],
+      tramas: {},             // hilos largos que cruzan la vida entera
+      racha: 0,               // buenas o malas seguidas: da suerte o te la quita
+      talentos: []            // lo que has ido eligiendo aprender
     };
 
     // el dinero de la familia es inmediato; el resto es potencial
@@ -19600,6 +21690,11 @@ body.en-juego::before {
     return inst;
   };
 
+  /** suerte real: la de la ficha más lo que arrastra la racha */
+  Game.prototype.suerte = function () {
+    return U.clamp(this.s.stats.suerte + (SW.efectoRacha ? SW.efectoRacha(this.s) : 0), 0, 100);
+  };
+
   /* ---------------- Ciclo anual ---------------- */
   Game.prototype.avanzarAño = function () {
     const s = this.s;
@@ -19666,6 +21761,24 @@ body.en-juego::before {
       if (ev.hazlo) { const g = ev.hazlo(this); if (g) { inst = this.prepararGen(g); this.marcarVisto(ev.id); } }
       else inst = this.prepararEvento(ev);
       if (inst) this.cola.push(inst);
+    }
+
+    // cada tantos años eliges en qué te has convertido
+    if (SW.tocaTalento && SW.tocaTalento(s) && SW.menuTalento && !this.cola.length) {
+      const mt = SW.menuTalento(this);
+      if (mt) this.cola.push(this.prepararGen(mt));
+    }
+
+    // el mundo sigue girando aunque no te toque
+    if (SW.titularDeEra && this.rng.chance(0.22)) {
+      const tit = SW.titularDeEra(this.rng, s.era);
+      if (tit) this.log('<i class="titular">' + tit + '</i>', 'res');
+    }
+
+    // los hilos largos: lo que decidiste hace veinte años vuelve
+    if (SW.pasoTramas && !this.cola.length) {
+      const tr = SW.pasoTramas(this);
+      if (tr) this.cola.push(this.prepararGen(tr));
     }
 
     // una misión de la Orden sin cerrar te persigue igual que un contrato
@@ -19905,6 +22018,17 @@ body.en-juego::before {
       partes.push('<i class="fx ' + (v > 0 ? 'fx-mas' : 'fx-menos') + '">' + txt + '</i>');
     });
     if (partes.length) this.log(partes.join(' '), 'efectos');
+
+    // rachas: el balance de lo que acaba de pasar
+    if (SW.marcarRacha) {
+      let bal = 0;
+      Object.keys(c).forEach(function (k) {
+        if (k === 'creditos') { bal += c[k] > 0 ? 1 : c[k] < 0 ? -1 : 0; return; }
+        if (k === 'notoriedad') return;
+        bal += c[k] > 0 ? 1 : c[k] < 0 ? -1 : 0;
+      });
+      if (bal !== 0) SW.marcarRacha(this, bal > 0);
+    }
   };
 
   Game.prototype.despertar = function () {
@@ -19985,6 +22109,15 @@ body.en-juego::before {
     if (d.pendiente) this.añadirPendiente(U.fill(d.pendiente, slots));
     if (d.buscado) { s.buscado = Math.min(100, s.buscado + d.buscado); this.log('Hay gente buscándote en ' + s.mundo + '.', 'mal'); }
     if (d.darItem) this.darObjeto(d.darItem);
+    // lo que te vas haciendo
+    if (d.talento && SW.darTalento) SW.darTalento(this, d.talento);
+    if (d.hab && s.habilidades.indexOf(d.hab) < 0) s.habilidades.push(d.hab);
+
+    // hilos largos
+    if (d.abreTrama && SW.abrirTrama) SW.abrirTrama(this, d.abreTrama);
+    if (d.tramaAvanza && SW.avanzarTrama) SW.avanzarTrama(this, d.tramaAvanza.id, d.tramaAvanza.a, d.tramaAvanza.datos);
+    if (d.tramaCierra && SW.cerrarTrama) SW.cerrarTrama(this, d.tramaCierra.id, d.tramaCierra.final);
+
     // misiones de la Orden
     if (d.aceptaMision && SW.aceptarMision) SW.aceptarMision(this, d.aceptaMision);
     if (d.pista && s.mision) s.mision.pistas = (s.mision.pistas || 0) + d.pista;
@@ -20744,6 +22877,9 @@ body.en-juego::before {
       ? SW.mundoAleatorioNormal(rng, s.mundo)
       : rng.pick(SW.MUNDO_NOMBRES.filter(function (m) { return m !== s.mundo; })));
     if (d === s.mundo) { this.log('Te quedas en ' + s.mundo + '.', 'viaje'); return; }
+    // un destino que no existe en la tabla dejaría el mundo en un
+    // nombre inventado y todos los textos saldrían con el hueco sin rellenar
+    if (!SW.mundo(d)) { this.log('No hay forma de llegar allí.', 'mal'); return; }
     const m = SW.mundo(d);
     const anterior = s.mundo;
     s.mundo = d;
@@ -21855,6 +23991,15 @@ body.en-juego::before {
       esp: s.especie,
       ct: s.contadores,
       ra: s.rasgoN,
+      // los hilos largos son la mitad de la gracia de una vida: van al enlace
+      tm: (SW.tramasDe ? SW.tramasDe(s) : []).map(function (x) {
+        return [x.ico + ' ' + x.n, x.cerrada ? x.final : 'quedó abierta',
+                x.desde, x.hasta == null ? s.edad : x.hasta, x.cerrada ? 1 : 0];
+      }),
+      tl: (s.talentos || []).map(function (id) {
+        const T = (SW.TALENTOS || []).filter(function (x) { return x.id === id; })[0];
+        return T ? T.n : id;
+      }),
       sem: s.semilla
     };
   };
@@ -21889,6 +24034,14 @@ body.en-juego::before {
     if (s.conocidos && s.conocidos.length) L.push('║ Se cruzó con: ' + s.conocidos.join(', '));
     if (s.nave) L.push('║ Nave: ' + (s.naveNombre || s.nave.n));
     L.push('║ Mundos visitados: ' + s.contadores.mundosVisitados);
+    const tms = SW.tramasDe ? SW.tramasDe(s) : [];
+    if (tms.length) {
+      L.push('╠══ SUS HISTORIAS ═════════════');
+      tms.forEach(function (x) {
+        L.push('║ ' + x.n + ' (' + x.desde + '–' + (x.hasta == null ? s.edad : x.hasta) + '): ' +
+               (x.cerrada ? x.final : 'quedó abierta'));
+      });
+    }
     L.push('╠══ MOMENTOS ══════════════════');
     s.hitos.slice(-8).forEach(function (h) { L.push('║ ' + h.edad + ' — ' + h.txt); });
     L.push('╚══════════════════════════════');
@@ -21945,6 +24098,21 @@ body.en-juego::before {
     if (d.ct && d.ct.derribos) h += '<span class="tag">' + d.ct.derribos + ' derribos</span>';
     if (d.ct && d.ct.cazas) h += '<span class="tag">' + d.ct.cazas + ' contratos</span>';
     h += '</div>';
+
+    if (d.tm && d.tm.length) {
+      h += '<div class="cv-seccion"><h3>Sus historias</h3><div class="cv-tramas">';
+      d.tm.forEach(function (x) {
+        h += '<div class="cv-trama ' + (x[4] ? 'ok' : 'abierta') + '">' +
+          '<b>' + U.esc(x[0]) + '</b>' +
+          '<span>' + U.esc(x[1]) + '</span>' +
+          '<em>' + x[2] + '–' + x[3] + '</em></div>';
+      });
+      h += '</div></div>';
+    }
+
+    if (d.tl && d.tl.length) {
+      h += '<div class="cv-seccion"><h3>Se le daba bien</h3><p>' + d.tl.map(U.esc).join(' · ') + '</p></div>';
+    }
 
     if (d.he && d.he.length) {
       h += '<div class="cv-seccion"><h3>Heridas sin cerrar</h3><p class="cv-heridas">' + d.he.map(U.esc).join(' · ') + '</p></div>';
@@ -22102,7 +24270,16 @@ body.en-juego::before {
     return a;
   };
 
+  /** filtro de pantalla y animaciones: se recuerdan entre partidas */
+  UI.aplicarPreferencias = function () {
+    const crt = localStorage.getItem('holovida_crt') !== 'no';
+    document.body.classList.toggle('sin-crt', !crt);
+    UI.sinAnimacion = localStorage.getItem('holovida_anim') === 'no';
+    document.body.classList.toggle('sin-anim', !!UI.sinAnimacion);
+  };
+
   UI.init = function () {
+    UI.aplicarPreferencias();
     UI.app = $('#app');
     const hash = location.hash || '';
     if (hash.indexOf('#v=') === 0) { UI.pantallaCompartida(hash.slice(3)); return; }
@@ -22113,6 +24290,7 @@ body.en-juego::before {
      INICIO
      ============================================================ */
   UI.pantallaInicio = function () {
+    UI.herencia = null;
     document.body.classList.remove('en-juego');
     const m = SW.metricas();
     const guardada = localStorage.getItem('holovida_save');
@@ -22169,13 +24347,16 @@ body.en-juego::before {
      ============================================================ */
   UI.pantallaCrear = function () {
     const rng = new SW.RNG('creador' + Date.now());
-    const esp = SW.ESPECIES[0];
+    const h = UI.herencia;                 // si vienes de una vida anterior
+    const esp = h ? (SW.ESPECIES.filter(function (e) { return e.id === h.especie; })[0] || SW.ESPECIES[0]) : SW.ESPECIES[0];
+    let nombre = SW.genNombreCompleto(rng, esp.id);
+    if (h && h.apellido) nombre = nombre.split(' ')[0] + ' ' + h.apellido;
     UI.creador = {
       rng: rng,
-      nombre: SW.genNombreCompleto(rng, esp.id),
+      nombre: nombre,
       especie: esp.id,
-      era: 'rebelion',
-      mundo: rng.pick(esp.home),
+      era: h ? h.era : 'rebelion',
+      mundo: h ? h.mundo : rng.pick(esp.home),
       rasgo: 'ninguno',
       pronombre: 'él',
       semilla: '',
@@ -22393,6 +24574,8 @@ body.en-juego::before {
       rasgo: rasgo, apariencia: c.apariencia, pronombre: c.pronombre
     });
     UI.app.onchange = null;
+    // la sangre pesa: dinero, nombre, reputación y un talento heredados
+    if (UI.herencia && SW.aplicarHerencia) { SW.aplicarHerencia(UI.juego, UI.herencia); UI.herencia = null; }
     UI.renderJuego();
   };
 
@@ -22432,6 +24615,7 @@ body.en-juego::before {
       '<div class="tb-mundo"><b><i class="bioma-punto"></i>' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + '</span></div>' +
       '<div class="tb-cr"><b>' + U.cr(s.stats.creditos) + '</b><span>créditos</span></div>' +
       '<div class="tb-acc"><b>' + UI.pips(s) + '</b><span>acciones</span></div>' +
+      UI.tbAvisos(s) +
       '<div class="tb-mini">' + UI.miniBarras(s) + '</div>' +
       '<button class="btn mini tb-mapa" data-a="mapa" title="carta estelar">◎</button>' +
       '<button class="btn mini tb-menu" data-a="menu" title="menú">≡</button>' +
@@ -22477,6 +24661,22 @@ body.en-juego::before {
     UI.guardarPartida();
   };
 
+  /** avisos de la barra: guerra en curso y racha. Lo que cambia el año. */
+  UI.tbAvisos = function (s) {
+    let h = '';
+    if (SW.guerraActiva && SW.guerraActiva(s)) {
+      const w = s.guerra;
+      h += '<div class="tb-aviso guerra" title="' + U.esc(w.n) + ' · frente en ' + U.esc(w.frente) + '">' +
+        '<b>⚔ ' + U.esc(w.frente) + '</b><span>' + (SW.frenteAqui(s) ? 'estás en el frente' : 'frente') + '</span></div>';
+    }
+    const r = SW.etiquetaRacha ? SW.etiquetaRacha(s) : null;
+    if (r) h += '<div class="tb-aviso racha ' + r.c + '"><b>' + (r.c === 'buena' ? '▲' : '▼') + ' ' + r.t + '</b><span>racha</span></div>';
+    if (s.mision) h += '<div class="tb-aviso mision" title="misión de la Orden en ' + U.esc(s.mision.mundo) + '"><b>✷ misión</b><span>' + U.esc(s.mision.mundo) + '</span></div>';
+    // la barra es una rejilla con áreas con nombre: sin envoltorio, esto
+    // se colocaría solo en la primera casilla y se comería el nombre
+    return h ? '<div class="tb-avisos">' + h + '</div>' : '';
+  };
+
   UI.pips = function (s) {
     let h = '';
     for (let i = 0; i < s.accionesMax; i++) h += '<i class="pip' + (i < s.acciones ? ' on' : '') + '"></i>';
@@ -22495,7 +24695,9 @@ body.en-juego::before {
   };
 
   UI.htmlPanel = function (s) {
-    let h = '<div class="holo-mini">' + SW.retrato(s.apariencia, 116, s.especie) + '</div>';
+    // la cara envejece con el personaje
+    const ap = Object.assign({}, s.apariencia || {}, { edad: s.edadBio });
+    let h = '<div class="holo-mini">' + SW.retrato(ap, 116, s.especie) + '</div>';
 
     h += '<div class="stats">';
     [['salud', 'Salud'], ['fisico', 'Físico'], ['destreza', 'Destreza'], ['intelecto', 'Intelecto'],
@@ -22554,6 +24756,61 @@ body.en-juego::before {
         '</p></div>';
     }
 
+    /* --- hilos largos: lo que llevas abierto y lo que cerraste --- */
+    if (SW.tramasDe) {
+      const tr = SW.tramasDe(s);
+      if (tr.length) {
+        const vivas = tr.filter(function (x) { return !x.cerrada; });
+        const hechas = tr.filter(function (x) { return x.cerrada; });
+        h += '<div class="ficha tramas"><h4>Tu historia</h4>';
+        vivas.forEach(function (x) {
+          const pct = Math.round((x.etapa / Math.max(1, x.total)) * 100);
+          h += '<div class="trama viva"><b>' + x.ico + ' ' + U.esc(x.n) + '</b>' +
+            '<span class="trama-sub">' + U.esc(x.resumen) + '</span>' +
+            '<span class="trama-años">desde los ' + x.desde + '</span>' +
+            '<i style="width:' + pct + '%"></i></div>';
+        });
+        hechas.forEach(function (x) {
+          h += '<div class="trama hecha"><b>' + x.ico + ' ' + U.esc(x.n) + '</b>' +
+            '<span class="trama-sub">' + U.esc(x.final || '') + '</span>' +
+            '<span class="trama-años">' + x.desde + '–' + (x.hasta != null ? x.hasta : '?') + '</span></div>';
+        });
+        h += '</div>';
+      }
+    }
+
+    /* --- talentos --- */
+    if (SW.TALENTOS && (s.talentos || []).length) {
+      h += '<div class="ficha"><h4>Se te da bien</h4><p class="mini-lista">' +
+        s.talentos.map(function (id) {
+          const T = SW.TALENTOS.filter(function (x) { return x.id === id; })[0];
+          return '<span class="tag mini tal" title="' + U.esc(T ? T.d : '') + '">' + U.esc(T ? T.n : id) + '</span>';
+        }).join('') + '</p></div>';
+    }
+
+    /* --- cómo te ven las facciones --- */
+    if (SW.prestigioDe) {
+      const pr = SW.prestigioDe(s);
+      if (pr.length) {
+        h += '<div class="ficha facs"><h4>Quién te debe qué</h4>';
+        pr.forEach(function (f) {
+          h += '<div class="fac"><span>' + U.esc(f.n) + '</span>' +
+            '<div class="fac-barra"><i class="' + (f.v >= 0 ? 'pos' : 'neg') + '" style="width:' + Math.abs(f.v) / 2 + '%"></i></div>' +
+            '<em>' + U.esc(SW.etiquetaPrestigio(f.v)) + '</em></div>';
+        });
+        h += '</div>';
+      }
+    }
+
+    /* --- hitos --- */
+    if (s.hitos && s.hitos.length) {
+      h += '<div class="ficha hitos"><h4>Hitos (' + s.hitos.length + ')</h4>';
+      s.hitos.slice(-10).reverse().forEach(function (x) {
+        h += '<div class="hito-row"><b>' + x.edad + '</b><span>' + U.esc(x.txt) + '</span></div>';
+      });
+      h += '</div>';
+    }
+
     if (s.relaciones.length) {
       h += '<div class="ficha rels"><h4>Gente (' + s.relaciones.length + ')</h4>';
       s.relaciones.slice(-12).forEach(function (r) {
@@ -22568,16 +24825,33 @@ body.en-juego::before {
     return h;
   };
 
+  /** en qué momento de la vida estás: tiñe el log y da contexto */
+  UI.etapaVital = function (e) {
+    if (e <= 5) return { c: 'cuna', n: 'infancia' };
+    if (e <= 12) return { c: 'niñez', n: 'niñez' };
+    if (e <= 19) return { c: 'juventud', n: 'juventud' };
+    if (e <= 35) return { c: 'adulto', n: 'adulto joven' };
+    if (e <= 55) return { c: 'madurez', n: 'madurez' };
+    if (e <= 70) return { c: 'mayor', n: 'ya mayor' };
+    return { c: 'vejez', n: 'vejez' };
+  };
+
   UI.htmlConsola = function () {
     const s = UI.juego.s;
     let h = '';
     let ultimaEdad = -1;
+    let etapaPrev = null;
     s.historia.slice(-90).forEach(function (l) {
       if (l.edad !== ultimaEdad) {
-        h += '<div class="año"><span>' + (l.edad === 0 ? 'AÑO 0' : 'AÑO ' + l.edad) + '</span></div>';
+        const et = UI.etapaVital(l.edad);
+        const cambio = etapaPrev !== et.c;
+        h += '<div class="año e-' + et.c + (cambio ? ' cambio' : '') + '">' +
+          '<span>' + (l.edad === 0 ? 'AÑO 0' : 'AÑO ' + l.edad) + '</span>' +
+          (cambio ? '<em>' + et.n + '</em>' : '') + '</div>';
         ultimaEdad = l.edad;
+        etapaPrev = et.c;
       }
-      h += '<p class="l l-' + l.tipo + '">' + l.txt + '</p>';
+      h += '<p class="l l-' + l.tipo + ' e-' + UI.etapaVital(l.edad).c + '">' + l.txt + '</p>';
     });
     return h;
   };
@@ -22754,7 +25028,7 @@ body.en-juego::before {
     try {
       const arte = cont.querySelector('.vit-arte');
       const cv = (SW.tienePixel2 && SW.tienePixel2(p.sprite))
-        ? SW.pixel2(p.sprite, { escala: 5, dinamico: p.color || null })
+        ? SW.pixel2(p.sprite, { escala: 2, dinamico: p.color || null })
         : SW.pixel(p.sprite, { escala: 7, dinamico: p.color || '#c8d4e0' });
       arte.appendChild(cv);
       if (p.color) arte.style.setProperty('--halo', p.color);
@@ -22775,7 +25049,8 @@ body.en-juego::before {
     if (!inst) return;
     const mini = inst.ref && inst.ref.minijuego;
 
-    let h = '<div class="evento-overlay"><div class="evento">';
+    const esTrama = !!(inst.ref && inst.ref.esTrama);
+    let h = '<div class="evento-overlay"><div class="evento' + (esTrama ? ' de-trama' : '') + '">';
     h += '<div class="ev-texto">' + inst.texto + '</div>';
     if (mini) {
       h += UI.htmlMinijuego(inst.ref);
@@ -22783,6 +25058,7 @@ body.en-juego::before {
     h += '<div class="ev-ops">';
     inst.opciones.forEach(function (o, i) {
       h += '<button class="op' + (o.bloqueada ? ' bloq' : '') + '" data-op="' + i + '"' + (o.bloqueada ? ' disabled' : '') + '>' +
+        (i < 9 ? '<u class="op-n">' + (i + 1) + '</u>' : '') +
         '<span class="op-t">' + U.esc(o.txt) + '</span>' +
         (o.sub ? '<span class="op-s">' + U.esc(o.sub) + '</span>' : '') + '</button>';
     });
@@ -22792,9 +25068,93 @@ body.en-juego::before {
     div.innerHTML = h;
     UI.app.querySelector('.hud').appendChild(div.firstChild);
     if (mini) UI.arrancarMinijuego(inst.ref);
+    else UI.escribirTexto();
+  };
+
+  /* ------------------------------------------------------------
+     El texto se escribe solo, rápido. Un clic lo completa: nunca
+     te hace esperar, sólo hace que la escena entre mejor.
+     ------------------------------------------------------------ */
+  UI.escribirTexto = function () {
+    const cont = document.querySelector('.evento .ev-texto');
+    if (!cont || UI.sinAnimacion) return;
+    const html = cont.innerHTML;
+    const plano = cont.textContent || '';
+    if (plano.length < 24 || plano.length > 700) return;
+    UI._maquina = { activa: true, html: html, cont: cont, t: 0 };
+    cont.classList.add('escribiendo');
+    // se revela por caracteres visibles sin romper las etiquetas
+    let i = 0;
+    const total = plano.length;
+    const paso = Math.max(1, Math.round(total / 46));
+    const tick = function () {
+      const m = UI._maquina;
+      if (!m || !m.activa) return;
+      i += paso;
+      if (i >= total) { UI.completarTexto(); return; }
+      cont.style.setProperty('--rev', (i / total * 100).toFixed(2) + '%');
+      m.t = setTimeout(tick, 16);
+    };
+    cont.style.setProperty('--rev', '0%');
+    UI._maquina.t = setTimeout(tick, 16);
+  };
+
+  UI.completarTexto = function () {
+    const m = UI._maquina;
+    if (!m) return;
+    if (m.t) clearTimeout(m.t);
+    m.activa = false;
+    if (m.cont) { m.cont.classList.remove('escribiendo'); m.cont.style.removeProperty('--rev'); }
+    UI._maquina = null;
+  };
+
+  /* ============================================================
+     TECLADO
+     1-9 elige opción, Enter/Espacio avanza el año, M el mapa,
+     F la ficha, Esc cierra lo que haya abierto.
+     ============================================================ */
+  UI.bindTeclado = function () {
+    if (UI._tecladoPuesto) return;
+    UI._tecladoPuesto = true;
+    document.addEventListener('keydown', function (e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const foco = document.activeElement;
+      if (foco && /^(INPUT|TEXTAREA|SELECT)$/.test(foco.tagName)) return;
+      const g = UI.juego;
+
+      if (e.key === 'Escape') {
+        if (UI._modal) { UI.cerrarModal(); e.preventDefault(); return; }
+        // la vitrina se cierra por su botón, para que siga el flujo normal
+        const vit = document.querySelector('.vitrina-overlay [data-vit]');
+        if (vit) { vit.click(); e.preventDefault(); return; }
+        const ov = document.querySelector('.mapa-overlay, .popup-overlay');
+        if (ov) { ov.remove(); UI.pararMapa(); e.preventDefault(); return; }
+        document.body.classList.remove('panel-abierto');
+        return;
+      }
+      if (!g || document.querySelector('.pantalla')) return;
+
+      // si hay texto escribiéndose, la primera tecla lo completa
+      if (UI._maquina && UI._maquina.activa) { UI.completarTexto(); e.preventDefault(); return; }
+
+      const ops = [].slice.call(document.querySelectorAll('.evento .op:not([disabled])'));
+      if (ops.length) {
+        const n = parseInt(e.key, 10);
+        if (n >= 1 && n <= 9 && ops[n - 1]) { ops[n - 1].click(); e.preventDefault(); }
+        return;
+      }
+      if (e.key === 'Enter' || e.key === ' ') {
+        const av = document.querySelector('[data-a="avanzar"], [data-a="fin"]');
+        if (av) { av.click(); e.preventDefault(); }
+        return;
+      }
+      if (e.key === 'm' || e.key === 'M') { const b = document.querySelector('[data-a="mapa"]'); if (b) b.click(); return; }
+      if (e.key === 'f' || e.key === 'F') { document.body.classList.toggle('panel-abierto'); return; }
+    });
   };
 
   UI.bindJuego = function () {
+    UI.bindTeclado();
     UI.app.onclick = function (e) {
       const b = e.target.closest('[data-a],[data-act],[data-op]');
       if (!b || b.disabled) return;
@@ -22830,10 +25190,29 @@ body.en-juego::before {
       UI.mesaAzar(d, inst);
       return;
     }
+    const saludAntes = g.s.stats.salud;
+    const credAntes = g.s.stats.creditos;
     g.resolverEleccion(inst, i);
+    UI.reaccion(saludAntes - g.s.stats.salud, g.s.stats.creditos - credAntes);
 
     if (!g.cola.length && !g.s.muerto) g.fase = 'menu';
     UI.renderJuego();
+  };
+
+  /** Feedback físico: si te han hecho daño, la pantalla lo acusa. */
+  UI.reaccion = function (daño, dinero) {
+    if (UI.sinAnimacion) return;
+    const b = document.body;
+    if (daño >= 18) {
+      b.classList.add('golpe-fuerte');
+      setTimeout(function () { b.classList.remove('golpe-fuerte'); }, 420);
+    } else if (daño >= 6) {
+      b.classList.add('golpe');
+      setTimeout(function () { b.classList.remove('golpe'); }, 300);
+    } else if (dinero >= 20000) {
+      b.classList.add('destello-oro');
+      setTimeout(function () { b.classList.remove('destello-oro'); }, 500);
+    }
   };
 
   /** Enseña la tirada y solo después aplica el resultado. */
@@ -23041,6 +25420,8 @@ body.en-juego::before {
       '<button class="btn" data-m="seguir">▸ Seguir jugando</button>' +
       '<button class="btn" data-m="resumen">▸ Ver ficha completa</button>' +
       '<button class="btn" data-m="guardar">▸ Guardar partida</button>' +
+      '<button class="btn" data-m="crt">▸ Filtro de pantalla: ' + (localStorage.getItem('holovida_crt') === 'no' ? 'apagado' : 'encendido') + '</button>' +
+      '<button class="btn" data-m="anim">▸ Animaciones: ' + (UI.sinAnimacion ? 'apagadas' : 'encendidas') + '</button>' +
       '<button class="btn peligro" data-m="nueva">▸ Abandonar y empezar de cero</button>' +
       '</div>', null,
       function (root) {
@@ -23052,6 +25433,16 @@ body.en-juego::before {
           if (m === 'resumen') UI.modal('FICHA', SW.tarjetaResumen(SW.construirResumen(UI.juego.s)), function () { UI.renderJuego(); });
           else if (m === 'guardar') { UI.guardarPartida(); UI.flash('Partida guardada.'); UI.renderJuego(); }
           else if (m === 'nueva') { localStorage.removeItem('holovida_save'); UI.pantallaInicio(); }
+          else if (m === 'crt') {
+            const apagado = localStorage.getItem('holovida_crt') === 'no';
+            localStorage.setItem('holovida_crt', apagado ? 'si' : 'no');
+            UI.aplicarPreferencias(); UI.renderJuego();
+          }
+          else if (m === 'anim') {
+            UI.sinAnimacion = !UI.sinAnimacion;
+            localStorage.setItem('holovida_anim', UI.sinAnimacion ? 'no' : 'si');
+            UI.renderJuego();
+          }
           else UI.renderJuego();
         };
       });
@@ -23071,10 +25462,29 @@ body.en-juego::before {
     h += '<div class="fin-cab"><h2>' + (s.muerto ? 'FIN DE TRANSMISIÓN' : 'INFORME DE VIDA') + '</h2>' +
       '<p class="epitafio">' + U.esc(epi) + '</p></div>';
     h += SW.tarjetaResumen(d);
+
+    /* --- lo que dejaste a medias y lo que cerraste --- */
+    if (SW.tramasDe) {
+      const tr = SW.tramasDe(s);
+      if (tr.length) {
+        h += '<div class="fin-tramas"><h3>TUS HISTORIAS</h3>';
+        tr.forEach(function (x) {
+          const dur = (x.hasta != null ? x.hasta : s.edad) - x.desde;
+          h += '<div class="fin-trama ' + (x.cerrada ? 'ok' : 'abierta') + '">' +
+            '<b>' + x.ico + ' ' + U.esc(x.n) + '</b>' +
+            '<span>' + (x.cerrada ? U.esc(x.final) : 'quedó abierta') + '</span>' +
+            '<em>' + dur + ' años</em></div>';
+        });
+        h += '</div>';
+      }
+    }
+
+    const puede = SW.puedeHeredar && SW.puedeHeredar(s);
     h += '<div class="fin-acciones">' +
       '<button class="btn grande" data-a="link">⧉ COPIAR ENLACE PARA COMPARTIR</button>' +
       '<button class="btn" data-a="texto">⧉ COPIAR RESUMEN EN TEXTO</button>' +
       '<button class="btn" data-a="descargar">⭳ DESCARGAR TARJETA</button>' +
+      (puede ? '<button class="btn legado" data-a="heredero">⚘ SEGUIR CON SU DESCENDIENTE</button>' : '') +
       '<button class="btn fantasma" data-a="otra">▸ OTRA VIDA</button></div>';
     h += '<div id="zona-link" class="zona-link"></div></div></div>';
     UI.app.innerHTML = h;
@@ -23096,6 +25506,11 @@ body.en-juego::before {
         $('#zona-link').innerHTML = '<p class="ok">Resumen copiado al portapapeles.</p><pre class="txt-resumen">' + U.esc(SW.resumenTexto(s)) + '</pre>';
       }
       if (a === 'descargar') UI.descargarTarjeta(s);
+      if (a === 'heredero') {
+        UI.herencia = SW.herenciaDe(s);
+        localStorage.removeItem('holovida_save');
+        UI.pantallaCrear();
+      }
     };
   };
 

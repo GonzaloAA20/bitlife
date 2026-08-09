@@ -773,11 +773,12 @@ body.en-juego::before {
    ============================================================ */
 .topbar {
   display: grid;
-  grid-template-areas: "ficha id edad mundo cr acc mini mapa menu";
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto auto auto auto;
+  grid-template-areas: "ficha id edad mundo cr acc avisos mini mapa menu";
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto auto auto auto auto;
   gap: 0 14px;
   align-items: center;
 }
+.topbar > .tb-avisos { grid-area: avisos; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
 .tb-ficha { grid-area: ficha; }
 .tb-id    { grid-area: id; min-width: 0; }
 .tb-edad  { grid-area: edad; }
@@ -796,8 +797,9 @@ body.en-juego::before {
 @media (max-width: 900px) {
   .topbar {
     grid-template-areas:
-      "ficha id    id   mapa menu"
-      "edad  mundo cr   acc  acc";
+      "ficha id     id     mapa   menu"
+      "edad  mundo  cr     acc    acc"
+      "avisos avisos avisos avisos avisos";
     grid-template-columns: auto minmax(0, 1fr) auto auto auto;
     gap: 2px 10px;
     padding: 7px 10px;
@@ -894,3 +896,168 @@ body.en-juego::before {
 
 /* quién es quién, dentro del texto de una decisión */
 .quien { font-style: normal; font-size: 11px; color: var(--txt-dim); letter-spacing: .02em; }
+
+/* ============================================================
+   MEJORAS: tramas, avisos, etapas de vida, teclado y acabado
+   ============================================================ */
+
+/* --- avisos de la barra superior --- */
+.tb-aviso {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 0 10px; border-left: 1px solid var(--linea); min-width: 0;
+}
+.tb-aviso b { font-size: 11.5px; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-aviso span { font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--txt-dim); }
+.tb-aviso.guerra b { color: var(--rojo); }
+.tb-aviso.racha.buena b { color: var(--verde); }
+.tb-aviso.racha.mala b { color: var(--ambar); }
+.tb-aviso.mision b { color: var(--cian); }
+
+/* --- hilos largos en la ficha --- */
+.ficha.tramas .trama {
+  position: relative; padding: 6px 8px 8px; margin-bottom: 5px;
+  border: 1px solid var(--linea); background: rgba(255,255,255,.015);
+}
+.ficha.tramas .trama b { display: block; font-size: 11.5px; color: var(--txt); }
+.trama-sub { display: block; font-size: 10px; color: var(--txt-dim); line-height: 1.35; margin-top: 2px; }
+.trama-años { display: block; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: #5a6470; margin-top: 3px; }
+.ficha.tramas .trama i {
+  position: absolute; left: 0; bottom: 0; height: 2px; background: var(--cian); opacity: .55;
+}
+.ficha.tramas .trama.hecha { opacity: .62; border-style: dashed; }
+.ficha.tramas .trama.hecha b { color: var(--txt-dim); }
+
+/* --- prestigio por facción --- */
+.facs .fac { display: grid; grid-template-columns: 1fr 54px; gap: 4px 8px; align-items: center; margin-bottom: 5px; }
+.facs .fac span { font-size: 11px; color: var(--txt); }
+.facs .fac em { grid-column: 1 / -1; font-size: 9px; color: var(--txt-dim); font-style: normal; letter-spacing: .06em; }
+.fac-barra { position: relative; height: 4px; background: #171b21; overflow: hidden; }
+.fac-barra i { position: absolute; top: 0; bottom: 0; left: 50%; }
+.fac-barra i.pos { background: var(--verde); }
+.fac-barra i.neg { background: var(--rojo); transform: translateX(-100%); }
+
+/* --- hitos --- */
+.hitos .hito-row { display: grid; grid-template-columns: 26px 1fr; gap: 6px; font-size: 10.5px; padding: 2px 0; }
+.hitos .hito-row b { color: var(--ambar); font-size: 10px; text-align: right; }
+.hitos .hito-row span { color: var(--txt-dim); line-height: 1.35; }
+
+.tag.mini.tal { border-color: #4a6a52; color: #9fd8b0; }
+
+/* --- separadores de año con etapa vital --- */
+.año { display: flex; align-items: center; gap: 8px; }
+.año em {
+  font-style: normal; font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--txt-dim); border: 1px solid var(--linea); padding: 1px 6px;
+}
+.año.cambio span { color: var(--ambar); }
+.l.e-cuna     { border-left: 2px solid rgba(122,200,255,.22); padding-left: 8px; }
+.l.e-niñez    { border-left: 2px solid rgba(122,255,190,.18); padding-left: 8px; }
+.l.e-juventud { border-left: 2px solid rgba(190,255,122,.16); padding-left: 8px; }
+.l.e-adulto   { border-left: 2px solid rgba(255,214,122,.14); padding-left: 8px; }
+.l.e-madurez  { border-left: 2px solid rgba(255,168,122,.14); padding-left: 8px; }
+.l.e-mayor    { border-left: 2px solid rgba(200,150,190,.16); padding-left: 8px; }
+.l.e-vejez    { border-left: 2px solid rgba(160,160,180,.20); padding-left: 8px; }
+
+.titular { color: #7f8a97; font-style: italic; }
+.trama-abre  { color: var(--cian); font-style: normal; letter-spacing: .04em; }
+.trama-cierra { color: var(--ambar); font-style: normal; }
+
+/* --- escenas de trama: se distinguen de un vistazo --- */
+.trama-tag {
+  display: inline-block; font-family: var(--disp); font-size: 9.5px; letter-spacing: .18em;
+  color: #0b0e13; background: var(--cian); padding: 2px 8px; margin-bottom: 10px;
+}
+.evento.de-trama { border-color: rgba(58,214,255,.4); box-shadow: 0 0 0 1px rgba(58,214,255,.12), 0 22px 60px rgba(0,0,0,.6); }
+
+/* --- número de atajo en las opciones --- */
+.op { position: relative; }
+.op-n {
+  position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+  font-family: var(--disp); font-size: 10px; color: #5a6470; text-decoration: none;
+  border: 1px solid var(--linea); width: 16px; height: 16px; line-height: 14px; text-align: center;
+}
+.op:hover .op-n { color: var(--cian); border-color: var(--cian); }
+.op .op-t, .op .op-s { padding-left: 20px; display: block; }
+@media (max-width: 560px) { .op-n { display: none; } .op .op-t, .op .op-s { padding-left: 0; } }
+
+/* --- el texto del evento se materializa de arriba abajo --- */
+.ev-texto.escribiendo {
+  -webkit-mask-image: linear-gradient(180deg, #000 var(--rev, 0%), rgba(0,0,0,.25) calc(var(--rev, 0%) + 8%), transparent calc(var(--rev, 0%) + 16%));
+  mask-image: linear-gradient(180deg, #000 var(--rev, 0%), rgba(0,0,0,.25) calc(var(--rev, 0%) + 8%), transparent calc(var(--rev, 0%) + 16%));
+}
+body.sin-anim .ev-texto.escribiendo { -webkit-mask-image: none; mask-image: none; }
+
+/* --- la pantalla acusa los golpes --- */
+@keyframes sacudida {
+  0%,100% { transform: translate(0,0); }
+  20% { transform: translate(-3px, 2px); }
+  40% { transform: translate(3px, -2px); }
+  60% { transform: translate(-2px, -1px); }
+  80% { transform: translate(2px, 1px); }
+}
+body.golpe #app { animation: sacudida .3s steps(2) 1; }
+body.golpe-fuerte #app { animation: sacudida .42s steps(2) 2; }
+body.golpe::after, body.golpe-fuerte::after, body.destello-oro::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 900;
+}
+body.golpe::after { background: radial-gradient(ellipse at center, transparent 45%, rgba(255,60,60,.22) 100%); }
+body.golpe-fuerte::after { background: radial-gradient(ellipse at center, transparent 30%, rgba(255,40,40,.4) 100%); }
+body.destello-oro::after { background: radial-gradient(ellipse at center, rgba(255,214,120,.16) 0%, transparent 60%); }
+body.sin-anim.golpe #app, body.sin-anim.golpe-fuerte #app { animation: none; }
+
+/* --- filtro de pantalla retro, apagable ---
+   OJO: body::before es la escena del planeta y body::after son las
+   líneas de barrido, así que el viñeteado va en #app::after. */
+#app::after {
+  content: ''; position: fixed; inset: 0; z-index: 800; pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.45) 100%),
+    linear-gradient(180deg, rgba(58,214,255,.03), transparent 30%);
+}
+body.sin-crt #app::after { display: none; }
+body.sin-crt::after { display: none; }
+
+/* --- historias en la pantalla final --- */
+.fin-tramas { margin: 18px 0 6px; }
+.fin-tramas h3 { font-family: var(--disp); font-size: 12px; letter-spacing: .2em; color: var(--txt-dim); margin: 0 0 8px; }
+.fin-trama {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 12px;
+  border-left: 2px solid var(--linea); padding: 6px 10px; margin-bottom: 6px;
+  background: rgba(255,255,255,.015);
+}
+.fin-trama b { grid-column: 1; font-size: 12.5px; }
+.fin-trama span { grid-column: 1; font-size: 11px; color: var(--txt-dim); }
+.fin-trama em { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; font-size: 10px; letter-spacing: .08em; color: #5a6470; }
+.fin-trama.ok { border-left-color: var(--verde); }
+.fin-trama.abierta { border-left-color: var(--ambar); }
+.fin-trama.abierta span { color: var(--ambar); }
+
+.btn.legado { border-color: #5a6a44; color: #c8e0a0; }
+
+/* el sprite del escaparate es de 96px: se muestra a escala entera */
+.vitrina-overlay .sprite { max-width: 100%; height: auto; }
+
+/* los avisos de la barra, en móvil, van en su propia fila, en horizontal
+   y en una sola línea: si no, la barra crece y se come la pantalla */
+@media (max-width: 900px) {
+  .topbar > .tb-avisos {
+    flex-direction: row; overflow-x: auto; scrollbar-width: none; gap: 0;
+  }
+  .topbar > .tb-avisos::-webkit-scrollbar { display: none; }
+  .tb-aviso { flex-direction: row; align-items: baseline; gap: 5px; padding: 0 8px; white-space: nowrap; }
+  .tb-aviso span { font-size: 7.5px; }
+  .tb-aviso:first-child { border-left: 0; padding-left: 0; }
+}
+
+/* historias en la tarjeta compartible */
+.cv-tramas { display: grid; gap: 5px; }
+.cv-trama {
+  display: grid; grid-template-columns: 1fr auto; gap: 1px 10px;
+  border-left: 2px solid var(--linea); padding: 5px 9px; background: rgba(255,255,255,.015);
+}
+.cv-trama b { grid-column: 1; font-size: 12px; }
+.cv-trama span { grid-column: 1; font-size: 10.5px; color: var(--txt-dim); }
+.cv-trama em { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; font-size: 9.5px; color: #5a6470; }
+.cv-trama.ok { border-left-color: var(--verde); }
+.cv-trama.abierta { border-left-color: var(--ambar); }
+.cv-trama.abierta span { color: var(--ambar); }

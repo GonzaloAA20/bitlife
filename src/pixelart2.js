@@ -9,63 +9,175 @@
   'use strict';
   const SW = (global.SW = global.SW || {});
 
-  const N = 48;   // lienzo lógico
+  /* El lienzo real pasa de 48 a 96 píxeles de lado: cuatro veces más
+     puntos. Los sprites se siguen dibujando en coordenadas de 48
+     (U = 2 píxeles reales por unidad lógica), así que la silueta y la
+     estética no cambian; lo que cambia es que las curvas, los
+     degradados y los detalles finos se calculan a resolución real.
+     Encima pasa una tubería de acabado: oclusión en los recodos, luz
+     de canto arriba-izquierda, brillo especular y grano por material. */
+  const N = 96;   // lienzo real
+  const U = 2;    // píxeles reales por unidad lógica
+
+  /* Bayer 4x4 para degradar sin bandas ni antialias */
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  function trama(x, y) { return BAYER[(y & 3) * 4 + (x & 3)] / 16; }
 
   /* ---------- mini motor de dibujo por píxel ---------- */
-  function Lienzo(n) {
+  function Lienzo(n, u) {
     this.n = n || N;
+    this.u = u == null ? U : u;
     this.px = new Array(this.n * this.n).fill(null);
   }
-  Lienzo.prototype.set = function (x, y, c) {
+  /** píxel real, sin escalar */
+  Lienzo.prototype.p1 = function (x, y, c) {
     x = Math.round(x); y = Math.round(y);
     if (x < 0 || y < 0 || x >= this.n || y >= this.n || !c) return;
     this.px[y * this.n + x] = c;
   };
-  Lienzo.prototype.get = function (x, y) {
+  Lienzo.prototype.g1 = function (x, y) {
     if (x < 0 || y < 0 || x >= this.n || y >= this.n) return null;
     return this.px[y * this.n + x];
   };
+  /** píxel lógico: rellena un bloque de u×u */
+  Lienzo.prototype.set = function (x, y, c) {
+    const u = this.u;
+    const bx = Math.round(x) * u, by = Math.round(y) * u;
+    for (let j = 0; j < u; j++) for (let i = 0; i < u; i++) this.p1(bx + i, by + j, c);
+  };
+  Lienzo.prototype.get = function (x, y) { return this.g1(Math.round(x) * this.u, Math.round(y) * this.u); };
   Lienzo.prototype.rect = function (x, y, w, h, c) {
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.set(x + i, y + j, c);
   };
-  /** rectángulo con volumen: luz arriba-izquierda, sombra abajo-derecha */
+  /** rectángulo con volumen: luz arriba-izquierda, sombra abajo-derecha.
+      El canto se pinta a resolución real: media unidad, no una entera. */
   Lienzo.prototype.bloque = function (x, y, w, h, pal) {
     this.rect(x, y, w, h, pal[1]);
-    for (let i = 0; i < w; i++) { this.set(x + i, y, pal[0]); this.set(x + i, y + h - 1, pal[3] || pal[2]); }
-    for (let j = 0; j < h; j++) { this.set(x, y + j, pal[0]); this.set(x + w - 1, y + j, pal[2]); }
-    this.set(x, y, pal[0]); this.set(x + w - 1, y + h - 1, pal[3] || pal[2]);
-  };
-  /** cilindro vertical: degradado horizontal de tonos */
-  Lienzo.prototype.cilindro = function (x, y, w, h, pal) {
-    for (let i = 0; i < w; i++) {
-      const t = i / (w - 1);
-      const idx = t < 0.18 ? 0 : t < 0.45 ? 1 : t < 0.75 ? 2 : 3;
-      for (let j = 0; j < h; j++) this.set(x + i, y + j, pal[Math.min(idx, pal.length - 1)]);
+    const u = this.u, X = x * u, Y = y * u, W = w * u, H = h * u;
+    for (let i = 0; i < W; i++) {
+      this.p1(X + i, Y, pal[0]);
+      this.p1(X + i, Y + H - 1, pal[3] || pal[2]);
+      this.p1(X + i, Y + H - 2, pal[2]);
+    }
+    for (let j = 0; j < H; j++) {
+      this.p1(X, Y + j, pal[0]);
+      this.p1(X + W - 1, Y + j, pal[3] || pal[2]);
+      this.p1(X + W - 2, Y + j, pal[2]);
     }
   };
+  /** cilindro vertical con degradado tramado: ya no son cuatro franjas */
+  Lienzo.prototype.cilindro = function (x, y, w, h, pal) {
+    const u = this.u, X = x * u, Y = y * u, W = w * u, H = h * u;
+    for (let i = 0; i < W; i++) {
+      const t = W > 1 ? i / (W - 1) : 0;
+      // curva de iluminación de un cilindro: brillo cerca del 25%
+      const lum = 1 - Math.abs(t - 0.26) * 1.75;
+      const f = (1 - lum) * (pal.length - 1);
+      const lo = Math.max(0, Math.min(pal.length - 1, Math.floor(f)));
+      const hi = Math.min(pal.length - 1, lo + 1);
+      const frac = f - lo;
+      for (let j = 0; j < H; j++) {
+        this.p1(X + i, Y + j, trama(X + i, Y + j) < frac ? pal[hi] : pal[lo]);
+      }
+    }
+  };
+  /** elipse calculada en píxeles reales: bordes mucho más limpios */
   Lienzo.prototype.elipse = function (cx, cy, rx, ry, c) {
-    for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++)
-      for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
-        const dx = (x - cx) / rx, dy = (y - cy) / ry;
-        if (dx * dx + dy * dy <= 1) this.set(x, y, c);
+    const u = this.u, CX = cx * u + (u - 1) / 2, CY = cy * u + (u - 1) / 2, RX = rx * u, RY = ry * u;
+    for (let y = Math.floor(CY - RY); y <= Math.ceil(CY + RY); y++)
+      for (let x = Math.floor(CX - RX); x <= Math.ceil(CX + RX); x++) {
+        const dx = (x - CX) / RX, dy = (y - CY) / RY;
+        if (dx * dx + dy * dy <= 1) this.p1(x, y, c);
+      }
+  };
+  /** anillo de un píxel real: sirve para lentes, juntas y visores */
+  Lienzo.prototype.anillo = function (cx, cy, rx, ry, c, gr) {
+    const u = this.u, CX = cx * u + (u - 1) / 2, CY = cy * u + (u - 1) / 2, RX = rx * u, RY = ry * u;
+    const g = (gr || 1);
+    for (let y = Math.floor(CY - RY) - 1; y <= Math.ceil(CY + RY) + 1; y++)
+      for (let x = Math.floor(CX - RX) - 1; x <= Math.ceil(CX + RX) + 1; x++) {
+        const d = Math.sqrt(Math.pow((x - CX) / RX, 2) + Math.pow((y - CY) / RY, 2));
+        if (d <= 1 && d > 1 - g / Math.min(RX, RY)) this.p1(x, y, c);
       }
   };
   Lienzo.prototype.linea = function (x0, y0, x1, y1, c, gr) {
-    const pasos = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 2 + 1;
+    const u = this.u;
+    const X0 = x0 * u, Y0 = y0 * u, X1 = x1 * u, Y1 = y1 * u;
+    const pasos = Math.round(Math.max(Math.abs(X1 - X0), Math.abs(Y1 - Y0))) + 1;
+    const g = (gr || 1) * u;
     for (let i = 0; i <= pasos; i++) {
       const t = i / pasos;
-      const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
-      const g = gr || 1;
-      for (let a = 0; a < g; a++) for (let b = 0; b < g; b++) this.set(x + a, y + b, c);
+      const x = Math.round(X0 + (X1 - X0) * t), y = Math.round(Y0 + (Y1 - Y0) * t);
+      for (let a = 0; a < g; a++) for (let b = 0; b < g; b++) this.p1(x + a, y + b, c);
     }
   };
-  /** contorno oscuro alrededor de todo lo dibujado */
+  /** degradado vertical tramado dentro de un rectángulo lógico */
+  Lienzo.prototype.gradV = function (x, y, w, h, pal) {
+    const u = this.u, X = x * u, Y = y * u, W = w * u, H = h * u;
+    for (let j = 0; j < H; j++) {
+      const f = (j / Math.max(1, H - 1)) * (pal.length - 1);
+      const lo = Math.max(0, Math.min(pal.length - 1, Math.floor(f)));
+      const hi = Math.min(pal.length - 1, lo + 1);
+      const frac = f - lo;
+      for (let i = 0; i < W; i++) this.p1(X + i, Y + j, trama(X + i, Y + j) < frac ? pal[hi] : pal[lo]);
+    }
+  };
+  /** Grano fino: no pinta encima, mezcla un poco. Es la diferencia
+      entre metal usado y una superficie llena de puntos sueltos. */
+  Lienzo.prototype.grano = function (c, dens) {
+    const d = dens == null ? 0.05 : dens;
+    const mz = SW.mezclaColor;
+    for (let y = 0; y < this.n; y++) for (let x = 0; x < this.n; x++) {
+      const base = this.g1(x, y);
+      if (!base) continue;
+      let h = (x * 374761393 + y * 668265263) | 0;
+      h = (h ^ (h >>> 13)) * 1274126177 | 0;
+      h = (h ^ (h >>> 16)) >>> 0;
+      const r = (h % 1000) / 1000;
+      if (r >= d) continue;
+      // intensidad variable: unos puntos casi no se ven
+      const fuerza = 0.12 + (r / d) * 0.22;
+      this.p1(x, y, mz ? mz(base, c, fuerza) : base);
+    }
+  };
+  /** remaches: puntos de un píxel real repartidos por una línea */
+  Lienzo.prototype.remaches = function (x, y, w, paso, cLuz, cSom) {
+    const u = this.u, X = x * u, Y = y * u, W = w * u;
+    for (let i = 0; i < W; i += paso) {
+      this.p1(X + i, Y, cLuz);
+      this.p1(X + i, Y + 1, cSom);
+    }
+  };
+  /** oclusión: oscurece el píxel real pegado al borde interior */
+  Lienzo.prototype.oclusion = function (fuerza) {
+    const f = fuerza == null ? 0.30 : fuerza;
+    const copia = this.px.slice();
+    const at = (x, y) => (x < 0 || y < 0 || x >= this.n || y >= this.n) ? null : copia[y * this.n + x];
+    for (let y = 0; y < this.n; y++) for (let x = 0; x < this.n; x++) {
+      const c = at(x, y);
+      if (!c) continue;
+      // vacío abajo o a la derecha = canto en sombra
+      if (!at(x + 1, y) || !at(x, y + 1)) this.p1(x, y, SW.mezclaColor ? SW.mezclaColor(c, '#05070c', f) : c);
+    }
+  };
+  /** luz de canto: aclara el píxel real pegado al borde superior-izquierdo */
+  Lienzo.prototype.luzCanto = function (fuerza) {
+    const f = fuerza == null ? 0.26 : fuerza;
+    const copia = this.px.slice();
+    const at = (x, y) => (x < 0 || y < 0 || x >= this.n || y >= this.n) ? null : copia[y * this.n + x];
+    for (let y = 0; y < this.n; y++) for (let x = 0; x < this.n; x++) {
+      const c = at(x, y);
+      if (!c) continue;
+      if (!at(x - 1, y) || !at(x, y - 1)) this.p1(x, y, SW.mezclaColor ? SW.mezclaColor(c, '#eaf4ff', f) : c);
+    }
+  };
+  /** contorno oscuro alrededor de todo lo dibujado (píxeles reales) */
   Lienzo.prototype.contorno = function (c) {
     const copia = this.px.slice();
     const at = (x, y) => (x < 0 || y < 0 || x >= this.n || y >= this.n) ? null : copia[y * this.n + x];
     for (let y = 0; y < this.n; y++) for (let x = 0; x < this.n; x++) {
       if (at(x, y)) continue;
-      if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) this.set(x, y, c);
+      if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) this.p1(x, y, c);
     }
   };
 
@@ -658,11 +770,27 @@
   };
 
 
+  /** Qué sprites llevan grano y de qué color: el metal no es plástico. */
+  const GRANO = {
+    nave_carguero: ['#3a4652', 0.16], nave_capital: ['#3a4652', 0.13],
+    nave_lanzadera: ['#3a4652', 0.12], nave_caza: ['#3a4652', 0.12],
+    armadura: ['#4a5460', 0.11], casco: ['#4a5460', 0.05],
+    casco_soldado: ['#5a6470', 0.10], casco_piloto: ['#5a6470', 0.10],
+    carga: ['#2c2012', 0.18], reliquia: ['#4a3c1c', 0.16],
+    geoda: ['#2c2838', 0.16], torreta: ['#3a4652', 0.13],
+    motor: ['#3a4652', 0.13], trofeo: ['#5e4818', 0.12],
+    rifle: ['#2e343c', 0.13], blaster: ['#2e343c', 0.13],
+    droide: ['#3a4652', 0.10], astromec: ['#3a4652', 0.10],
+    criatura: ['#2a1c10', 0.16]
+  };
+
   /** dibuja `nombre` en un canvas y lo devuelve */
   SW.pixel2 = function (nombre, opts) {
     const o = opts || {};
     const fn = S2[nombre];
-    const esc = o.escala || 5;
+    // el lienzo es el doble de grande que antes, así que la escala por
+    // defecto baja a la mitad para que el sprite ocupe lo mismo en pantalla
+    const esc = o.escala || 3;
     const cv = document.createElement('canvas');
     cv.width = N * esc; cv.height = N * esc;
     cv.className = 'sprite';
@@ -670,8 +798,14 @@
     cx.imageSmoothingEnabled = false;
     if (!fn) return cv;
 
-    const L = new Lienzo(N);
+    const L = new Lienzo(N, U);
     fn(L, o.dinamico);
+
+    /* --- acabado: lo que convierte bloques en volumen --- */
+    const gr = GRANO[nombre];
+    if (gr) L.grano(gr[0], gr[1]);
+    L.oclusion(0.30);
+    L.luzCanto(0.24);
     L.contorno('#0a0d12');
 
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
@@ -701,5 +835,8 @@
   };
   SW.Lienzo = Lienzo;
   SW.PAL_PIXEL = PAL;
+  SW.S2 = S2;          // para que la capa de detalle fino pueda envolverlos
+  SW.PX_N = N; SW.PX_U = U;
+  SW.pxTrama = trama;
 
 })(window);
