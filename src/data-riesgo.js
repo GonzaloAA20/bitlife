@@ -99,7 +99,12 @@
     const paliza = U.clamp((hpEnemigo == null ? 60 : hpEnemigo) / 100, 0, 1);
 
     // probabilidad de que no salgas vivo de esta
+    /* Perder una pelea de bar no debería matarte una de cada siete
+       veces: lo que mata son los duelos, las bestias y lo que va a
+       muerte. Un encontronazo corriente ahora deja factura, no cadáver. */
+    const corriente = !(cfg && (cfg.duelo || cfg.canon || cfg.aMuerte || cfg.bestia || cfg.frente));
     let pMuerte = U.clamp((dif - 30) / 330 + paliza * 0.13, 0, 0.4);
+    if (corriente) pMuerte *= 0.35;
     if (cfg && cfg.duelo) pMuerte += 0.10;         // un duelo es a algo
     if (cfg && cfg.canon) pMuerte += 0.22;         // contra una leyenda, más
     if (cfg && cfg.bestia) pMuerte += 0.08;
@@ -108,7 +113,11 @@
     if (s.stats.fisico > 65) pMuerte -= 0.08;
     if (s.sensible && s.stats.fuerza > 50) pMuerte -= 0.10;
     if (s.habilidades.indexOf('medico') >= 0) pMuerte -= 0.04;
-    pMuerte = U.clamp(pMuerte, 0.02, 0.5);
+    // la juventud tampoco puede ser una trituradora: a los quince no
+    // sabes pelear, pero tampoco te matan en cada trifulca
+    if (s.edadBio < 20) pMuerte *= 0.5;
+    if (SW.tieneTalento && SW.tieneTalento(s, 'aguante')) pMuerte *= 0.7;
+    pMuerte = U.clamp(pMuerte, corriente ? 0.005 : 0.02, 0.5);
 
     if (rng.chance(pMuerte)) {
       g.morir(cfg && cfg.duelo ? 'Pierde el duelo. No hubo segunda parte.'
@@ -116,8 +125,15 @@
       return true;
     }
 
-    // sobrevives, pero con factura
-    const dano = Math.round(18 + dif / 3 + paliza * 22);
+    /* Sobrevives, pero con factura. Y la factura no puede matarte: el
+       texto decía «sales vivo» y acto seguido el daño te bajaba de cero,
+       así que perder una pelea acababa en muerte el 64% de las veces
+       cuando la tirada de arriba solo debía matar en un 5-15%. */
+    let dano = Math.round(18 + dif / 3 + paliza * 22);
+    if (corriente) dano = Math.round(dano * 0.6);
+    // deja siempre un margen: si querías matarle, eso ya se tiró arriba
+    const margen = corriente ? 8 : 3;
+    dano = Math.min(dano, Math.max(0, s.stats.salud - margen));
     g.aplicarFx({ salud: -dano, cordura: -10, reputacion: -6 }, {});
     const h = rng.pick(SW.HERIDAS_DERROTA);
     g.herir(h, Math.round(10 + dif / 5), rng.chance(0.18));

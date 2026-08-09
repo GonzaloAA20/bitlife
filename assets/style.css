@@ -808,7 +808,7 @@ body.en-juego::before {
   .tb-id b { font-size: 13px; }
   .tb-edad b { font-size: 15px; }
   .tb-mundo b, .tb-cr b { font-size: 11.5px; }
-  .topbar span { font-size: 8px; }
+  .topbar span { font-size: 9.5px; }
   .tb-acc { justify-self: end; }
   .tb-acc span { display: none; }
   .tb-acc b { height: 12px; }
@@ -1011,9 +1011,13 @@ body.sin-anim.golpe #app, body.sin-anim.golpe-fuerte #app { animation: none; }
 #app::after {
   content: ''; position: fixed; inset: 0; z-index: 800; pointer-events: none;
   background:
-    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.45) 100%),
+    radial-gradient(ellipse at center, transparent 62%, rgba(0,0,0,.30) 100%),
     linear-gradient(180deg, rgba(58,214,255,.03), transparent 30%);
 }
+/* con un diálogo abierto el viñeteado sobra: ya oscurece el propio modal */
+body:has(.vitrina-overlay) #app::after,
+body:has(.evento-overlay) #app::after,
+body:has(.mapa-overlay) #app::after { opacity: .35; }
 body.sin-crt #app::after { display: none; }
 body.sin-crt::after { display: none; }
 
@@ -1061,3 +1065,41 @@ body.sin-crt::after { display: none; }
 .cv-trama.ok { border-left-color: var(--verde); }
 .cv-trama.abierta { border-left-color: var(--ambar); }
 .cv-trama.abierta span { color: var(--ambar); }
+
+/* ============================================================
+   AUDITORÍA: legibilidad, dedo y aprovechamiento en pantallas
+   pequeñas. Medido con Chromium a 320, 390, 768 y 1440 px.
+   ============================================================ */
+
+/* 1. Nada de texto por debajo de 10px: a 8px no se lee en un móvil */
+.trama-años, .año em, .tag.mini, .hitos .hito-row b,
+.rel-tipo, .facs .fac em, .cv-trama em, .fin-trama em { font-size: 10px; }
+.tb-aviso span, .topbar span { font-size: 9.5px; }
+.mb i { font-size: 9px; }
+
+/* 2. Objetivos táctiles: los botones de la barra eran de 28x25 px */
+.btn.mini { min-width: 34px; min-height: 34px; padding: 6px 9px; }
+@media (pointer: coarse) {
+  .btn.mini { min-width: 40px; min-height: 40px; }
+  .op { min-height: 46px; }
+}
+
+/* 3. En pantallas bajas la barra de acciones se comía media pantalla
+      (271 px de 568). Ahora es una tira que se desliza y deja sitio
+      al registro, que es donde de verdad pasa el juego. */
+@media (max-height: 720px) and (max-width: 900px) {
+  .acciones-bar .acts {
+    display: flex; flex-wrap: nowrap; overflow-x: auto;
+    gap: 6px; padding-bottom: 4px;
+    scroll-snap-type: x proximity; scrollbar-width: none;
+  }
+  .acciones-bar .acts::-webkit-scrollbar { display: none; }
+  .acciones-bar .act { flex: 0 0 auto; min-width: 74px; scroll-snap-align: start; }
+  .acciones-bar { padding-top: 6px; }
+}
+
+/* 4. El aviso de que hay más acciones a los lados */
+@media (max-height: 720px) and (max-width: 900px) {
+  .acciones-bar .acts { -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+                        mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent); }
+}

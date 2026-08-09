@@ -468,13 +468,51 @@
     return 'nave_carguero';
   };
 
+  /* Antes esto miraba sólo `obj.t` y devolvía «blaster» para cualquier
+     arma: un cuchillo de vibro-obsidiana salía dibujado como una
+     pistola. Ahora manda el nombre y, si está fichado, su categoría. */
   SW.spriteDeObjeto = function (obj) {
     if (!obj) return 'reliquia';
+    const n = String((obj.n || obj.nombre || obj) || '').toLowerCase();
+    const ficha = SW.fichaObjeto ? SW.fichaObjeto(obj.n || obj.nombre || obj) : null;
+    const cat = ficha ? ficha.cat : null;
+
+    // primero lo que se reconoce por el nombre, que es lo más fiable
+    if (/holocr/.test(n)) return 'holocron';
+    if (/sable/.test(n)) return /oscur|negra/.test(n) ? 'sable_oscuro' : 'sable';
+    if (/cristal|kyber/.test(n)) return 'kyber';
+    if (/casco|visor/.test(n)) return /clon|soldado|tropa/.test(n) ? 'casco_soldado'
+                                    : /piloto|vuelo/.test(n) ? 'casco_piloto' : 'casco';
+    if (/jetpack|mochila/.test(n)) return 'jetpack';
+    if (/bastón|baston|látigo|latigo|pica/.test(n)) return 'baston';
+    if (/cuchillo|vibrohoja|vibro|daga|hoja/.test(n)) return 'vibrohoja';
+    if (/rifle|ballesta|arco|francotirador|lanzacohetes|lanzallamas/.test(n)) return 'rifle';
+    if (/pistola|bláster|blaster/.test(n)) return 'blaster';
+    if (/medalla|condecoraci/.test(n)) return 'medalla';
+    if (/trofeo/.test(n)) return 'trofeo';
+    if (/talismán|talisman|amuleto/.test(n)) return 'talisman';
+    if (/chip|datos|spike|slicer/.test(n)) return 'datachip';
+    if (/droide/.test(n)) return /astro/.test(n) ? 'astromec' : 'droide';
+    if (/bacta|botiquín|botiquin|kit de médico|kit médico|kit de medico|médic|medic|cura/.test(n)) return 'bacta';
+    if (/kit|caja|equipo de/.test(n)) return 'herramienta';
+    if (/credencial|salvoconducto|permiso|identidad/.test(n)) return 'credencial';
+    if (/mapa|carta|macrobinocular/.test(n)) return 'holomapa';
+    if (/especia/.test(n)) return 'especia';
+    if (/copa|licor|bebida/.test(n)) return 'copa';
+    if (/herramienta|llave|multiherr/.test(n)) return 'herramienta';
+    if (/droide/.test(n)) return /astro/.test(n) ? 'astromec' : 'droide';
+
+    // después, lo que diga la ficha de equipo
+    if (cat === 'fuego') return 'blaster';
+    if (cat === 'filo') return 'vibrohoja';
+    if (cat === 'peto') return 'armadura';
+    if (cat === 'util') return 'herramienta';
+
+    // y por último el tipo genérico del evento que lo dio
     const t = obj.t || obj.tipo;
     if (t === 'arma' || t === 'arma_fuego') return 'blaster';
-    if (t === 'armadura') return obj.n && /casco|beskar/i.test(obj.n) ? 'casco' : 'armadura';
+    if (t === 'armadura') return 'armadura';
     if (t === 'droide') return 'droide';
-    if (t === 'reliquia') return /holocr/i.test(obj.n || '') ? 'holocron' : 'reliquia';
     if (t === 'vehículo') return 'nave_caza';
     return 'reliquia';
   };

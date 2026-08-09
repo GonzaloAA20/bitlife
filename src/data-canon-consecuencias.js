@@ -201,12 +201,16 @@
   SW.GUION.push({
     id: 'cc_favor_leyenda', min: 16, max: 200, prio: 62, repetible: true,
     req: function (s) {
-      return (s.relaciones || []).some(function (r) {
-        return r.canon && r.afecto > 40 && !r.vivo === false;
-      }) && !s.flags.favor_leyenda_este_año;
+      // antes había aquí un `!r.vivo === false` que no comprobaba nada
+      const hay = (s.relaciones || []).some(function (r) { return r.canon && r.afecto > 40; });
+      return hay && (s.edad - (s.flags._favorUlt || -99)) >= 6;
     },
     gen: true, c: [],
-    hazlo: function (g) { return SW.GEN.favorLeyenda(g.rng, g.s); }
+    hazlo: function (g) {
+      const ev = SW.GEN.favorLeyenda(g.rng, g.s);
+      if (ev) g.s.flags._favorUlt = g.s.edad;
+      return ev;
+    }
   });
 
   const ENCARGOS = [
@@ -296,14 +300,35 @@
     return { gen: true, id: e.id, t: e.t, c: e.c };
   };
 
+  /* Cuántas escenas de peso le quedan a esta vida. Sin esto, el guion
+     se declaraba elegible todos los años aunque ya no tuviera nada que
+     contar, ganaba la subasta y dejaba sin turno a todo lo demás. */
+  SW.quedanEscenasPeso = function (s) {
+    const ids = ['cp_dooku', 'cp_grievous', 'cp_vader', 'cp_inquisidor', 'cp_voz'];
+    const era = s.era, sens = s.sensible && s.stats.fuerza > 25;
+    return ids.some(function (id) {
+      if (s.flags['esc_' + id]) return false;
+      if (id === 'cp_dooku' || id === 'cp_grievous') return era === 'guerras_clon';
+      if (id === 'cp_vader' || id === 'cp_inquisidor') return era === 'imperio_temprano' || era === 'rebelion';
+      return sens;
+    });
+  };
+
   SW.GUION.push({
     id: 'cc_peso', min: 14, max: 200, prio: 58, repetible: true,
     req: function (s) {
       const fama = (s.stats.reputacion + s.stats.notoriedad) / 200;
-      return fama > 0.35 && !!SW.GEN.canonPeso;
+      if (fama <= 0.35 || !SW.GEN.canonPeso) return false;
+      if (!SW.quedanEscenasPeso(s)) return false;
+      // que respire: como mucho una cada cinco años
+      return (s.edad - (s.flags._pesoUlt || -99)) >= 5;
     },
     gen: true, c: [],
-    hazlo: function (g) { return SW.GEN.canonPeso(g.rng, g.s); }
+    hazlo: function (g) {
+      const ev = SW.GEN.canonPeso(g.rng, g.s);
+      if (ev) g.s.flags._pesoUlt = g.s.edad;
+      return ev;
+    }
   });
 
 })(typeof window !== 'undefined' ? window : globalThis);

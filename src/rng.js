@@ -114,7 +114,7 @@
     },
     /** rellena {slots} en una plantilla */
     fill: function (tpl, slots) {
-      return String(tpl).replace(/\{(\w+)\}/g, function (m, k) {
+      const s = String(tpl).replace(/\{(\w+)\}/g, function (m, k) {
         if (!slots) return m;
         if (slots[k] != null) return slots[k];
         // {C} = el hueco {c} con mayúscula, para abrir frase
@@ -125,6 +125,14 @@
         }
         return m;
       });
+      /* Las contracciones. Al meter «el bar» en una plantilla que dice
+         «de {l}» salía «de el bar»; ahora sale «del bar». Se hace aquí
+         una vez y no en trescientas plantillas. */
+      return s
+        .replace(/\bde el\b/g, 'del')
+        .replace(/\bDe el\b/g, 'Del')
+        .replace(/\ba el\b(?! que)/g, 'al')
+        .replace(/\bA el\b(?! que)/g, 'Al');
     },
     titleCase: function (s) {
       return String(s).charAt(0).toUpperCase() + String(s).slice(1);
@@ -173,38 +181,74 @@
 
   const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
+  /* Cada código se guardaba en 20 bits fijos «por si acaso», pero un
+     resumen de vida no pasa de unos miles de entradas de diccionario:
+     se desperdiciaba casi la mitad del enlace. Ahora se usa el ancho
+     mínimo que hace falta y se apunta al principio, detrás de una `~`
+     que no existe en el alfabeto (así los enlaces antiguos, sin marca,
+     se siguen leyendo a 20 bits como siempre). */
+  const ANCHO = '~';
+
   function packCodes(codes) {
-    // cada código cabe en 20 bits (suficiente para nuestros textos)
+    let maxc = 1;
+    for (let i = 0; i < codes.length; i++) if (codes[i] > maxc) maxc = codes[i];
+    let w = 8;
+    while ((1 << w) <= maxc && w < 24) w++;
     let bits = '';
-    for (let i = 0; i < codes.length; i++) {
-      bits += codes[i].toString(2).padStart(20, '0');
-    }
+    for (let i = 0; i < codes.length; i++) bits += codes[i].toString(2).padStart(w, '0');
     while (bits.length % 6) bits += '0';
     let out = '';
     for (let i = 0; i < bits.length; i += 6) out += B64[parseInt(bits.substr(i, 6), 2)];
-    return out;
+    return ANCHO + B64[w] + out;
   }
 
   function unpackCodes(s) {
+    let w = 20, cuerpo = s;
+    if (s[0] === ANCHO) { w = B64.indexOf(s[1]); cuerpo = s.slice(2); if (w < 4) return []; }
     let bits = '';
-    for (let i = 0; i < s.length; i++) {
-      const v = B64.indexOf(s[i]);
+    for (let i = 0; i < cuerpo.length; i++) {
+      const v = B64.indexOf(cuerpo[i]);
       if (v < 0) continue;
       bits += v.toString(2).padStart(6, '0');
     }
     const codes = [];
-    for (let i = 0; i + 20 <= bits.length; i += 20) {
-      codes.push(parseInt(bits.substr(i, 20), 2));
-    }
+    for (let i = 0; i + w <= bits.length; i += w) codes.push(parseInt(bits.substr(i, w), 2));
     return codes;
+  }
+
+  /* El LZW de aquí trabaja por carácter y reserva los códigos ≥256 para
+     el diccionario, así que sólo puede tragar texto por debajo de 256.
+     Antes se resolvía con encodeURIComponent, que convierte cada tilde
+     en tres caracteres (`é` → `%C3%A9`): en un texto en español eso
+     hinchaba el enlace una barbaridad. Ahora sólo se escapa lo que de
+     verdad se sale de rango, y las tildes viajan tal cual. */
+  const MARCA = '\u0002';
+
+  function aSeguro(json) {
+    let out = MARCA;
+    for (let i = 0; i < json.length; i++) {
+      const c = json[i], n = json.charCodeAt(i);
+      if (c === '\\') out += '\\\\';
+      else if (n < 256) out += c;
+      else out += '\\u' + n.toString(16).padStart(4, '0');
+    }
+    return out;
+  }
+
+  function deSeguro(safe) {
+    let out = '';
+    for (let i = 0; i < safe.length; i++) {
+      if (safe[i] !== '\\') { out += safe[i]; continue; }
+      if (safe[i + 1] === '\\') { out += '\\'; i++; continue; }
+      if (safe[i + 1] === 'u') { out += String.fromCharCode(parseInt(safe.substr(i + 2, 4), 16)); i += 5; continue; }
+      out += safe[i];
+    }
+    return out;
   }
 
   U.pack = function (obj) {
     try {
-      const json = JSON.stringify(obj);
-      // escapa a latin1 seguro para LZW por code point
-      const safe = encodeURIComponent(json);
-      return packCodes(lzwEncode(safe));
+      return packCodes(lzwEncode(aSeguro(JSON.stringify(obj))));
     } catch (e) { return ''; }
   };
 
@@ -213,6 +257,8 @@
       const codes = unpackCodes(str);
       if (!codes.length) return null;
       const safe = lzwDecode(codes);
+      // los enlaces antiguos venían con encodeURIComponent; se siguen leyendo
+      if (safe[0] === MARCA) return JSON.parse(deSeguro(safe.slice(1)));
       return JSON.parse(decodeURIComponent(safe));
     } catch (e) { return null; }
   };

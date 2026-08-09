@@ -784,6 +784,40 @@
     criatura: ['#2a1c10', 0.16]
   };
 
+  /* --- arma blanca: vibrohoja --- */
+  S2.vibrohoja = function (L, din) {
+    const filo = din || PAL.acero;
+    // hoja recta con lomo y filo, apuntando arriba
+    for (let y = 4; y < 28; y++) {
+      const t = (y - 4) / 24;
+      const ancho = Math.round(2 + t * 2);
+      L.rect(24 - ancho, y, ancho, 1, filo[0]);        // filo, a la luz
+      L.rect(24, y, ancho, 1, filo[2]);                // lomo, en sombra
+    }
+    L.rect(22, 3, 4, 2, filo[0]);                      // punta
+    L.rect(19, 28, 10, 2, PAL.hierro[2]);              // guarda
+    L.cilindro(21, 30, 6, 13, PAL.cuero);              // mango forrado
+    L.rect(20, 43, 8, 3, PAL.hierro[1]);               // pomo
+  };
+
+  /* --- arma blanca eléctrica: bastón --- */
+  S2.baston = function (L) {
+    L.cilindro(22, 6, 4, 36, PAL.hierro);
+    L.rect(20, 4, 8, 4, PAL.acero[1]);
+    L.rect(20, 40, 8, 4, PAL.acero[1]);
+    for (let y = 12; y < 36; y += 6) L.rect(21, y, 6, 1, PAL.oro[1]);
+  };
+
+  /* --- utillaje: mochila propulsora --- */
+  S2.jetpack = function (L) {
+    L.bloque(14, 12, 20, 22, PAL.hierro);
+    L.cilindro(12, 16, 5, 20, PAL.acero);
+    L.cilindro(31, 16, 5, 20, PAL.acero);
+    L.rect(13, 36, 3, 5, PAL.negro[1]);
+    L.rect(32, 36, 3, 5, PAL.negro[1]);
+    L.rect(20, 18, 8, 6, PAL.rojo[1]);
+  };
+
   /** dibuja `nombre` en un canvas y lo devuelve */
   SW.pixel2 = function (nombre, opts) {
     const o = opts || {};

@@ -181,6 +181,7 @@
   };
   Game.prototype.hito = function (txt) {
     this.s.hitos.push({ edad: this.s.edad, txt: txt });
+    this.s.ultimoHito = this.s.edad;
   };
 
   /* ---------------- Slots ---------------- */
@@ -313,11 +314,19 @@
   };
 
   /** peso efectivo: lo ya visto pesa mucho menos */
+  /* Cuánto pesa una escena en el sorteo. Lo que está pasando en tu vida
+     ahora mismo tiene que asomar más que el catálogo general: en plena
+     guerra salían tres eventos bélicos por vida porque competían de tú
+     a tú con seiscientos eventos de tiempos de paz. */
   Game.prototype.peso = function (ev) {
-    if (ev.repetible) return ev.w == null ? 1 : ev.w;
     let base = ev.w == null ? 1 : ev.w;
-    if (ev.mundo) base *= 2.2;   // lo que pasa aquí pasa más que lo genérico
-    const visto = this.s.vistos[ev.id] || 0;
+    const s = this.s;
+    if (ev.mundo) base *= 2.2;              // lo de aquí pasa más que lo genérico
+    if (/^gv_/.test(ev.id) && SW.guerraActiva && SW.guerraActiva(s)) base *= 9;
+    if (ev.era && ev.era.length <= 2) base *= 2.2;   // lo propio de la época
+    if (ev.esp) base *= 2.6;                          // lo propio de tu especie
+    if (ev.repetible) return base;
+    const visto = s.vistos[ev.id] || 0;
     return base / (1 + visto * visto * 3);
   };
 
@@ -333,22 +342,38 @@
     if (s.recientes.length > 26) s.recientes.shift();
   };
 
-  Game.prototype.prepararEvento = function (ev) {
+  /** Aviso automático: que no te maten sin haberte avisado. */
+  function avisoOpcion(o) {
+    const c = o.combate || (o.r && o.r.length && (o.r.find ? (o.r.find(function (x) { return x.combate; }) || {}).combate : null));
+    if (!c) return null;
+    const partes = [];
+    if (c.aMuerte) partes.push('a muerte');
+    if (c.canon) partes.push('contra una leyenda');
+    else if (c.dif >= 80) partes.push('rival muy por encima de ti');
+    else if (c.dif >= 65) partes.push('rival duro');
+    if (c.duelo && !c.aMuerte) partes.push('duelo');
+    return partes.length ? '⚔ ' + partes.join(' · ') : null;
+  }
+
+  Game.prototype.prepararEvento = function (ev, noMarcar) {
     const slots = ev.gen ? {} : this.rellenarSlots(ev);
     const inst = { ref: ev, id: ev.id, slots: slots, texto: U.fill(ev.t, slots), opciones: [] };
     const s = this.s;
     for (let i = 0; i < ev.c.length; i++) {
       const o = ev.c[i];
       if (o.req) { try { if (!o.req(s)) continue; } catch (e) { continue; } }
+      const av = avisoOpcion(o);
       inst.opciones.push({
         idx: i,
         txt: U.fill(o.t, slots),
-        sub: o.sub ? U.fill(o.sub, slots) : null,
+        sub: o.sub ? U.fill(o.sub, slots) + (av ? ' · ' + av : '') : av,
         def: o
       });
     }
     if (!inst.opciones.length) return null;
-    this.marcarVisto(ev.id);
+    // al ofrecer varias situaciones a la vez sólo se marca la elegida:
+    // si no, las descartadas se darían por vistas sin haberse jugado
+    if (!noMarcar) this.marcarVisto(ev.id);
     return inst;
   };
 
@@ -415,14 +440,19 @@
     if (s.muerto) return;
 
     // eventos guionizados: los momentos que SÍ o SÍ deben ocurrir
-    const guion = this.eventosPosibles(SW.GUION || []);
-    if (guion.length) {
-      const ev = guion.sort(function (a, b) { return (b.prio || 0) - (a.prio || 0); })[0];
-      // algunos guiones se construyen sobre la marcha (a quién mataste, a quién debes)
+    /* Los guionizados se subastan por prioridad. Antes se cogía sólo el
+       primero: si ese no llegaba a producir escena --- los que se
+       construyen sobre la marcha pueden quedarse sin material, y
+       prepararEvento devuelve null si ninguna opción pasa su `req` ---
+       el año se perdía y el resto de candidatos no se probaba nunca. */
+    const guion = this.eventosPosibles(SW.GUION || [])
+      .sort(function (a, b) { return (b.prio || 0) - (a.prio || 0); });
+    for (let gi = 0; gi < guion.length; gi++) {
+      const ev = guion[gi];
       let inst = null;
       if (ev.hazlo) { const g = ev.hazlo(this); if (g) { inst = this.prepararGen(g); this.marcarVisto(ev.id); } }
       else inst = this.prepararEvento(ev);
-      if (inst) this.cola.push(inst);
+      if (inst) { this.cola.push(inst); break; }
     }
 
     // cada tantos años eliges en qué te has convertido
@@ -569,6 +599,31 @@
       s.stats.salud -= Math.round((ratio - 0.66) * 26 * s.ritmo + rng.int(0, 2));
     }
     if (s.stats.cordura < 18) s.stats.salud -= 2;
+
+    /* El cuerpo y la cabeza también envejecen, no sólo la salud. Antes
+       nada bajaba nunca y el carisma acababa clavado en 100 en siete de
+       cada diez vidas: las tiradas sociales dejaban de tener tensión. */
+    const baja = function (k, desde, fuerza) {
+      if (ratio <= desde) return;
+      const t = (ratio - desde) / (1 - desde);
+      const d = t * fuerza * s.ritmo;
+      // se pierde antes lo que tienes muy alto y sin usar
+      if (rng.chance(Math.min(0.95, d))) s.stats[k] -= 1 + (rng.chance(d / 2) ? 1 : 0);
+    };
+    baja('fisico', 0.48, 1.5);
+    baja('destreza', 0.55, 1.3);
+    baja('salud', 0.60, 0.5);
+    baja('carisma', 0.78, 0.9);
+    baja('intelecto', 0.86, 0.7);
+    if (!s.relaciones.length && ratio > 0.5 && rng.chance(0.35)) s.stats.cordura -= 1;
+
+    /* Y la fama se apaga sola si no la alimentas: a los cinco años de
+       no hacer nada sonado, la gente ya no se acuerda de ti. */
+    const quieto = s.edad - (s.ultimoHito || 0);
+    if (quieto > 4) {
+      if (rng.chance(0.5)) s.stats.reputacion -= 1;
+      if (rng.chance(0.6)) s.stats.notoriedad -= 1;
+    }
     clampStats(s);
 
     if (s.stats.salud <= 0) { this.morir('El cuerpo dijo basta.'); return; }
@@ -631,7 +686,9 @@
       if (k === 'creditos' && v === -999999) v = -Math.max(0, s.stats.creditos);
       // cuanto más alto está algo, menos aporta cada acierto
       if (v > 0 && s.stats[k] != null && k !== 'creditos' && k !== 'alineamiento') {
-        v = v * Math.max(0.12, 1 - s.stats[k] / 118);
+        // curva, no recta: de 0 a 70 cuesta poco, de 85 a 100 cuesta mucho
+        const f = Math.max(0, 1 - s.stats[k] / 100);
+        v = v * Math.max(0.04, f * f * 1.25);
       }
       if (k === 'fuerza' && v > 0 && !s.sensible) {
         v = v * 0.15;
@@ -733,6 +790,21 @@
     const op = inst && inst.opciones && inst.opciones[i];
     if (!op) return;
     const d = op.def;
+    if (d.situacion != null) {
+      const lista = this._situaciones || [];
+      const el = lista[d.situacion];
+      this._situaciones = null;
+      if (el) { this.marcarVisto(el.id); this.cola.unshift(el); this.fase = 'evento'; }
+      return;
+    }
+    if (d.devuelveAccion) {
+      // no gastas el año por asomarte y no ver nada que te apetezca
+      this._situaciones = null;
+      this.s.acciones = Math.min(this.s.accionesMax, this.s.acciones + 1);
+      this.log('Te lo piensas mejor y guardas el rato para otra cosa.', 'res');
+      if (!this.cola.length && !this.s.muerto) this.fase = 'menu';
+      return;
+    }
     if (d.retoSalta) {
       // renunciar al reto: sale regular, pero sale
       this.log('› ' + op.txt, 'eleccion');
@@ -1043,7 +1115,8 @@
     for (let i = 0; i < ev.c.length; i++) {
       const o = ev.c[i];
       if (o.req) { try { if (!o.req(this.s)) continue; } catch (e) { continue; } }
-      inst.opciones.push({ idx: i, txt: o.t, sub: o.sub || null, def: o, bloqueada: o.bloqueada });
+      const av2 = avisoOpcion(o);
+      inst.opciones.push({ idx: i, txt: o.t, sub: (o.sub ? o.sub + (av2 ? ' · ' + av2 : '') : av2), def: o, bloqueada: o.bloqueada });
     }
     return inst;
   };
@@ -1639,6 +1712,21 @@
       return;
     }
     if (!SW.armaDeMano(s)) this.log('Peleas con lo puesto: sin arma, todo cuesta más.', 'mal');
+
+    /* Una pelea de bar tenía la misma dificultad con quince años que con
+       cuarenta, y la mitad de las vidas se acababan antes de los treinta.
+       Los encontronazos corrientes se ajustan a lo que eres; los duelos,
+       las leyendas y lo que va a muerte no se tocan: eso es lo que da
+       miedo precisamente porque no se adapta. */
+    if (!cfg.canon && !cfg.aMuerte && !cfg.duelo && !cfg.contrato) {
+      const poder = this.poderCombate();
+      const techo = Math.round(poder + 22);
+      const suelo = Math.round(poder - 18);
+      const d0 = cfg.dif == null ? 50 : cfg.dif;
+      cfg.dif = U.clamp(d0, Math.min(d0, suelo), Math.max(20, techo));
+      cfg.ajustado = cfg.dif !== d0;
+    }
+
     this.escena = {
       tipo: 'combate',
       cfg: cfg || {},
@@ -2292,12 +2380,59 @@
     });
   };
 
+  /** Dos o tres situaciones entre las que elegir al abrir una vía. */
+  Game.prototype.menuSituaciones = function (posibles, menuId, siempre) {
+    const rng = this.rng;
+    if (!posibles.length) return null;
+    // no en cada apertura: si no, es un peaje. Cuatro de cada diez.
+    const cuantas = (posibles.length >= 3 && (siempre || rng.chance(0.4)))
+      ? (rng.chance(0.5) ? 3 : 2) : 1;
+    if (cuantas <= 1) {
+      const ev0 = this.elegirEvento(posibles);
+      return this.prepararEvento(ev0);
+    }
+    const pool = posibles.slice();
+    const elegidos = [];
+    for (let i = 0; i < cuantas && pool.length; i++) {
+      const ev = this.elegirEvento(pool);
+      pool.splice(pool.indexOf(ev), 1);
+      const inst = this.prepararEvento(ev, true);   // sin marcar todavía
+      if (inst) elegidos.push(inst);
+    }
+    if (!elegidos.length) return null;
+    if (elegidos.length === 1) { this.marcarVisto(elegidos[0].id); return elegidos[0]; }
+
+    this._situaciones = elegidos;
+    const quitaTags = function (h) { return String(h).replace(/<[^>]+>/g, '').trim(); };
+    return this.prepararGen({
+      id: 'sit_' + menuId, gen: true, esMenu: true,
+      t: '<span class="scene-tag">¿A QUÉ LO DEDICAS?</span>',
+      c: elegidos.map(function (x, i) {
+        let txt = quitaTags(x.texto);
+        txt = txt.charAt(0).toUpperCase() + txt.slice(1);   // abre en mayúscula
+        return { t: txt.length > 128 ? txt.slice(0, 126) + '…' : txt, situacion: i };
+      }).concat(menuId === 'viaje'
+        ? [{ t: '◎ Abrir la carta estelar y marcharte de aquí', viajar: true }]
+        : [{ t: '◂ Dejarlo para otro día', volver: true, devuelveAccion: true }])
+    });
+  };
+
   Game.prototype.hacerActividad = function (id) {
     const s = this.s, rng = this.rng;
     if (s.acciones <= 0) { this.log('Ya no te queda tiempo este año.', 'res'); return; }
     s.acciones--;
     this.actividadEnCurso = id;
-    if (id === 'viaje') { this.abrirMapaViaje = true; this.actividadUsada = s.acciones <= 0; this.fase = 'menu'; return; }
+    /* «Viajar» abría el mapa y se acababa ahí, así que las escenas
+       escritas para este menú no se veían nunca. Ahora se elige: la
+       carta estelar es una opción más, no la única. */
+    if (id === 'viaje') {
+      const pool = this.eventosPosibles(SW.ACTOS.viaje || []);
+      if (pool.length && rng.chance(0.6)) {
+        const inst = this.menuSituaciones(pool, 'viaje', true);
+        if (inst) { this.cola.push(inst); this.fase = 'evento'; return; }
+      }
+      this.abrirMapaViaje = true; this.actividadUsada = s.acciones <= 0; this.fase = 'menu'; return;
+    }
 
     // La clínica no compite con eventos: si la pides, se abre la clínica.
     // Antes «Cuerpo y mente» te soltaba cualquier cosa menos curarte.
@@ -2366,8 +2501,11 @@
       }
       else this.cola.push(this.prepararGen(this.rellenoActividad(id)));
     } else {
-      const ev = this.elegirEvento(posibles);
-      const inst = this.prepararEvento(ev);
+      /* Antes se sorteaba una situación y punto. Con 30-48 escenas por
+         menú y ~17 aperturas por vida, más de la mitad no se veían
+         nunca. Ahora se ofrecen dos o tres y eliges tú a qué dedicas
+         el rato: se triplica lo que ves y la elección es tuya. */
+      const inst = this.menuSituaciones(posibles, id);
       if (inst) this.cola.push(inst);
     }
     this.actividadUsada = s.acciones <= 0;

@@ -145,7 +145,11 @@
   };
 
   SW.herenciaDe = function (s) {
-    const apellido = (s.nombre || '').split(' ').slice(1).join(' ');
+    /* Un clon se llama «Cinco (Rivka Fett)»: el paréntesis es de quién
+       salió, no un apellido que puedas pasar a nadie. */
+    const limpio = String(s.nombre || '').replace(/\s*\([^)]*\)/g, '').trim();
+    const esClon = s.especie === 'clon' || s.especie === 'clon_nulo';
+    const apellido = esClon ? null : limpio.split(' ').slice(1).join(' ');
     const talento = (s.talentos || [])[0] || null;
     // se hereda una parte del dinero, no todo: hay impuestos y hermanos
     const dinero = Math.max(0, Math.round((s.stats.creditos || 0) * 0.35));
@@ -157,7 +161,7 @@
       creditos: dinero,
       talento: talento,
       sensible: !!s.sensible && Math.abs(s.stats.alineamiento) > 20,
-      deQuien: s.nombre,
+      deQuien: limpio || s.nombre,
       reputacion: Math.round((s.stats.reputacion || 0) * 0.4),
       notoriedad: Math.round((s.stats.notoriedad || 0) * 0.3),
       tramas: (SW.tramasDe ? SW.tramasDe(s) : []).filter(function (t) { return !t.cerrada; }).map(function (t) { return t.n; })

@@ -817,7 +817,7 @@ body.en-juego::before {
   .tb-id b { font-size: 13px; }
   .tb-edad b { font-size: 15px; }
   .tb-mundo b, .tb-cr b { font-size: 11.5px; }
-  .topbar span { font-size: 8px; }
+  .topbar span { font-size: 9.5px; }
   .tb-acc { justify-self: end; }
   .tb-acc span { display: none; }
   .tb-acc b { height: 12px; }
@@ -1020,9 +1020,13 @@ body.sin-anim.golpe #app, body.sin-anim.golpe-fuerte #app { animation: none; }
 #app::after {
   content: ''; position: fixed; inset: 0; z-index: 800; pointer-events: none;
   background:
-    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.45) 100%),
+    radial-gradient(ellipse at center, transparent 62%, rgba(0,0,0,.30) 100%),
     linear-gradient(180deg, rgba(58,214,255,.03), transparent 30%);
 }
+/* con un diálogo abierto el viñeteado sobra: ya oscurece el propio modal */
+body:has(.vitrina-overlay) #app::after,
+body:has(.evento-overlay) #app::after,
+body:has(.mapa-overlay) #app::after { opacity: .35; }
 body.sin-crt #app::after { display: none; }
 body.sin-crt::after { display: none; }
 
@@ -1070,6 +1074,44 @@ body.sin-crt::after { display: none; }
 .cv-trama.ok { border-left-color: var(--verde); }
 .cv-trama.abierta { border-left-color: var(--ambar); }
 .cv-trama.abierta span { color: var(--ambar); }
+
+/* ============================================================
+   AUDITORÍA: legibilidad, dedo y aprovechamiento en pantallas
+   pequeñas. Medido con Chromium a 320, 390, 768 y 1440 px.
+   ============================================================ */
+
+/* 1. Nada de texto por debajo de 10px: a 8px no se lee en un móvil */
+.trama-años, .año em, .tag.mini, .hitos .hito-row b,
+.rel-tipo, .facs .fac em, .cv-trama em, .fin-trama em { font-size: 10px; }
+.tb-aviso span, .topbar span { font-size: 9.5px; }
+.mb i { font-size: 9px; }
+
+/* 2. Objetivos táctiles: los botones de la barra eran de 28x25 px */
+.btn.mini { min-width: 34px; min-height: 34px; padding: 6px 9px; }
+@media (pointer: coarse) {
+  .btn.mini { min-width: 40px; min-height: 40px; }
+  .op { min-height: 46px; }
+}
+
+/* 3. En pantallas bajas la barra de acciones se comía media pantalla
+      (271 px de 568). Ahora es una tira que se desliza y deja sitio
+      al registro, que es donde de verdad pasa el juego. */
+@media (max-height: 720px) and (max-width: 900px) {
+  .acciones-bar .acts {
+    display: flex; flex-wrap: nowrap; overflow-x: auto;
+    gap: 6px; padding-bottom: 4px;
+    scroll-snap-type: x proximity; scrollbar-width: none;
+  }
+  .acciones-bar .acts::-webkit-scrollbar { display: none; }
+  .acciones-bar .act { flex: 0 0 auto; min-width: 74px; scroll-snap-align: start; }
+  .acciones-bar { padding-top: 6px; }
+}
+
+/* 4. El aviso de que hay más acciones a los lados */
+@media (max-height: 720px) and (max-width: 900px) {
+  .acciones-bar .acts { -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+                        mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent); }
+}
 
 </style>
 </head>
@@ -1193,7 +1235,7 @@ body.sin-crt::after { display: none; }
     },
     /** rellena {slots} en una plantilla */
     fill: function (tpl, slots) {
-      return String(tpl).replace(/\{(\w+)\}/g, function (m, k) {
+      const s = String(tpl).replace(/\{(\w+)\}/g, function (m, k) {
         if (!slots) return m;
         if (slots[k] != null) return slots[k];
         // {C} = el hueco {c} con mayúscula, para abrir frase
@@ -1204,6 +1246,14 @@ body.sin-crt::after { display: none; }
         }
         return m;
       });
+      /* Las contracciones. Al meter «el bar» en una plantilla que dice
+         «de {l}» salía «de el bar»; ahora sale «del bar». Se hace aquí
+         una vez y no en trescientas plantillas. */
+      return s
+        .replace(/\bde el\b/g, 'del')
+        .replace(/\bDe el\b/g, 'Del')
+        .replace(/\ba el\b(?! que)/g, 'al')
+        .replace(/\bA el\b(?! que)/g, 'Al');
     },
     titleCase: function (s) {
       return String(s).charAt(0).toUpperCase() + String(s).slice(1);
@@ -1252,38 +1302,74 @@ body.sin-crt::after { display: none; }
 
   const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
+  /* Cada código se guardaba en 20 bits fijos «por si acaso», pero un
+     resumen de vida no pasa de unos miles de entradas de diccionario:
+     se desperdiciaba casi la mitad del enlace. Ahora se usa el ancho
+     mínimo que hace falta y se apunta al principio, detrás de una `~`
+     que no existe en el alfabeto (así los enlaces antiguos, sin marca,
+     se siguen leyendo a 20 bits como siempre). */
+  const ANCHO = '~';
+
   function packCodes(codes) {
-    // cada código cabe en 20 bits (suficiente para nuestros textos)
+    let maxc = 1;
+    for (let i = 0; i < codes.length; i++) if (codes[i] > maxc) maxc = codes[i];
+    let w = 8;
+    while ((1 << w) <= maxc && w < 24) w++;
     let bits = '';
-    for (let i = 0; i < codes.length; i++) {
-      bits += codes[i].toString(2).padStart(20, '0');
-    }
+    for (let i = 0; i < codes.length; i++) bits += codes[i].toString(2).padStart(w, '0');
     while (bits.length % 6) bits += '0';
     let out = '';
     for (let i = 0; i < bits.length; i += 6) out += B64[parseInt(bits.substr(i, 6), 2)];
-    return out;
+    return ANCHO + B64[w] + out;
   }
 
   function unpackCodes(s) {
+    let w = 20, cuerpo = s;
+    if (s[0] === ANCHO) { w = B64.indexOf(s[1]); cuerpo = s.slice(2); if (w < 4) return []; }
     let bits = '';
-    for (let i = 0; i < s.length; i++) {
-      const v = B64.indexOf(s[i]);
+    for (let i = 0; i < cuerpo.length; i++) {
+      const v = B64.indexOf(cuerpo[i]);
       if (v < 0) continue;
       bits += v.toString(2).padStart(6, '0');
     }
     const codes = [];
-    for (let i = 0; i + 20 <= bits.length; i += 20) {
-      codes.push(parseInt(bits.substr(i, 20), 2));
-    }
+    for (let i = 0; i + w <= bits.length; i += w) codes.push(parseInt(bits.substr(i, w), 2));
     return codes;
+  }
+
+  /* El LZW de aquí trabaja por carácter y reserva los códigos ≥256 para
+     el diccionario, así que sólo puede tragar texto por debajo de 256.
+     Antes se resolvía con encodeURIComponent, que convierte cada tilde
+     en tres caracteres (`é` → `%C3%A9`): en un texto en español eso
+     hinchaba el enlace una barbaridad. Ahora sólo se escapa lo que de
+     verdad se sale de rango, y las tildes viajan tal cual. */
+  const MARCA = '\u0002';
+
+  function aSeguro(json) {
+    let out = MARCA;
+    for (let i = 0; i < json.length; i++) {
+      const c = json[i], n = json.charCodeAt(i);
+      if (c === '\\') out += '\\\\';
+      else if (n < 256) out += c;
+      else out += '\\u' + n.toString(16).padStart(4, '0');
+    }
+    return out;
+  }
+
+  function deSeguro(safe) {
+    let out = '';
+    for (let i = 0; i < safe.length; i++) {
+      if (safe[i] !== '\\') { out += safe[i]; continue; }
+      if (safe[i + 1] === '\\') { out += '\\'; i++; continue; }
+      if (safe[i + 1] === 'u') { out += String.fromCharCode(parseInt(safe.substr(i + 2, 4), 16)); i += 5; continue; }
+      out += safe[i];
+    }
+    return out;
   }
 
   U.pack = function (obj) {
     try {
-      const json = JSON.stringify(obj);
-      // escapa a latin1 seguro para LZW por code point
-      const safe = encodeURIComponent(json);
-      return packCodes(lzwEncode(safe));
+      return packCodes(lzwEncode(aSeguro(JSON.stringify(obj))));
     } catch (e) { return ''; }
   };
 
@@ -1292,6 +1378,8 @@ body.sin-crt::after { display: none; }
       const codes = unpackCodes(str);
       if (!codes.length) return null;
       const safe = lzwDecode(codes);
+      // los enlaces antiguos venían con encodeURIComponent; se siguen leyendo
+      if (safe[0] === MARCA) return JSON.parse(deSeguro(safe.slice(1)));
       return JSON.parse(decodeURIComponent(safe));
     } catch (e) { return null; }
   };
@@ -2652,13 +2740,51 @@ body.sin-crt::after { display: none; }
     return 'nave_carguero';
   };
 
+  /* Antes esto miraba sólo `obj.t` y devolvía «blaster» para cualquier
+     arma: un cuchillo de vibro-obsidiana salía dibujado como una
+     pistola. Ahora manda el nombre y, si está fichado, su categoría. */
   SW.spriteDeObjeto = function (obj) {
     if (!obj) return 'reliquia';
+    const n = String((obj.n || obj.nombre || obj) || '').toLowerCase();
+    const ficha = SW.fichaObjeto ? SW.fichaObjeto(obj.n || obj.nombre || obj) : null;
+    const cat = ficha ? ficha.cat : null;
+
+    // primero lo que se reconoce por el nombre, que es lo más fiable
+    if (/holocr/.test(n)) return 'holocron';
+    if (/sable/.test(n)) return /oscur|negra/.test(n) ? 'sable_oscuro' : 'sable';
+    if (/cristal|kyber/.test(n)) return 'kyber';
+    if (/casco|visor/.test(n)) return /clon|soldado|tropa/.test(n) ? 'casco_soldado'
+                                    : /piloto|vuelo/.test(n) ? 'casco_piloto' : 'casco';
+    if (/jetpack|mochila/.test(n)) return 'jetpack';
+    if (/bastón|baston|látigo|latigo|pica/.test(n)) return 'baston';
+    if (/cuchillo|vibrohoja|vibro|daga|hoja/.test(n)) return 'vibrohoja';
+    if (/rifle|ballesta|arco|francotirador|lanzacohetes|lanzallamas/.test(n)) return 'rifle';
+    if (/pistola|bláster|blaster/.test(n)) return 'blaster';
+    if (/medalla|condecoraci/.test(n)) return 'medalla';
+    if (/trofeo/.test(n)) return 'trofeo';
+    if (/talismán|talisman|amuleto/.test(n)) return 'talisman';
+    if (/chip|datos|spike|slicer/.test(n)) return 'datachip';
+    if (/droide/.test(n)) return /astro/.test(n) ? 'astromec' : 'droide';
+    if (/bacta|botiquín|botiquin|kit de médico|kit médico|kit de medico|médic|medic|cura/.test(n)) return 'bacta';
+    if (/kit|caja|equipo de/.test(n)) return 'herramienta';
+    if (/credencial|salvoconducto|permiso|identidad/.test(n)) return 'credencial';
+    if (/mapa|carta|macrobinocular/.test(n)) return 'holomapa';
+    if (/especia/.test(n)) return 'especia';
+    if (/copa|licor|bebida/.test(n)) return 'copa';
+    if (/herramienta|llave|multiherr/.test(n)) return 'herramienta';
+    if (/droide/.test(n)) return /astro/.test(n) ? 'astromec' : 'droide';
+
+    // después, lo que diga la ficha de equipo
+    if (cat === 'fuego') return 'blaster';
+    if (cat === 'filo') return 'vibrohoja';
+    if (cat === 'peto') return 'armadura';
+    if (cat === 'util') return 'herramienta';
+
+    // y por último el tipo genérico del evento que lo dio
     const t = obj.t || obj.tipo;
     if (t === 'arma' || t === 'arma_fuego') return 'blaster';
-    if (t === 'armadura') return obj.n && /casco|beskar/i.test(obj.n) ? 'casco' : 'armadura';
+    if (t === 'armadura') return 'armadura';
     if (t === 'droide') return 'droide';
-    if (t === 'reliquia') return /holocr/i.test(obj.n || '') ? 'holocron' : 'reliquia';
     if (t === 'vehículo') return 'nave_caza';
     return 'reliquia';
   };
@@ -3450,6 +3576,40 @@ body.sin-crt::after { display: none; }
     rifle: ['#2e343c', 0.13], blaster: ['#2e343c', 0.13],
     droide: ['#3a4652', 0.10], astromec: ['#3a4652', 0.10],
     criatura: ['#2a1c10', 0.16]
+  };
+
+  /* --- arma blanca: vibrohoja --- */
+  S2.vibrohoja = function (L, din) {
+    const filo = din || PAL.acero;
+    // hoja recta con lomo y filo, apuntando arriba
+    for (let y = 4; y < 28; y++) {
+      const t = (y - 4) / 24;
+      const ancho = Math.round(2 + t * 2);
+      L.rect(24 - ancho, y, ancho, 1, filo[0]);        // filo, a la luz
+      L.rect(24, y, ancho, 1, filo[2]);                // lomo, en sombra
+    }
+    L.rect(22, 3, 4, 2, filo[0]);                      // punta
+    L.rect(19, 28, 10, 2, PAL.hierro[2]);              // guarda
+    L.cilindro(21, 30, 6, 13, PAL.cuero);              // mango forrado
+    L.rect(20, 43, 8, 3, PAL.hierro[1]);               // pomo
+  };
+
+  /* --- arma blanca eléctrica: bastón --- */
+  S2.baston = function (L) {
+    L.cilindro(22, 6, 4, 36, PAL.hierro);
+    L.rect(20, 4, 8, 4, PAL.acero[1]);
+    L.rect(20, 40, 8, 4, PAL.acero[1]);
+    for (let y = 12; y < 36; y += 6) L.rect(21, y, 6, 1, PAL.oro[1]);
+  };
+
+  /* --- utillaje: mochila propulsora --- */
+  S2.jetpack = function (L) {
+    L.bloque(14, 12, 20, 22, PAL.hierro);
+    L.cilindro(12, 16, 5, 20, PAL.acero);
+    L.cilindro(31, 16, 5, 20, PAL.acero);
+    L.rect(13, 36, 3, 5, PAL.negro[1]);
+    L.rect(32, 36, 3, 5, PAL.negro[1]);
+    L.rect(20, 18, 8, 6, PAL.rojo[1]);
   };
 
   /** dibuja `nombre` en un canvas y lo devuelve */
@@ -6006,7 +6166,7 @@ body.sin-crt::after { display: none; }
     },
     'Coruscant': {
       lugares: ['un pasillo del nivel 1313', 'la Plaza del Senado', 'una plataforma de aterrizaje del nivel 5127',
-        'los archivos de un edificio administrativo', 'un bar del distrito industrial', 'el tráfico aéreo a hora punta',
+        'los archivos de un edificio administrativo', 'un bar del distrito industrial', 'una plataforma de tráfico aéreo',
         'una azotea a kilómetros del suelo', 'los túneles de mantenimiento del subnivel', 'el Templo Jedi visto desde fuera', 'un mercado de la Franja Inferior'],
       oficios: ['funcionario del Senado', 'guardia de plataforma', 'ayudante de senador', 'técnico de tráfico aéreo', 'carterista del 1313', 'periodista de la HoloRed'],
       sabor: 'la ciudad no acaba nunca, ni hacia arriba ni hacia abajo'
@@ -13793,7 +13953,12 @@ body.sin-crt::after { display: none; }
     const paliza = U.clamp((hpEnemigo == null ? 60 : hpEnemigo) / 100, 0, 1);
 
     // probabilidad de que no salgas vivo de esta
+    /* Perder una pelea de bar no debería matarte una de cada siete
+       veces: lo que mata son los duelos, las bestias y lo que va a
+       muerte. Un encontronazo corriente ahora deja factura, no cadáver. */
+    const corriente = !(cfg && (cfg.duelo || cfg.canon || cfg.aMuerte || cfg.bestia || cfg.frente));
     let pMuerte = U.clamp((dif - 30) / 330 + paliza * 0.13, 0, 0.4);
+    if (corriente) pMuerte *= 0.35;
     if (cfg && cfg.duelo) pMuerte += 0.10;         // un duelo es a algo
     if (cfg && cfg.canon) pMuerte += 0.22;         // contra una leyenda, más
     if (cfg && cfg.bestia) pMuerte += 0.08;
@@ -13802,7 +13967,11 @@ body.sin-crt::after { display: none; }
     if (s.stats.fisico > 65) pMuerte -= 0.08;
     if (s.sensible && s.stats.fuerza > 50) pMuerte -= 0.10;
     if (s.habilidades.indexOf('medico') >= 0) pMuerte -= 0.04;
-    pMuerte = U.clamp(pMuerte, 0.02, 0.5);
+    // la juventud tampoco puede ser una trituradora: a los quince no
+    // sabes pelear, pero tampoco te matan en cada trifulca
+    if (s.edadBio < 20) pMuerte *= 0.5;
+    if (SW.tieneTalento && SW.tieneTalento(s, 'aguante')) pMuerte *= 0.7;
+    pMuerte = U.clamp(pMuerte, corriente ? 0.005 : 0.02, 0.5);
 
     if (rng.chance(pMuerte)) {
       g.morir(cfg && cfg.duelo ? 'Pierde el duelo. No hubo segunda parte.'
@@ -13810,8 +13979,15 @@ body.sin-crt::after { display: none; }
       return true;
     }
 
-    // sobrevives, pero con factura
-    const dano = Math.round(18 + dif / 3 + paliza * 22);
+    /* Sobrevives, pero con factura. Y la factura no puede matarte: el
+       texto decía «sales vivo» y acto seguido el daño te bajaba de cero,
+       así que perder una pelea acababa en muerte el 64% de las veces
+       cuando la tirada de arriba solo debía matar en un 5-15%. */
+    let dano = Math.round(18 + dif / 3 + paliza * 22);
+    if (corriente) dano = Math.round(dano * 0.6);
+    // deja siempre un margen: si querías matarle, eso ya se tiró arriba
+    const margen = corriente ? 8 : 3;
+    dano = Math.min(dano, Math.max(0, s.stats.salud - margen));
     g.aplicarFx({ salud: -dano, cordura: -10, reputacion: -6 }, {});
     const h = rng.pick(SW.HERIDAS_DERROTA);
     g.herir(h, Math.round(10 + dif / 5), rng.chance(0.18));
@@ -16672,7 +16848,7 @@ body.sin-crt::after { display: none; }
           { t: 'Vendérselas a una corporación', fx: { creditos: 45000, alineamiento: -10 } },
           { t: 'Guardarlas para ti', fx: { intelecto: 8 }, flag: 'mapas_propios' },
           { t: 'Dárselas a quien vive allí', fx: { alineamiento: 20, reputacion: 10 } }] },
-    { id: 'ex_primer_contacto', min: 20, max: 95, w: 8, t: 'Te encuentras con gente que no ha visto una nave en su vida.',
+    { id: 'ex_primer_contacto2', min: 20, max: 95, w: 8, t: 'Te encuentras con gente que no ha visto una nave en su vida.',
       c: [{ t: 'Dejarles en paz', fx: { alineamiento: 20, cordura: 8 } },
           { t: 'Enseñarles cosas', fx: { intelecto: 8, alineamiento: -6, carisma: 8 }, flag: 'interfirio' },
           { t: 'Aprender de ellos', fx: { intelecto: 16, cordura: 12 }, idioma: 'lengua sin registrar' },
@@ -16914,7 +17090,7 @@ body.sin-crt::after { display: none; }
           { t: 'Hablarlo con alguien de confianza', fx: { cordura: 14, carisma: 6 }, conEsa: 20 },
           { t: 'Beber', fx: { cordura: 6, salud: -12 }, flag: 'bebe_demasiado' },
           { t: 'Aguantar', fx: { cordura: -10, fisico: 4 } }] },
-    { id: 'sa_adiccion', min: 18, max: 95, w: 8, req: function (s) { return !!s.flags.bebe_demasiado; },
+    { id: 'sa_adiccion2', min: 18, max: 95, w: 8, req: function (s) { return !!s.flags.bebe_demasiado; },
       t: 'Ya no es que bebas. Es que no puedes dejarlo.',
       c: [{ t: 'Desintoxicarte', coste: 14000, fx: { salud: 14, cordura: 12 }, quitarFlag: 'bebe_demasiado' },
           { t: 'Dejarlo tú solo', r: [{ p: 0.4, t: 'Lo consigues.', fx: { cordura: 18, salud: 10 }, quitarFlag: 'bebe_demasiado' },
@@ -16971,7 +17147,7 @@ body.sin-crt::after { display: none; }
           { t: 'Cobrar solo a los que pueden', fx: { creditos: 9000, alineamiento: -8, notoriedad: 6 } },
           { t: 'Protegerles de verdad y cobrar', fx: { creditos: 12000, reputacion: 8, notoriedad: 8 } },
           { t: 'No', volver: true }] },
-    { id: 'cr_atraco', min: 16, max: 95, w: 9, t: 'Se puede dar un golpe en {l}. Hay que decidir cómo.',
+    { id: 'cr_atraco2', min: 16, max: 95, w: 9, t: 'Se puede dar un golpe en {l}. Hay que decidir cómo.',
       c: [{ t: 'Con planificación', req: function (s) { return s.stats.intelecto > 45; },
             fx: { creditos: 40000, notoriedad: 12, intelecto: 8 }, buscado: 18 },
           { t: 'A lo bruto', fx: { creditos: 25000, notoriedad: 22, salud: -12 }, buscado: 35 },
@@ -17155,7 +17331,7 @@ body.sin-crt::after { display: none; }
           { t: 'Colarte', fx: { intelecto: 14, destreza: 8 }, buscado: 10 },
           { t: 'Sobornar al archivero', coste: 6000, fx: { intelecto: 12 } },
           { t: 'Conformarte con lo abierto', fx: { intelecto: 5 } }] },
-    { id: 'fo_idioma', min: 8, max: 80, w: 9, t: 'En {p} se habla algo que tú no.',
+    { id: 'fo_idioma2', min: 8, max: 80, w: 9, t: 'En {p} se habla algo que tú no.',
       c: [{ t: 'Aprenderlo bien', fx: { intelecto: 10, carisma: 8 }, idioma: 'la lengua local' },
           { t: 'Aprender lo justo para comerciar', fx: { carisma: 6, creditos: 3000 } },
           { t: 'Comprar un traductor', coste: 5000, fx: { intelecto: 4 } },
@@ -17180,7 +17356,7 @@ body.sin-crt::after { display: none; }
           { t: 'Ir y no volver', mueveA: '{x}', motivo: 'y ya te quedaste', fx: { intelecto: 10, cordura: 10, reputacion: -6 } },
           { t: 'Quedarte', fx: { cordura: 4 } },
           { t: 'Vender tu plaza', fx: { creditos: 9000, alineamiento: -10 } }] },
-    { id: 'fo_autodidacta', min: 10, max: 95, w: 9, t: 'Sin escuela y sin dinero, pero con tiempo.',
+    { id: 'fo_autodidacta2', min: 10, max: 95, w: 9, t: 'Sin escuela y sin dinero, pero con tiempo.',
       c: [{ t: 'Aprender por tu cuenta a base de manuales', fx: { intelecto: 12, cordura: -4 } },
           { t: 'Aprender mirando a los {o} de {l}', fx: { destreza: 12, carisma: 6 } },
           { t: 'Aprender rompiendo cosas', fx: { intelecto: 8, destreza: 10, creditos: -3000 } },
@@ -17210,7 +17386,7 @@ body.sin-crt::after { display: none; }
 
   /* ══════════════════════════ SOCIAL ══════════════════════════ */
   A('social', [
-    { id: 'so_boda', min: 18, max: 90, w: 10, t: 'Hay boda en {l} y va toda la gente que conoces.',
+    { id: 'so_boda2', min: 18, max: 90, w: 10, t: 'Hay boda en {l} y va toda la gente que conoces.',
       c: [{ t: 'Ir y disfrutarlo', fx: { cordura: 12, carisma: 8, creditos: -2000 } },
           { t: 'Ir a hacer contactos', fx: { carisma: 12, reputacion: 8, creditos: -2000 } },
           { t: 'Ir y montarla', fx: { notoriedad: 12, cordura: -6, reputacion: -10 } },
@@ -17240,7 +17416,7 @@ body.sin-crt::after { display: none; }
           { t: 'Esperar a ver si lo da la otra persona', fx: { cordura: -4, carisma: 4 } },
           { t: 'Preguntar a {a} qué hacer', conEsa: 6, notaRel: 'le pediste consejo', fx: { carisma: 6 } },
           { t: 'Nada, que bastante tienes', fx: { cordura: 4 } }] },
-    { id: 'so_ruptura', min: 18, max: 90, w: 10, req: function (s) { return (s.relaciones || []).some(function (r) { return r.tipo === 'pareja' || r.tipo === 'cónyuge'; }); },
+    { id: 'so_ruptura2', min: 18, max: 90, w: 10, req: function (s) { return (s.relaciones || []).some(function (r) { return r.tipo === 'pareja' || r.tipo === 'cónyuge'; }); },
       t: 'Lo tuyo con {j} lleva un año sin funcionar y los dos lo sabéis.',
       c: [{ t: 'Hablarlo y arreglarlo', conEsa: 20, notaRel: 'lo arreglasteis', fx: { cordura: 10, carisma: 8 } },
           { t: 'Dejarlo bien', conEsa: -20, notaRel: 'lo dejasteis en paz', fx: { cordura: -8 } },
@@ -17290,12 +17466,12 @@ body.sin-crt::after { display: none; }
 
   /* ══════════════════════════ NAVE ══════════════════════════ */
   A('nave', [
-    { id: 'na_polizon', min: 16, max: 90, w: 11, req: tieneNave, t: 'Encuentras a alguien escondido en la bodega del {v}.',
+    { id: 'na_polizon2', min: 16, max: 90, w: 11, req: tieneNave, t: 'Encuentras a alguien escondido en la bodega del {v}.',
       c: [{ t: 'Dejarle quedarse', fx: { alineamiento: 14, cordura: 4 }, rel: { tipo: 'contacto', afecto: 30 } },
           { t: 'Dejarle en el próximo puerto', fx: { alineamiento: 4 } },
           { t: 'Entregarle a las autoridades', fx: { creditos: 4000, alineamiento: -12 } },
           { t: 'Venderle a quien le busca', fx: { creditos: 20000, alineamiento: -26, notoriedad: 12 } }] },
-    { id: 'na_averia', min: 16, max: 90, w: 11, req: tieneNave, t: 'El hiperimpulsor hace un ruido nuevo y no de los buenos.',
+    { id: 'na_averia2', min: 16, max: 90, w: 11, req: tieneNave, t: 'El hiperimpulsor hace un ruido nuevo y no de los buenos.',
       c: [{ t: 'Arreglarlo tú', fx: { intelecto: 10, destreza: 8, naveEstado: 15 } },
           { t: 'Pagar un taller decente', coste: 14000, fx: { naveEstado: 30 } },
           { t: 'Pagar el taller barato de {l}', coste: 4000, fx: { naveEstado: 12 } },
@@ -17369,12 +17545,12 @@ body.sin-crt::after { display: none; }
           { t: 'Cogerlo y no decírselo a nadie', mueveA: '{x}', motivo: 'sin despedirte', fx: { creditos: -2000, reputacion: -8, cordura: 10 } },
           { t: 'Venderlo a otro', fx: { creditos: 3000 } },
           { t: 'Quedarte', fx: {} }] },
-    { id: 'vi_peregrinacion', min: 14, max: 95, w: 9, t: 'Mucha gente de {p} va este año en peregrinación a {x}.',
+    { id: 'vi_peregrinacion2', min: 14, max: 95, w: 9, t: 'Mucha gente de {p} va este año en peregrinación a {x}.',
       c: [{ t: 'Ir con ellos', mueveA: '{x}', motivo: 'en peregrinación', fx: { cordura: 14, alineamiento: 8, salud: -6 } },
           { t: 'Ir a venderles cosas', fx: { creditos: 14000, alineamiento: -6 } },
           { t: 'Ir a robarles', fx: { creditos: 18000, alineamiento: -20 }, buscado: 14 },
           { t: 'Quedarte', fx: {} }] },
-    { id: 'vi_frontera', min: 16, max: 95, w: 10, t: 'En el control de salida de {p} tu documentación no acaba de cuadrar.',
+    { id: 'vi_frontera2', min: 16, max: 95, w: 10, t: 'En el control de salida de {p} tu documentación no acaba de cuadrar.',
       c: [{ t: 'Explicarte', fx: { carisma: 10, cordura: -4 } },
           { t: 'Sobornar', coste: 5000, fx: { alineamiento: -8 } },
           { t: 'Volver otro día por otra puerta', fx: { intelecto: 8 } },
@@ -17497,12 +17673,12 @@ body.sin-crt::after { display: none; }
           { t: 'Rehabilitación', fx: { salud: 10, fisico: 6, creditos: -6000 } },
           { t: 'Prótesis', coste: 26000, fx: { fisico: 16, salud: 8 }, cibernetica: 'rodilla reforzada' },
           { t: 'Vivir con ello', fx: { fisico: -8, cordura: -4 } }] },
-    { id: 'sa_dieta', min: 10, max: 95, w: 8, t: 'Lo que se come en {p} te está sentando mal.',
+    { id: 'sa_dieta2', min: 10, max: 95, w: 8, t: 'Lo que se come en {p} te está sentando mal.',
       c: [{ t: 'Cambiar de dieta', fx: { salud: 12, creditos: -4000 } },
           { t: 'Cultivar lo tuyo', fx: { salud: 10, intelecto: 6, cordura: 6 } },
           { t: 'Comprar {q} de importación', fx: { salud: 8, creditos: -9000 } },
           { t: 'Acostumbrarte', fx: { salud: -6, fisico: 4 } }] },
-    { id: 'sa_terapia', min: 14, max: 95, w: 9, t: 'Hay una consulta en {l} para lo que llevas encima.',
+    { id: 'sa_terapia2', min: 14, max: 95, w: 9, t: 'Hay una consulta en {l} para lo que llevas encima.',
       c: [{ t: 'Ir', coste: 7000, fx: { cordura: 18 } },
           { t: 'Ir una vez y no volver', fx: { cordura: 4, creditos: -1500 } },
           { t: 'Hablarlo con {a} en vez de con un profesional', conEsa: 12, notaRel: 'le contaste lo tuyo', fx: { cordura: 10 } },
@@ -17512,7 +17688,7 @@ body.sin-crt::after { display: none; }
           { t: 'Colarte en la cola', fx: { salud: 12, reputacion: -10 } },
           { t: 'Ayudar en el centro', fx: { alineamiento: 16, salud: -8, reputacion: 12 } },
           { t: 'Encerrarte en casa', fx: { cordura: -8, salud: 4 } }] },
-    { id: 'sa_implante', min: 18, max: 90, w: 8, t: 'Un cirujano de {l} te ofrece mejoras que no son del todo legales.',
+    { id: 'sa_implante2', min: 18, max: 90, w: 8, t: 'Un cirujano de {l} te ofrece mejoras que no son del todo legales.',
       c: [{ t: 'Ojos mejorados', coste: 22000, fx: { destreza: 14, salud: -6 }, cibernetica: 'ojos mejorados' },
           { t: 'Brazo reforzado', coste: 26000, fx: { fisico: 16, salud: -8 }, cibernetica: 'brazo reforzado' },
           { t: 'Filtro neural', coste: 30000, fx: { intelecto: 16, cordura: -10 }, cibernetica: 'filtro neural' },
@@ -17652,7 +17828,7 @@ body.sin-crt::after { display: none; }
           { t: 'Hacerlo solo para calmarle', fx: { fuerza: 8, alineamiento: 4, carisma: 8 } },
           { t: 'Convencerle hablando', fx: { carisma: 14, alineamiento: 8 } },
           { t: 'Dejarlo', fx: { cordura: 4 } }] },
-    { id: 'fz_curar', min: 14, max: 95, w: 9, req: function (s) { return s.sensible && s.stats.fuerza > 35; },
+    { id: 'fz_curar2', min: 14, max: 95, w: 9, req: function (s) { return s.sensible && s.stats.fuerza > 35; },
       t: 'Alguien de {l} se muere y tú podrías intentar algo.',
       c: [{ t: 'Intentarlo aunque te cueste', fx: { fuerza: 10, salud: -18, alineamiento: 20, cordura: -6 } },
           { t: 'Intentarlo con cuidado', fx: { fuerza: 8, salud: -8, alineamiento: 12 } },
@@ -17699,7 +17875,7 @@ body.sin-crt::after { display: none; }
           { t: 'Requisar a los civiles', fx: { salud: 8, alineamiento: -18 } },
           { t: 'Comprar en el pueblo con tu dinero', fx: { creditos: -6000, alineamiento: 14, reputacion: 10 } },
           { t: 'Robar del almacén de oficiales', fx: { salud: 8, destreza: 8 }, buscado: 8 }] },
-    { id: 'es_veterano', min: 18, max: 75, w: 9, t: 'Un veterano de la unidad se está viniendo abajo.',
+    { id: 'es_veterano2', min: 18, max: 75, w: 9, t: 'Un veterano de la unidad se está viniendo abajo.',
       c: [{ t: 'Cubrirle', fx: { alineamiento: 14, cordura: -6, reputacion: 8 } },
           { t: 'Reportarlo para que le saquen', fx: { alineamiento: 10, reputacion: -6 } },
           { t: 'Hablar con él de noche', fx: { carisma: 12, cordura: 8 }, rel: { tipo: 'camarada', afecto: 45 } },
@@ -17823,7 +17999,7 @@ body.sin-crt::after { display: none; }
           { t: 'Entrar y hacer trampas', fx: { creditos: 6000, alineamiento: -12, destreza: 8 } },
           { t: 'Ser el que guarda el dinero', fx: { carisma: 8, reputacion: 6 } },
           { t: 'Quedarte fuera', fx: { cordura: 4 } }] },
-    { id: 's3_confesion', min: 18, max: 95, w: 9, t: 'Llevas años sin contarle a nadie una cosa.',
+    { id: 's3_confesion2', min: 18, max: 95, w: 9, t: 'Llevas años sin contarle a nadie una cosa.',
       c: [{ t: 'Contársela a {a}', conEsa: 18, notaRel: 'le contaste lo que nunca cuentas', fx: { cordura: 16 } },
           { t: 'Contarla en público', fx: { cordura: 10, reputacion: -12, notoriedad: 10 } },
           { t: 'Escribirla y guardarla', fx: { cordura: 8, intelecto: 4 } },
@@ -17858,7 +18034,7 @@ body.sin-crt::after { display: none; }
           { t: 'Aprender tú', fx: { intelecto: 16, creditos: -4000 }, flag: 'blanqueo' },
           { t: 'Meterlo en un banco de {x} y confiar', fx: { creditos: -6000 }, buscado: 10 },
           { t: 'Guardarlo en metálico debajo del colchón', fx: { cordura: -6 } }] },
-    { id: 'c3_territorio', min: 18, max: 85, w: 9, t: '{k} ha empezado a operar en tu zona de {p}.',
+    { id: 'c3_territorio2', min: 18, max: 85, w: 9, t: '{k} ha empezado a operar en tu zona de {p}.',
       c: [{ t: 'Marcar el territorio a golpes', combate: { dif: 62 }, fx: { notoriedad: 14 } },
           { t: 'Repartiros la zona', fx: { carisma: 14, creditos: 10000 } },
           { t: 'Delatarles', fx: { creditos: 8000, alineamiento: -6 }, buscado: 16 },
@@ -20649,7 +20825,11 @@ body.sin-crt::after { display: none; }
   };
 
   SW.herenciaDe = function (s) {
-    const apellido = (s.nombre || '').split(' ').slice(1).join(' ');
+    /* Un clon se llama «Cinco (Rivka Fett)»: el paréntesis es de quién
+       salió, no un apellido que puedas pasar a nadie. */
+    const limpio = String(s.nombre || '').replace(/\s*\([^)]*\)/g, '').trim();
+    const esClon = s.especie === 'clon' || s.especie === 'clon_nulo';
+    const apellido = esClon ? null : limpio.split(' ').slice(1).join(' ');
     const talento = (s.talentos || [])[0] || null;
     // se hereda una parte del dinero, no todo: hay impuestos y hermanos
     const dinero = Math.max(0, Math.round((s.stats.creditos || 0) * 0.35));
@@ -20661,7 +20841,7 @@ body.sin-crt::after { display: none; }
       creditos: dinero,
       talento: talento,
       sensible: !!s.sensible && Math.abs(s.stats.alineamiento) > 20,
-      deQuien: s.nombre,
+      deQuien: limpio || s.nombre,
       reputacion: Math.round((s.stats.reputacion || 0) * 0.4),
       notoriedad: Math.round((s.stats.notoriedad || 0) * 0.3),
       tramas: (SW.tramasDe ? SW.tramasDe(s) : []).filter(function (t) { return !t.cerrada; }).map(function (t) { return t.n; })
@@ -20910,12 +21090,16 @@ body.sin-crt::after { display: none; }
   SW.GUION.push({
     id: 'cc_favor_leyenda', min: 16, max: 200, prio: 62, repetible: true,
     req: function (s) {
-      return (s.relaciones || []).some(function (r) {
-        return r.canon && r.afecto > 40 && !r.vivo === false;
-      }) && !s.flags.favor_leyenda_este_año;
+      // antes había aquí un `!r.vivo === false` que no comprobaba nada
+      const hay = (s.relaciones || []).some(function (r) { return r.canon && r.afecto > 40; });
+      return hay && (s.edad - (s.flags._favorUlt || -99)) >= 6;
     },
     gen: true, c: [],
-    hazlo: function (g) { return SW.GEN.favorLeyenda(g.rng, g.s); }
+    hazlo: function (g) {
+      const ev = SW.GEN.favorLeyenda(g.rng, g.s);
+      if (ev) g.s.flags._favorUlt = g.s.edad;
+      return ev;
+    }
   });
 
   const ENCARGOS = [
@@ -21005,14 +21189,35 @@ body.sin-crt::after { display: none; }
     return { gen: true, id: e.id, t: e.t, c: e.c };
   };
 
+  /* Cuántas escenas de peso le quedan a esta vida. Sin esto, el guion
+     se declaraba elegible todos los años aunque ya no tuviera nada que
+     contar, ganaba la subasta y dejaba sin turno a todo lo demás. */
+  SW.quedanEscenasPeso = function (s) {
+    const ids = ['cp_dooku', 'cp_grievous', 'cp_vader', 'cp_inquisidor', 'cp_voz'];
+    const era = s.era, sens = s.sensible && s.stats.fuerza > 25;
+    return ids.some(function (id) {
+      if (s.flags['esc_' + id]) return false;
+      if (id === 'cp_dooku' || id === 'cp_grievous') return era === 'guerras_clon';
+      if (id === 'cp_vader' || id === 'cp_inquisidor') return era === 'imperio_temprano' || era === 'rebelion';
+      return sens;
+    });
+  };
+
   SW.GUION.push({
     id: 'cc_peso', min: 14, max: 200, prio: 58, repetible: true,
     req: function (s) {
       const fama = (s.stats.reputacion + s.stats.notoriedad) / 200;
-      return fama > 0.35 && !!SW.GEN.canonPeso;
+      if (fama <= 0.35 || !SW.GEN.canonPeso) return false;
+      if (!SW.quedanEscenasPeso(s)) return false;
+      // que respire: como mucho una cada cinco años
+      return (s.edad - (s.flags._pesoUlt || -99)) >= 5;
     },
     gen: true, c: [],
-    hazlo: function (g) { return SW.GEN.canonPeso(g.rng, g.s); }
+    hazlo: function (g) {
+      const ev = SW.GEN.canonPeso(g.rng, g.s);
+      if (ev) g.s.flags._pesoUlt = g.s.edad;
+      return ev;
+    }
   });
 
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -21519,6 +21724,7 @@ body.sin-crt::after { display: none; }
   };
   Game.prototype.hito = function (txt) {
     this.s.hitos.push({ edad: this.s.edad, txt: txt });
+    this.s.ultimoHito = this.s.edad;
   };
 
   /* ---------------- Slots ---------------- */
@@ -21651,11 +21857,19 @@ body.sin-crt::after { display: none; }
   };
 
   /** peso efectivo: lo ya visto pesa mucho menos */
+  /* Cuánto pesa una escena en el sorteo. Lo que está pasando en tu vida
+     ahora mismo tiene que asomar más que el catálogo general: en plena
+     guerra salían tres eventos bélicos por vida porque competían de tú
+     a tú con seiscientos eventos de tiempos de paz. */
   Game.prototype.peso = function (ev) {
-    if (ev.repetible) return ev.w == null ? 1 : ev.w;
     let base = ev.w == null ? 1 : ev.w;
-    if (ev.mundo) base *= 2.2;   // lo que pasa aquí pasa más que lo genérico
-    const visto = this.s.vistos[ev.id] || 0;
+    const s = this.s;
+    if (ev.mundo) base *= 2.2;              // lo de aquí pasa más que lo genérico
+    if (/^gv_/.test(ev.id) && SW.guerraActiva && SW.guerraActiva(s)) base *= 9;
+    if (ev.era && ev.era.length <= 2) base *= 2.2;   // lo propio de la época
+    if (ev.esp) base *= 2.6;                          // lo propio de tu especie
+    if (ev.repetible) return base;
+    const visto = s.vistos[ev.id] || 0;
     return base / (1 + visto * visto * 3);
   };
 
@@ -21671,22 +21885,38 @@ body.sin-crt::after { display: none; }
     if (s.recientes.length > 26) s.recientes.shift();
   };
 
-  Game.prototype.prepararEvento = function (ev) {
+  /** Aviso automático: que no te maten sin haberte avisado. */
+  function avisoOpcion(o) {
+    const c = o.combate || (o.r && o.r.length && (o.r.find ? (o.r.find(function (x) { return x.combate; }) || {}).combate : null));
+    if (!c) return null;
+    const partes = [];
+    if (c.aMuerte) partes.push('a muerte');
+    if (c.canon) partes.push('contra una leyenda');
+    else if (c.dif >= 80) partes.push('rival muy por encima de ti');
+    else if (c.dif >= 65) partes.push('rival duro');
+    if (c.duelo && !c.aMuerte) partes.push('duelo');
+    return partes.length ? '⚔ ' + partes.join(' · ') : null;
+  }
+
+  Game.prototype.prepararEvento = function (ev, noMarcar) {
     const slots = ev.gen ? {} : this.rellenarSlots(ev);
     const inst = { ref: ev, id: ev.id, slots: slots, texto: U.fill(ev.t, slots), opciones: [] };
     const s = this.s;
     for (let i = 0; i < ev.c.length; i++) {
       const o = ev.c[i];
       if (o.req) { try { if (!o.req(s)) continue; } catch (e) { continue; } }
+      const av = avisoOpcion(o);
       inst.opciones.push({
         idx: i,
         txt: U.fill(o.t, slots),
-        sub: o.sub ? U.fill(o.sub, slots) : null,
+        sub: o.sub ? U.fill(o.sub, slots) + (av ? ' · ' + av : '') : av,
         def: o
       });
     }
     if (!inst.opciones.length) return null;
-    this.marcarVisto(ev.id);
+    // al ofrecer varias situaciones a la vez sólo se marca la elegida:
+    // si no, las descartadas se darían por vistas sin haberse jugado
+    if (!noMarcar) this.marcarVisto(ev.id);
     return inst;
   };
 
@@ -21753,14 +21983,19 @@ body.sin-crt::after { display: none; }
     if (s.muerto) return;
 
     // eventos guionizados: los momentos que SÍ o SÍ deben ocurrir
-    const guion = this.eventosPosibles(SW.GUION || []);
-    if (guion.length) {
-      const ev = guion.sort(function (a, b) { return (b.prio || 0) - (a.prio || 0); })[0];
-      // algunos guiones se construyen sobre la marcha (a quién mataste, a quién debes)
+    /* Los guionizados se subastan por prioridad. Antes se cogía sólo el
+       primero: si ese no llegaba a producir escena --- los que se
+       construyen sobre la marcha pueden quedarse sin material, y
+       prepararEvento devuelve null si ninguna opción pasa su `req` ---
+       el año se perdía y el resto de candidatos no se probaba nunca. */
+    const guion = this.eventosPosibles(SW.GUION || [])
+      .sort(function (a, b) { return (b.prio || 0) - (a.prio || 0); });
+    for (let gi = 0; gi < guion.length; gi++) {
+      const ev = guion[gi];
       let inst = null;
       if (ev.hazlo) { const g = ev.hazlo(this); if (g) { inst = this.prepararGen(g); this.marcarVisto(ev.id); } }
       else inst = this.prepararEvento(ev);
-      if (inst) this.cola.push(inst);
+      if (inst) { this.cola.push(inst); break; }
     }
 
     // cada tantos años eliges en qué te has convertido
@@ -21907,6 +22142,31 @@ body.sin-crt::after { display: none; }
       s.stats.salud -= Math.round((ratio - 0.66) * 26 * s.ritmo + rng.int(0, 2));
     }
     if (s.stats.cordura < 18) s.stats.salud -= 2;
+
+    /* El cuerpo y la cabeza también envejecen, no sólo la salud. Antes
+       nada bajaba nunca y el carisma acababa clavado en 100 en siete de
+       cada diez vidas: las tiradas sociales dejaban de tener tensión. */
+    const baja = function (k, desde, fuerza) {
+      if (ratio <= desde) return;
+      const t = (ratio - desde) / (1 - desde);
+      const d = t * fuerza * s.ritmo;
+      // se pierde antes lo que tienes muy alto y sin usar
+      if (rng.chance(Math.min(0.95, d))) s.stats[k] -= 1 + (rng.chance(d / 2) ? 1 : 0);
+    };
+    baja('fisico', 0.48, 1.5);
+    baja('destreza', 0.55, 1.3);
+    baja('salud', 0.60, 0.5);
+    baja('carisma', 0.78, 0.9);
+    baja('intelecto', 0.86, 0.7);
+    if (!s.relaciones.length && ratio > 0.5 && rng.chance(0.35)) s.stats.cordura -= 1;
+
+    /* Y la fama se apaga sola si no la alimentas: a los cinco años de
+       no hacer nada sonado, la gente ya no se acuerda de ti. */
+    const quieto = s.edad - (s.ultimoHito || 0);
+    if (quieto > 4) {
+      if (rng.chance(0.5)) s.stats.reputacion -= 1;
+      if (rng.chance(0.6)) s.stats.notoriedad -= 1;
+    }
     clampStats(s);
 
     if (s.stats.salud <= 0) { this.morir('El cuerpo dijo basta.'); return; }
@@ -21969,7 +22229,9 @@ body.sin-crt::after { display: none; }
       if (k === 'creditos' && v === -999999) v = -Math.max(0, s.stats.creditos);
       // cuanto más alto está algo, menos aporta cada acierto
       if (v > 0 && s.stats[k] != null && k !== 'creditos' && k !== 'alineamiento') {
-        v = v * Math.max(0.12, 1 - s.stats[k] / 118);
+        // curva, no recta: de 0 a 70 cuesta poco, de 85 a 100 cuesta mucho
+        const f = Math.max(0, 1 - s.stats[k] / 100);
+        v = v * Math.max(0.04, f * f * 1.25);
       }
       if (k === 'fuerza' && v > 0 && !s.sensible) {
         v = v * 0.15;
@@ -22071,6 +22333,21 @@ body.sin-crt::after { display: none; }
     const op = inst && inst.opciones && inst.opciones[i];
     if (!op) return;
     const d = op.def;
+    if (d.situacion != null) {
+      const lista = this._situaciones || [];
+      const el = lista[d.situacion];
+      this._situaciones = null;
+      if (el) { this.marcarVisto(el.id); this.cola.unshift(el); this.fase = 'evento'; }
+      return;
+    }
+    if (d.devuelveAccion) {
+      // no gastas el año por asomarte y no ver nada que te apetezca
+      this._situaciones = null;
+      this.s.acciones = Math.min(this.s.accionesMax, this.s.acciones + 1);
+      this.log('Te lo piensas mejor y guardas el rato para otra cosa.', 'res');
+      if (!this.cola.length && !this.s.muerto) this.fase = 'menu';
+      return;
+    }
     if (d.retoSalta) {
       // renunciar al reto: sale regular, pero sale
       this.log('› ' + op.txt, 'eleccion');
@@ -22381,7 +22658,8 @@ body.sin-crt::after { display: none; }
     for (let i = 0; i < ev.c.length; i++) {
       const o = ev.c[i];
       if (o.req) { try { if (!o.req(this.s)) continue; } catch (e) { continue; } }
-      inst.opciones.push({ idx: i, txt: o.t, sub: o.sub || null, def: o, bloqueada: o.bloqueada });
+      const av2 = avisoOpcion(o);
+      inst.opciones.push({ idx: i, txt: o.t, sub: (o.sub ? o.sub + (av2 ? ' · ' + av2 : '') : av2), def: o, bloqueada: o.bloqueada });
     }
     return inst;
   };
@@ -22977,6 +23255,21 @@ body.sin-crt::after { display: none; }
       return;
     }
     if (!SW.armaDeMano(s)) this.log('Peleas con lo puesto: sin arma, todo cuesta más.', 'mal');
+
+    /* Una pelea de bar tenía la misma dificultad con quince años que con
+       cuarenta, y la mitad de las vidas se acababan antes de los treinta.
+       Los encontronazos corrientes se ajustan a lo que eres; los duelos,
+       las leyendas y lo que va a muerte no se tocan: eso es lo que da
+       miedo precisamente porque no se adapta. */
+    if (!cfg.canon && !cfg.aMuerte && !cfg.duelo && !cfg.contrato) {
+      const poder = this.poderCombate();
+      const techo = Math.round(poder + 22);
+      const suelo = Math.round(poder - 18);
+      const d0 = cfg.dif == null ? 50 : cfg.dif;
+      cfg.dif = U.clamp(d0, Math.min(d0, suelo), Math.max(20, techo));
+      cfg.ajustado = cfg.dif !== d0;
+    }
+
     this.escena = {
       tipo: 'combate',
       cfg: cfg || {},
@@ -23630,12 +23923,59 @@ body.sin-crt::after { display: none; }
     });
   };
 
+  /** Dos o tres situaciones entre las que elegir al abrir una vía. */
+  Game.prototype.menuSituaciones = function (posibles, menuId, siempre) {
+    const rng = this.rng;
+    if (!posibles.length) return null;
+    // no en cada apertura: si no, es un peaje. Cuatro de cada diez.
+    const cuantas = (posibles.length >= 3 && (siempre || rng.chance(0.4)))
+      ? (rng.chance(0.5) ? 3 : 2) : 1;
+    if (cuantas <= 1) {
+      const ev0 = this.elegirEvento(posibles);
+      return this.prepararEvento(ev0);
+    }
+    const pool = posibles.slice();
+    const elegidos = [];
+    for (let i = 0; i < cuantas && pool.length; i++) {
+      const ev = this.elegirEvento(pool);
+      pool.splice(pool.indexOf(ev), 1);
+      const inst = this.prepararEvento(ev, true);   // sin marcar todavía
+      if (inst) elegidos.push(inst);
+    }
+    if (!elegidos.length) return null;
+    if (elegidos.length === 1) { this.marcarVisto(elegidos[0].id); return elegidos[0]; }
+
+    this._situaciones = elegidos;
+    const quitaTags = function (h) { return String(h).replace(/<[^>]+>/g, '').trim(); };
+    return this.prepararGen({
+      id: 'sit_' + menuId, gen: true, esMenu: true,
+      t: '<span class="scene-tag">¿A QUÉ LO DEDICAS?</span>',
+      c: elegidos.map(function (x, i) {
+        let txt = quitaTags(x.texto);
+        txt = txt.charAt(0).toUpperCase() + txt.slice(1);   // abre en mayúscula
+        return { t: txt.length > 128 ? txt.slice(0, 126) + '…' : txt, situacion: i };
+      }).concat(menuId === 'viaje'
+        ? [{ t: '◎ Abrir la carta estelar y marcharte de aquí', viajar: true }]
+        : [{ t: '◂ Dejarlo para otro día', volver: true, devuelveAccion: true }])
+    });
+  };
+
   Game.prototype.hacerActividad = function (id) {
     const s = this.s, rng = this.rng;
     if (s.acciones <= 0) { this.log('Ya no te queda tiempo este año.', 'res'); return; }
     s.acciones--;
     this.actividadEnCurso = id;
-    if (id === 'viaje') { this.abrirMapaViaje = true; this.actividadUsada = s.acciones <= 0; this.fase = 'menu'; return; }
+    /* «Viajar» abría el mapa y se acababa ahí, así que las escenas
+       escritas para este menú no se veían nunca. Ahora se elige: la
+       carta estelar es una opción más, no la única. */
+    if (id === 'viaje') {
+      const pool = this.eventosPosibles(SW.ACTOS.viaje || []);
+      if (pool.length && rng.chance(0.6)) {
+        const inst = this.menuSituaciones(pool, 'viaje', true);
+        if (inst) { this.cola.push(inst); this.fase = 'evento'; return; }
+      }
+      this.abrirMapaViaje = true; this.actividadUsada = s.acciones <= 0; this.fase = 'menu'; return;
+    }
 
     // La clínica no compite con eventos: si la pides, se abre la clínica.
     // Antes «Cuerpo y mente» te soltaba cualquier cosa menos curarte.
@@ -23704,8 +24044,11 @@ body.sin-crt::after { display: none; }
       }
       else this.cola.push(this.prepararGen(this.rellenoActividad(id)));
     } else {
-      const ev = this.elegirEvento(posibles);
-      const inst = this.prepararEvento(ev);
+      /* Antes se sorteaba una situación y punto. Con 30-48 escenas por
+         menú y ~17 aperturas por vida, más de la mitad no se veían
+         nunca. Ahora se ofrecen dos o tres y eliges tú a qué dedicas
+         el rato: se triplica lo que ves y la elección es tuya. */
+      const inst = this.menuSituaciones(posibles, id);
       if (inst) this.cola.push(inst);
     }
     this.actividadUsada = s.acciones <= 0;
@@ -23975,15 +24318,15 @@ body.sin-crt::after { display: none; }
       se: !!s.sensible,
       he: (s.heridas || []).map(function (h) { return h.n + ' (−' + h.sev + ')'; }),
       ba: s.bando ? (SW.faccion(s.bando) || {}).n : null,
-      hb: s.habilidades,
-      cn: s.conocidos || [],
-      ob: (s.objetos || []).slice(0, 12),
+      hb: (s.habilidades || []).slice(0, 10),
+      cn: (s.conocidos || []).slice(0, 10),
+      ob: (s.objetos || []).slice(0, 8),
       ma: s.maestro || null,
       tr: s.trabajo ? (SW.carrera(s.trabajo) ? SW.carrera(s.trabajo).n : s.trabajo) : null,
       rg: s.rango,
       ti: s.titulos,
-      hi: s.hitos.slice(-14),
-      re: rel.slice(0, 10),
+      hi: s.hitos.slice(-12),
+      re: rel.slice(0, 8),
       po: s.poderes,
       sa: s.sable ? [s.sable.color, s.sable.forma] : null,
       na: s.nave ? (s.naveNombre ? '"' + s.naveNombre + '" (' + s.nave.n + ')' : s.nave.n) : null,
@@ -23992,10 +24335,15 @@ body.sin-crt::after { display: none; }
       ct: s.contadores,
       ra: s.rasgoN,
       // los hilos largos son la mitad de la gracia de una vida: van al enlace
-      tm: (SW.tramasDe ? SW.tramasDe(s) : []).map(function (x) {
-        return [x.ico + ' ' + x.n, x.cerrada ? x.final : 'quedó abierta',
-                x.desde, x.hasta == null ? s.edad : x.hasta, x.cerrada ? 1 : 0];
-      }),
+      // el enlace se pasa por chat: las cerradas primero y como mucho seis,
+      // porque por encima de ~2.000 caracteres hay apps que lo cortan
+      tm: (SW.tramasDe ? SW.tramasDe(s) : [])
+        .sort(function (a, b) { return (b.cerrada ? 1 : 0) - (a.cerrada ? 1 : 0); })
+        .slice(0, 6)
+        .map(function (x) {
+          return [x.ico + ' ' + x.n, x.cerrada ? x.final : 'quedó abierta',
+                  x.desde, x.hasta == null ? s.edad : x.hasta, x.cerrada ? 1 : 0];
+        }),
       tl: (s.talentos || []).map(function (id) {
         const T = (SW.TALENTOS || []).filter(function (x) { return x.id === id; })[0];
         return T ? T.n : id;

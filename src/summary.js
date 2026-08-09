@@ -96,15 +96,15 @@
       se: !!s.sensible,
       he: (s.heridas || []).map(function (h) { return h.n + ' (−' + h.sev + ')'; }),
       ba: s.bando ? (SW.faccion(s.bando) || {}).n : null,
-      hb: s.habilidades,
-      cn: s.conocidos || [],
-      ob: (s.objetos || []).slice(0, 12),
+      hb: (s.habilidades || []).slice(0, 10),
+      cn: (s.conocidos || []).slice(0, 10),
+      ob: (s.objetos || []).slice(0, 8),
       ma: s.maestro || null,
       tr: s.trabajo ? (SW.carrera(s.trabajo) ? SW.carrera(s.trabajo).n : s.trabajo) : null,
       rg: s.rango,
       ti: s.titulos,
-      hi: s.hitos.slice(-14),
-      re: rel.slice(0, 10),
+      hi: s.hitos.slice(-12),
+      re: rel.slice(0, 8),
       po: s.poderes,
       sa: s.sable ? [s.sable.color, s.sable.forma] : null,
       na: s.nave ? (s.naveNombre ? '"' + s.naveNombre + '" (' + s.nave.n + ')' : s.nave.n) : null,
@@ -113,10 +113,15 @@
       ct: s.contadores,
       ra: s.rasgoN,
       // los hilos largos son la mitad de la gracia de una vida: van al enlace
-      tm: (SW.tramasDe ? SW.tramasDe(s) : []).map(function (x) {
-        return [x.ico + ' ' + x.n, x.cerrada ? x.final : 'quedó abierta',
-                x.desde, x.hasta == null ? s.edad : x.hasta, x.cerrada ? 1 : 0];
-      }),
+      // el enlace se pasa por chat: las cerradas primero y como mucho seis,
+      // porque por encima de ~2.000 caracteres hay apps que lo cortan
+      tm: (SW.tramasDe ? SW.tramasDe(s) : [])
+        .sort(function (a, b) { return (b.cerrada ? 1 : 0) - (a.cerrada ? 1 : 0); })
+        .slice(0, 6)
+        .map(function (x) {
+          return [x.ico + ' ' + x.n, x.cerrada ? x.final : 'quedó abierta',
+                  x.desde, x.hasta == null ? s.edad : x.hasta, x.cerrada ? 1 : 0];
+        }),
       tl: (s.talentos || []).map(function (id) {
         const T = (SW.TALENTOS || []).filter(function (x) { return x.id === id; })[0];
         return T ? T.n : id;

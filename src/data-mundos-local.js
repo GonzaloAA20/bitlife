@@ -70,7 +70,7 @@
     },
     'Coruscant': {
       lugares: ['un pasillo del nivel 1313', 'la Plaza del Senado', 'una plataforma de aterrizaje del nivel 5127',
-        'los archivos de un edificio administrativo', 'un bar del distrito industrial', 'el tráfico aéreo a hora punta',
+        'los archivos de un edificio administrativo', 'un bar del distrito industrial', 'una plataforma de tráfico aéreo',
         'una azotea a kilómetros del suelo', 'los túneles de mantenimiento del subnivel', 'el Templo Jedi visto desde fuera', 'un mercado de la Franja Inferior'],
       oficios: ['funcionario del Senado', 'guardia de plataforma', 'ayudante de senador', 'técnico de tráfico aéreo', 'carterista del 1313', 'periodista de la HoloRed'],
       sabor: 'la ciudad no acaba nunca, ni hacia arriba ni hacia abajo'
