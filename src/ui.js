@@ -58,6 +58,9 @@
 
   UI.init = function () {
     UI.aplicarPreferencias();
+    // los atajos se enganchan aquí y no en la partida: si no, Esc no
+    // cerraba los diálogos abiertos desde la pantalla de inicio
+    UI.bindTeclado();
     UI.app = $('#app');
     const hash = location.hash || '';
     if (hash.indexOf('#v=') === 0) { UI.pantallaCompartida(hash.slice(3)); return; }
@@ -84,6 +87,8 @@
       '<button class="btn grande" data-a="crear">▸ NUEVA VIDA</button>' +
       (guardada ? '<button class="btn" data-a="continuar">▸ CONTINUAR PARTIDA</button>' : '') +
       '<button class="btn" data-a="rapida">▸ VIDA ALEATORIA (rápida)</button>' +
+      ((SW.leerSalon && SW.leerSalon().length)
+        ? '<button class="btn" data-a="salon">▸ VIDAS ANTERIORES (' + SW.leerSalon().length + ')</button>' : '') +
       '<button class="btn fantasma" data-a="info">▸ ¿QUÉ ES ESTO?</button>' +
       '</div>' +
       '<div class="metricas">' +
@@ -101,11 +106,44 @@
       const b = e.target.closest('[data-a]');
       if (!b) return;
       const a = b.getAttribute('data-a');
+      if (a === 'salon') { UI.salonFama(); return; }
       if (a === 'crear') UI.pantallaCrear();
       else if (a === 'rapida') UI.vidaRapida();
       else if (a === 'continuar') UI.cargarPartida();
       else if (a === 'info') UI.modalInfo();
     };
+  };
+
+  /* Las vidas anteriores, para poder compararte contigo mismo. */
+  UI.salonFama = function () {
+    const lista = SW.leerSalon ? SW.leerSalon() : [];
+    let h = '';
+    if (!lista.length) h = '<p class="nota">Todavía no has terminado ninguna vida. Vuelve cuando te hayas muerto una vez.</p>';
+    else {
+      h = '<div class="salon">';
+      lista.forEach(function (v, i) {
+        h += '<div class="salon-fila' + (v.ok ? ' logro' : '') + '">' +
+          '<b>' + (i + 1) + '</b>' +
+          '<div class="salon-id"><span class="salon-n">' + U.esc(v.n) + '</span>' +
+          '<span class="salon-sub">' + U.esc(v.e) + ' · ' + U.esc(v.era) + '</span></div>' +
+          '<div class="salon-datos">' +
+            '<span>' + v.ed + ' años</span>' +
+            '<span>' + U.cr(v.cr) + '</span>' +
+            '<span>' + (v.tr || 0) + ' historias cerradas</span>' +
+          '</div>' +
+          '<div class="salon-amb">' + (v.amb ? (v.ok ? '✔ ' : '✕ ') + U.esc(v.amb) : '—') + '</div>' +
+          '</div>';
+      });
+      h += '</div><button class="btn fantasma" data-m="borrar-salon">Vaciar el salón</button>';
+    }
+    UI.modal('VIDAS ANTERIORES', h, null, function (root) {
+      root.onclick = function (e) {
+        const b = e.target.closest('[data-m="borrar-salon"]');
+        if (!b) return;
+        if (SW.borrarSalon) SW.borrarSalon();
+        UI.cerrarModal(); UI.salonFama();
+      };
+    });
   };
 
   UI.modalInfo = function () {
@@ -137,6 +175,8 @@
       mundo: h ? h.mundo : rng.pick(esp.home),
       rasgo: 'ninguno',
       pronombre: 'él',
+      ambicion: (SW.AMBICIONES[0] || {}).id,
+      dificultad: 'normal',
       semilla: '',
       apariencia: UI.aparienciaAleatoria(rng)
     };
@@ -232,7 +272,10 @@
       const bloq = esp.soloEra && esp.soloEra.indexOf(e.id) < 0;
       h += '<button class="chip' + (e.id === c.era ? ' on' : '') + (bloq ? ' bloq' : '') + '" data-era="' + e.id + '"' + (bloq ? ' disabled' : '') + '>' + U.esc(e.n) + '</button>';
     });
-    h += '</div><p class="nota">' + U.esc(era.desc) + ' <span class="dim">(' + era.y + ')</span>' +
+    h += '</div><p class="nota">' + U.esc(era.desc) +
+      (SW.ANIO_ERA && SW.ANIO_ERA[era.id] != null
+        ? ' <b class="dim">Naces en ' + SW.formatoAnio(SW.ANIO_ERA[era.id]) +
+          ', así que la vives de joven.</b>' : '') + ' <span class="dim">(' + era.y + ')</span>' +
       (esp.soloEra ? '<br><span class="aviso">Esta especie solo existe en: ' + esp.soloEra.map(function (i) { return SW.ERAS.filter(function (x) { return x.id === i; })[0].n; }).join(', ') + '.</span>' : '') +
       '</p></div>';
 
@@ -249,6 +292,22 @@
     });
     h += '</div><p class="nota">' + U.esc(rasgo.desc) + '</p></div>';
 
+    /* Qué querías conseguir con esta vida: se te recuerda en la ficha
+       y se te dice al final si lo lograste. */
+    const amb = SW.AMBICIONES.filter(function (a) { return a.id === c.ambicion; })[0] || SW.AMBICIONES[0];
+    h += '<div class="bloque"><h3>AMBICIÓN</h3><div class="chips">';
+    SW.AMBICIONES.forEach(function (a) {
+      h += '<button class="chip' + (a.id === c.ambicion ? ' on' : '') + '" data-amb="' + a.id + '">' + U.esc(a.n) + '</button>';
+    });
+    h += '</div><p class="nota">' + U.esc(amb.d) + '</p></div>';
+
+    const dif = SW.DIFICULTADES.filter(function (x) { return x.id === c.dificultad; })[0] || SW.DIFICULTADES[1];
+    h += '<div class="bloque"><h3>DIFICULTAD</h3><div class="chips">';
+    SW.DIFICULTADES.forEach(function (x) {
+      h += '<button class="chip' + (x.id === c.dificultad ? ' on' : '') + '" data-dif="' + x.id + '">' + U.esc(x.n) + '</button>';
+    });
+    h += '</div><p class="nota">' + U.esc(dif.d) + '</p></div>';
+
     h += '<label class="campo">SEMILLA <span class="dim">(opcional — misma semilla, misma vida)</span><input id="in-semilla" value="' + U.esc(c.semilla) + '" placeholder="dejar vacío = azar"></label>';
     h += '<div class="acciones"><button class="btn grande" data-a="empezar">▸ EMPEZAR VIDA</button>' +
       '<button class="btn fantasma" data-a="rand-todo">⟳ todo al azar</button></div>' +
@@ -262,7 +321,7 @@
   UI.bindCrear = function () {
     const c = UI.creador;
     UI.app.onclick = function (e) {
-      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo],[data-apv],[data-apciclo],[data-rand]');
+      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo],[data-apv],[data-apciclo],[data-rand],[data-amb],[data-dif]');
       if (!b || b.disabled) return;
       UI.leerCampos();
       if (b.dataset.rand) {
@@ -308,6 +367,8 @@
       const a = b.dataset.a;
       if (a === 'volver') { UI.pantallaInicio(); return; }
       if (a === 'rand-cara') { c.apariencia = UI.aparienciaAleatoria(c.rng); UI.renderCrear(); return; }
+      if (b.dataset.amb) { c.ambicion = b.dataset.amb; UI.renderCrear(); return; }
+      if (b.dataset.dif) { c.dificultad = b.dataset.dif; UI.renderCrear(); return; }
       if (a === 'rand-nombre') { c.nombre = SW.genNombreCompleto(c.rng, c.especie); UI.renderCrear(); return; }
       if (a === 'rand-todo') {
         const rng = c.rng;
@@ -349,7 +410,8 @@
     UI.juego = new SW.Game({
       semilla: c.semilla || (c.nombre + ':' + Date.now() + ':' + Math.random()),
       nombre: c.nombre, especie: esp, era: era, mundo: c.mundo,
-      rasgo: rasgo, apariencia: c.apariencia, pronombre: c.pronombre
+      rasgo: rasgo, apariencia: c.apariencia, pronombre: c.pronombre,
+      ambicion: c.ambicion, dificultad: c.dificultad
     });
     UI.app.onchange = null;
     // la sangre pesa: dinero, nombre, reputación y un talento heredados
@@ -389,8 +451,12 @@
     h += '<header class="topbar">' +
       '<button class="btn mini tb-ficha solo-movil" data-a="ficha" title="ficha">☰</button>' +
       '<div class="tb-id"><b>' + U.esc(s.nombre) + '</b><span>' + U.esc(s.especieN) + '</span></div>' +
-      '<div class="tb-edad"><b>' + s.edad + '</b><span>' + (s.ritmo > 1 ? 'años · asp. ' + s.edadBio : 'años') + '</span></div>' +
-      '<div class="tb-mundo"><b><i class="bioma-punto"></i>' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + '</span></div>' +
+      '<div class="tb-edad"><b>' + s.edad + '</b><span>' +
+        (SW.anioGalactico && SW.anioGalactico(s) != null
+          ? SW.formatoAnio(SW.anioGalactico(s))
+          : (s.ritmo > 1 ? 'años · asp. ' + s.edadBio : 'años')) + '</span></div>' +
+      '<div class="tb-mundo"><b><i class="bioma-punto"></i>' +
+        U.esc(SW.nombreDeMundo ? SW.nombreDeMundo(s, s.mundo) : s.mundo) + '</b><span>' + U.esc(m.r) + '</span></div>' +
       '<div class="tb-cr"><b>' + U.cr(s.stats.creditos) + '</b><span>créditos</span></div>' +
       '<div class="tb-acc"><b>' + UI.pips(s) + '</b><span>acciones</span></div>' +
       UI.tbAvisos(s) +
@@ -426,6 +492,8 @@
       h += '</div>';
       h += '<button class="btn grande avanzar" data-a="avanzar">▸ AÑO ' + (s.edad + 1) +
         (s.acciones > 0 ? ' <em>(te quedan ' + s.acciones + ')</em>' : '') + '</button>';
+      h += '<p class="atajos">1-9 elegir · <b>Enter</b> avanzar · <b>R</b> repetir ' +
+        (UI.ultimaActividad ? U.esc(UI.ultimaActividad) : 'lo último') + ' · <b>M</b> mapa · <b>F</b> ficha</p>';
     }
     h += '</footer></div>';
 
@@ -477,12 +545,26 @@
     const ap = Object.assign({}, s.apariencia || {}, { edad: s.edadBio });
     let h = '<div class="holo-mini">' + SW.retrato(ap, 116, s.especie) + '</div>';
 
+    /* Para qué sirve cada número. Estaban ahí sin explicar y había que
+       adivinar si conviene subir carisma o intelecto. */
+    const PARAQUE = {
+      salud: 'Si llega a cero, te mueres. Baja con las heridas y con los años.',
+      fisico: 'Pega más fuerte y aguanta más en las peleas y en el frente.',
+      destreza: 'Puntería, reflejos y pilotar. Manda en los minijuegos.',
+      intelecto: 'Abre opciones de pensar en vez de pelear, y sube el sueldo.',
+      carisma: 'Convencer, negociar y caer bien. La vía sin sangre.',
+      cordura: 'Aguantar lo que has visto. Si se hunde, la salud se va detrás.',
+      suerte: 'Inclina los resultados dudosos. La racha la mueve arriba y abajo.',
+      reputacion: 'Lo que la gente decente piensa de ti. Abre puertas legales.',
+      notoriedad: 'Lo que se cuenta de ti en los bajos fondos. Abre las otras.'
+    };
     h += '<div class="stats">';
     [['salud', 'Salud'], ['fisico', 'Físico'], ['destreza', 'Destreza'], ['intelecto', 'Intelecto'],
      ['carisma', 'Carisma'], ['cordura', 'Cordura'], ['suerte', 'Suerte'],
      ['reputacion', 'Reputación'], ['notoriedad', 'Notoriedad']
     ].forEach(function (p) {
-      h += '<div class="stat s-' + p[0] + '"><span>' + p[1] + '</span><div class="barra"><i style="width:' + s.stats[p[0]] + '%"></i></div><b>' + s.stats[p[0]] + '</b></div>';
+      h += '<div class="stat s-' + p[0] + '" title="' + U.esc(PARAQUE[p[0]] || '') + '">' +
+        '<span>' + p[1] + '</span><div class="barra"><i style="width:' + s.stats[p[0]] + '%"></i></div><b>' + s.stats[p[0]] + '</b></div>';
     });
     h += '</div>';
 
@@ -492,6 +574,15 @@
         ? '<div class="barra"><i style="width:' + s.stats.fuerza + '%"></i></div><b>' + s.stats.fuerza + '</b>'
         : '<em>no sensible</em>') +
       '</div>';
+
+    if (SW.cumpleAmbicion) {
+      const amb = SW.cumpleAmbicion(s);
+      if (amb) {
+        h += '<div class="ficha ambicion' + (amb.ok ? ' hecha' : '') + '"><h4>Lo que querías</h4>' +
+          '<div class="amb-n">' + (amb.ok ? '✔ ' : '◌ ') + U.esc(amb.n) + '</div>' +
+          '<div class="amb-m">' + U.esc(amb.medida) + '</div></div>';
+      }
+    }
 
     const al = s.stats.alineamiento;
     h += '<div class="align"><span>Alineamiento</span><div class="align-barra"><i style="left:' + ((al + 100) / 2) + '%"></i></div><b>' + SW.etiquetaAlineamiento(al) + '</b></div>';
@@ -614,12 +705,33 @@
     return { c: 'vejez', n: 'vejez' };
   };
 
+  /* Con trescientas líneas por vida, encontrar «cuándo conocí a este»
+     era imposible. Filtro por tipo, que se recuerda entre repintados. */
+  UI.FILTROS = [
+    { id: 'todo', n: 'Todo', tipos: null },
+    { id: 'clave', n: 'Lo importante', tipos: ['nac', 'muerte', 'hito', 'res', 'bien', 'mal'] },
+    { id: 'gente', n: 'Gente', tipos: ['rel'] },
+    { id: 'dinero', n: 'Dinero', tipos: ['cr'] },
+    { id: 'viajes', n: 'Viajes', tipos: ['viaje'] }
+  ];
+  UI.filtro = UI.filtro || 'todo';
+
+  UI.htmlFiltros = function () {
+    return '<div class="log-filtros">' + UI.FILTROS.map(function (f) {
+      return '<button class="lf' + (UI.filtro === f.id ? ' on' : '') + '" data-lf="' + f.id + '">' + f.n + '</button>';
+    }).join('') + '</div>';
+  };
+
   UI.htmlConsola = function () {
     const s = UI.juego.s;
-    let h = '';
+    const filtro = UI.FILTROS.filter(function (f) { return f.id === UI.filtro; })[0] || UI.FILTROS[0];
+    let h = UI.htmlFiltros();
     let ultimaEdad = -1;
     let etapaPrev = null;
-    s.historia.slice(-90).forEach(function (l) {
+    const lineas = filtro.tipos
+      ? s.historia.filter(function (l) { return filtro.tipos.indexOf(l.tipo) >= 0; })
+      : s.historia;
+    lineas.slice(-90).forEach(function (l) {
       if (l.edad !== ultimaEdad) {
         const et = UI.etapaVital(l.edad);
         const cambio = etapaPrev !== et.c;
@@ -926,6 +1038,12 @@
         if (av) { av.click(); e.preventDefault(); }
         return;
       }
+      if (e.key === 'r' || e.key === 'R') {
+        // repetir la última vía que abriste, que es lo que uno hace
+        const ult = UI.ultimaActividad;
+        if (ult) { const b = document.querySelector('.act[data-act="' + ult + '"]:not(.off)'); if (b) b.click(); }
+        return;
+      }
       if (e.key === 'm' || e.key === 'M') { const b = document.querySelector('[data-a="mapa"]'); if (b) b.click(); return; }
       if (e.key === 'f' || e.key === 'F') { document.body.classList.toggle('panel-abierto'); return; }
     });
@@ -934,11 +1052,13 @@
   UI.bindJuego = function () {
     UI.bindTeclado();
     UI.app.onclick = function (e) {
-      const b = e.target.closest('[data-a],[data-act],[data-op]');
+      const b = e.target.closest('[data-a],[data-act],[data-op],[data-lf]');
       if (!b || b.disabled) return;
+      if (b.dataset.lf) { UI.filtro = b.dataset.lf; UI.renderJuego(); return; }
       if (b.dataset.op != null) { UI.elegirOpcion(parseInt(b.dataset.op, 10)); return; }
       if (b.dataset.act) {
         if (UI.juego.s.acciones <= 0) { UI.flash('Ya no te queda tiempo este año. Avanza de año.'); return; }
+        UI.ultimaActividad = b.dataset.act;
         UI.juego.hacerActividad(b.dataset.act);
         UI.renderJuego(); return;
       }
@@ -1257,6 +1377,17 @@
       }
     }
 
+    /* ¿Conseguiste lo que querías? Es la última pregunta de la vida. */
+    if (SW.cumpleAmbicion) {
+      const amb = SW.cumpleAmbicion(s);
+      if (amb) {
+        h += '<div class="fin-ambicion ' + (amb.ok ? 'ok' : 'no') + '">' +
+          '<span>LO QUE QUERÍAS</span><b>' + (amb.ok ? '✔ ' : '✕ ') + U.esc(amb.n) + '</b>' +
+          '<em>' + U.esc(amb.medida) + '</em></div>';
+      }
+    }
+    if (SW.guardarEnSalon) SW.guardarEnSalon(s);
+
     const puede = SW.puedeHeredar && SW.puedeHeredar(s);
     h += '<div class="fin-acciones">' +
       '<button class="btn grande" data-a="link">⧉ COPIAR ENLACE PARA COMPARTIR</button>' +
@@ -1382,7 +1513,7 @@
       const esp = SW.ESPECIES.filter(function (e) { return e.id === data.s.especie; })[0] || SW.ESPECIES[0];
       const era = SW.ERAS.filter(function (e) { return e.id === data.s.era; })[0] || SW.ERAS[0];
       const g = new SW.Game({
-        semilla: data.semilla, nombre: data.s.nombre, especie: esp, era: era,
+        semilla: data.semilla, nombre: SW.nombreLimpio(data.s.nombre), especie: esp, era: era,
         mundo: data.s.mundo, rasgo: SW.RASGOS[0], apariencia: data.s.apariencia
       });
       g.s = data.s;

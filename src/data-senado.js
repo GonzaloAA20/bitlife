@@ -30,7 +30,58 @@
       req: function (s) { return s.stats.intelecto > 72 && s.stats.carisma > 76 && s.stats.reputacion > 70; } }
   ];
 
-  const escalonDe = function (s) { return SW.ESCALONES[s.escalonPolitico || 0]; };
+  /* ============================================================
+     LA POLÍTICA NO ES LA MISMA EN CADA ÉPOCA
+     Los mismos cinco escalones servían igual en la Alta República
+     que bajo el Imperio, y eso no se sostiene: en la Era de la
+     Rebelión el Senado está DISUELTO (lo cierra Tarkin), y en la
+     época de la Primera Orden no hay Senado galáctico porque
+     Hosnian Prime ya no existe. Aquí sólo cambian los nombres y el
+     techo; la mecánica es la misma.
+     ============================================================ */
+  SW.POLITICA_ERA = {
+    alta_republica: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
+                          'senador del sector', 'figura del Senado'], tope: 4,
+      casa: 'el Senado de la República', nota: 'La República se está expandiendo y hacen falta manos.' },
+    republica_tardia: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
+                            'senador del sector', 'figura del Senado'], tope: 4,
+      casa: 'el Senado Galáctico', nota: 'Todo se decide en comités que duran años.' },
+    guerras_clon: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
+                        'senador del sector', 'figura del Senado'], tope: 4,
+      casa: 'el Senado Galáctico', nota: 'Cada mes se votan poderes de emergencia nuevos.' },
+    imperio_temprano: { n: ['auxiliar de la administración', 'concejal de distrito', 'gobernador adjunto',
+                            'senador del Senado Imperial', 'portavoz de comité'], tope: 4,
+      casa: 'el Senado Imperial', nota: 'El Senado sigue reuniéndose. Decidir, decide otro.' },
+    rebelion: { n: ['auxiliar de la administración', 'concejal de distrito', 'gobernador adjunto',
+                    'gobernador planetario', 'enlace con el Moff del sector'], tope: 4,
+      casa: 'la administración imperial del sector',
+      nota: 'El Senado está disuelto desde hace años: ahora manda el moff que te toque.', sinSenado: true },
+    nueva_republica: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
+                           'senador de la Nueva República', 'figura del Senado'], tope: 4,
+      casa: 'el Senado de la Nueva República', nota: 'Un Senado nuevo que aún discute dónde sentarse.' },
+    primera_orden: { n: ['auxiliar de la administración', 'concejal de distrito', 'gobernador adjunto',
+                         'administrador de sector', 'gobernador general'], tope: 4,
+      casa: 'la administración de la Primera Orden',
+      nota: 'No hay Senado: voló con Hosnian Prime. Hay órdenes.', sinSenado: true },
+    era_perdida: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
+                       'consejero del sector', 'figura del consejo'], tope: 4,
+      casa: 'el consejo de sector', nota: 'Se gobierna a trozos.' }
+  };
+
+  SW.politicaDe = function (s) {
+    return SW.POLITICA_ERA[s.era] || SW.POLITICA_ERA.republica_tardia;
+  };
+  /** El nombre del escalón, con el vocabulario de su época. */
+  SW.nombreEscalon = function (s, i) {
+    const p = SW.politicaDe(s);
+    return (p.n && p.n[i]) || (SW.ESCALONES[i] || {}).n || 'cargo';
+  };
+  SW.hayEscano = function (s) { return !SW.politicaDe(s).sinSenado; };
+
+  const escalonDe = function (s) {
+    const base = SW.ESCALONES[s.escalonPolitico || 0];
+    return { id: base.id, sueldo: base.sueldo, req: base.req, n: SW.nombreEscalon(s, base.id) };
+  };
 
   /* La carrera tiene que estar registrada o tomarEmpleo() se sale sin
      hacer nada y te quedas de senador sin cobrar. */
@@ -218,19 +269,27 @@
      { t: 'Negociar con una corporación', fx: { creditos: 30000, alineamiento: -10, carisma: 10 } },
      { t: 'Abrir una investigación sobre quien manda aquí', fx: { intelecto: 12, notoriedad: 10, reputacion: 8 }, enemigo: true },
      { t: 'Declarar el estado de emergencia', fx: { reputacion: 8, alineamiento: -14 }, faccion: 'auto+18' }],
-    /* 3 · senador del sector */
-    [{ t: 'Presentar una ley en el Senado', generar: 'votacion', sub: 'La tuya, esta vez' },
+    /* 3 · senador del sector (o gobernador, según la época) */
+    [{ t: 'Presentar una ley en el Senado', generar: 'votacion', sub: 'La tuya, esta vez',
+       req: function (st) { return SW.hayEscano(st); } },
+     { t: 'Firmar un bando para todo el planeta', req: function (st) { return !SW.hayEscano(st); },
+       fx: { reputacion: 12, alineamiento: -6, cordura: -6 }, sub: 'Sin debate ni votación: se publica y ya' },
+     { t: 'Interpretar las órdenes de arriba a tu manera', req: function (st) { return !SW.hayEscano(st); },
+       fx: { intelecto: 12, alineamiento: 14, reputacion: 6 }, sub: 'Cumplir la letra y perderte la intención' },
      { t: 'Bloquear la ley de otro', fx: { intelecto: 12, reputacion: 8 }, enemigo: true,
-       sub: 'Te ganas a alguien con memoria' },
+       req: function (st) { return SW.hayEscano(st); }, sub: 'Te ganas a alguien con memoria' },
      { t: 'Pedir una comisión de investigación', fx: { intelecto: 14, notoriedad: 12, reputacion: 10 }, enemigo: true },
      { t: 'Pedir escolta de la flota para tu sector', fx: { reputacion: 12, creditos: -20000 }, faccion: 'republica+18' },
      { t: 'Usar tu inmunidad para tapar algo tuyo', fx: { alineamiento: -18, cordura: -8 }, limpiarBusca: true },
      { t: 'Traer fondos a tu mundo', fx: { reputacion: 20, alineamiento: 10, creditos: -6000 },
        sub: 'En tu mundo se acordarán de esto' }],
     /* 4 · figura del Senado */
-    [{ t: 'Liderar una coalición', fx: { carisma: 16, reputacion: 18, cordura: -10 } },
+    [{ t: 'Liderar una coalición', fx: { carisma: 16, reputacion: 18, cordura: -10 },
+       req: function (st) { return SW.hayEscano(st); } },
+     { t: 'Montar tu propia red de gobernadores', req: function (st) { return !SW.hayEscano(st); },
+       fx: { carisma: 16, reputacion: 14, notoriedad: 10 }, sub: 'Favores cruzados entre sectores' },
      { t: 'Presentar una moción de censura', fx: { notoriedad: 18, reputacion: 12 }, enemigo: true,
-       sub: 'O te la llevas por delante o te lleva a ti' },
+       req: function (st) { return SW.hayEscano(st); }, sub: 'O te la llevas por delante o te lleva a ti' },
      { t: 'Nombrar a los tuyos en puestos clave', fx: { reputacion: 14, alineamiento: -14, creditos: 25000 } },
      { t: 'Negociar la paz entre dos bandos', fx: { carisma: 20, alineamiento: 20, reputacion: 22, cordura: -12 } },
      { t: 'Presentarte a la jefatura', fx: { carisma: 14, notoriedad: 16, creditos: -50000, reputacion: 16 },
@@ -259,8 +318,13 @@
     c.push({ t: '◂ Volver', volver: true });
 
     // lo que puedes hacer, dicho en voz alta, para que no haya dudas
-    const alcance = nivel >= 4 ? 'Tu voto arrastra a otros y tu firma llega a toda la República.'
-                  : nivel === 3 ? 'Tienes escaño: puedes presentar leyes, bloquearlas y abrir comisiones.'
+    const pol = SW.politicaDe(s);
+    const alcance = nivel >= 4 ? (pol.sinSenado
+                        ? 'Mandas en un sector entero, y por encima de ti sólo hay uniformes.'
+                        : 'Tu voto arrastra a otros y tu firma llega a media galaxia.')
+                  : nivel === 3 ? (pol.sinSenado
+                        ? 'Gobiernas un planeta. Las órdenes vienen de arriba y tú decides cómo se cumplen.'
+                        : 'Tienes escaño en ' + pol.casa + ': puedes presentar leyes, bloquearlas y abrir comisiones.')
                   : nivel === 2 ? 'Mandas en ' + s.mundo + ', no en la galaxia.'
                   : nivel === 1 ? 'Mandas en tu distrito y en poco más.'
                   : 'Todavía no mandas en nada: aprendes y haces favores.';

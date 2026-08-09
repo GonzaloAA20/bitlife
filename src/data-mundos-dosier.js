@@ -1600,11 +1600,16 @@
   SW.MUNDOS_OCULTOS = ['Exegol', 'Ilum Profundo', 'Nur', 'Mundo sin nombre', 'Korriban',
                        'Dxun', 'Dagobah', 'Tython', 'Ilum', 'Anzat', 'Scarif', 'Crait',
                        'Kef Bir', 'Ajan Kloss', 'Wobani', 'Zeffo'];
-  SW.mundoAleatorioNormal = function (rng, excluir) {
+  /* Un mundo cualquiera al que se pueda ir de verdad. Sin el filtro por
+     época te mandaba a Alderaan setenta años después de que lo
+     volaran, o a Kamino después de la purga. */
+  SW.mundoAleatorioNormal = function (rng, excluir, era) {
     const lista = SW.MUNDO_NOMBRES.filter(function (m) {
-      return m !== excluir && SW.MUNDOS_OCULTOS.indexOf(m) < 0;
+      if (m === excluir || SW.MUNDOS_OCULTOS.indexOf(m) >= 0) return false;
+      if (era && SW.mundoViable && !SW.mundoViable(m, era)) return false;
+      return true;
     });
-    return rng.pick(lista);
+    return rng.pick(lista.length ? lista : SW.MUNDO_NOMBRES.filter(function (m) { return m !== excluir; }));
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

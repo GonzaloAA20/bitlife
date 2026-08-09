@@ -242,19 +242,12 @@
   };
 
   /** facciones que existen realmente en esa época */
+  /* Cada facción declara sus eras en la propia tabla; había además una
+     lista de exclusiones aquí que decía lo mismo con otras palabras, y
+     dos fuentes de verdad para lo mismo acaban discrepando. */
   SW.faccionesDeEra = function (era) {
     const out = SW.FACCIONES.filter(function (f) { return !f.eras || f.eras.indexOf(era) >= 0; });
-    const quitar = {
-      alta_republica: ['imperio', 'rebelion', 'separatistas', 'sith'],
-      republica_tardia: ['imperio', 'rebelion', 'gar'],
-      guerras_clon: ['imperio', 'rebelion'],
-      imperio_temprano: ['republica', 'separatistas', 'orden_jedi'],
-      rebelion: ['republica', 'separatistas'],
-      nueva_republica: ['imperio', 'separatistas'],
-      primera_orden: ['imperio', 'republica', 'separatistas', 'rebelion']
-    }[era] || [];
-    const filtrado = out.filter(function (f) { return quitar.indexOf(f.id) < 0; });
-    return filtrado.length ? filtrado : SW.FACCIONES;
+    return out.length ? out : SW.FACCIONES.filter(function (f) { return !f.eras; });
   };
 
   /** ¿hay una Orden Jedi a la que uno pueda presentarse? */

@@ -549,7 +549,9 @@
         { v: 'robar los archivos personales de', dif: 45, pago: 0.85, al: -6 }
       ];
       const tipo = rng.pick(tipos);
-      const cliente = rng.pick(SW.FACCIONES);
+      // el cliente tiene que existir en esta época: antes podía salir
+      // el Imperio contratándote en plena Alta República
+      const cliente = rng.pick(SW.faccionesDeEra(s.era));
       const base = Math.round((8000 + rng.int(0, 40000)) * tipo.pago * (1 + s.edad / 120));
       return {
         id: 'gen_contrato', gen: true,

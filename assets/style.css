@@ -1103,3 +1103,65 @@ body.sin-crt::after { display: none; }
   .acciones-bar .acts { -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
                         mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent); }
 }
+
+/* ---------- filtro del registro ---------- */
+.log-filtros {
+  position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; flex-wrap: wrap;
+  padding: 6px 0 8px; margin-bottom: 4px;
+  background: linear-gradient(180deg, var(--bg) 70%, transparent);
+}
+.lf {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  background: transparent; border: 1px solid var(--linea); color: var(--txt-dim);
+  padding: 4px 9px; cursor: pointer; min-height: 26px;
+}
+.lf:hover { color: var(--txt); border-color: var(--cian-tenue); }
+.lf.on { color: var(--cian); border-color: var(--cian); background: rgba(58,214,255,.08); }
+@media (pointer: coarse) { .lf { min-height: 34px; padding: 6px 12px; } }
+
+/* ---------- ambición en la ficha ---------- */
+.ficha.ambicion .amb-n { font-size: 12.5px; color: var(--ambar); }
+.ficha.ambicion.hecha .amb-n { color: var(--verde); }
+.ficha.ambicion .amb-m { font-size: 10.5px; color: var(--txt-dim); margin-top: 2px; }
+
+/* ---------- el momento que define la época ---------- */
+.momento-tag {
+  display: inline-block; font-family: var(--disp); font-size: 11px; letter-spacing: .2em;
+  color: #0b0e13; background: var(--ambar); padding: 3px 10px; margin-bottom: 10px;
+}
+
+/* ---------- ambición al final ---------- */
+.fin-ambicion {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center;
+  border: 1px solid var(--linea); border-left-width: 3px; padding: 10px 14px; margin: 16px 0 4px;
+}
+.fin-ambicion span { font-size: 9.5px; letter-spacing: .18em; color: var(--txt-dim); }
+.fin-ambicion b { font-size: 14px; }
+.fin-ambicion em { font-style: normal; font-size: 11px; color: var(--txt-dim); }
+.fin-ambicion.ok { border-left-color: var(--verde); }
+.fin-ambicion.ok b { color: var(--verde); }
+.fin-ambicion.no { border-left-color: var(--ambar); }
+.fin-ambicion.no b { color: var(--ambar); }
+
+/* ---------- salón de vidas anteriores ---------- */
+.salon { display: grid; gap: 6px; margin-bottom: 14px; }
+.salon-fila {
+  display: grid; grid-template-columns: 26px 1fr auto; gap: 4px 12px; align-items: center;
+  border: 1px solid var(--linea); border-left-width: 3px; padding: 8px 10px;
+}
+.salon-fila.logro { border-left-color: var(--verde); }
+.salon-fila > b { font-family: var(--disp); font-size: 16px; color: var(--txt-dim); text-align: center; }
+.salon-n { display: block; font-size: 13px; color: var(--ambar); }
+.salon-sub { display: block; font-size: 10px; color: var(--txt-dim); }
+.salon-datos { display: flex; gap: 10px; font-size: 10.5px; color: var(--txt-dim); }
+.salon-amb { grid-column: 2 / -1; font-size: 11px; color: var(--txt); }
+.salon-fila.logro .salon-amb { color: var(--verde); }
+@media (max-width: 560px) { .salon-datos { flex-wrap: wrap; } }
+
+.cambio-era { color: var(--ambar); }
+
+/* recordatorio de atajos: discreto, sólo donde hay teclado */
+.atajos { font-size: 9.5px; color: #5a6470; letter-spacing: .06em; margin: 6px 0 0; text-align: center; }
+.atajos b { color: var(--txt-dim); }
+@media (pointer: coarse) { .atajos { display: none; } }
+.stat[title] { cursor: help; }

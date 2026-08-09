@@ -37,7 +37,7 @@
     const s = {
       version: 2,
       semilla: rng.seedStr,
-      nombre: cfg.nombre,
+      nombre: SW.nombreLimpio(cfg.nombre),
       pronombre: cfg.pronombre || 'él',
       especie: esp.id,
       especieN: esp.n,
@@ -104,10 +104,33 @@
       accionesMax: 3,
       historia: [],
       hitos: [],
+      eraFija: (era.id === 'era_perdida'),
+      eraNace: era.id,                  // la época que elegiste, que fija el año de nacimiento
+      anioNace: (SW.ANIO_ERA || {})[era.id],
+      eraElegida: era.id,
+      ambicion: cfg.ambicion || null,   // qué querías conseguir con tu vida
+      dificultad: cfg.dificultad || 'normal',
       tramas: {},             // hilos largos que cruzan la vida entera
       racha: 0,               // buenas o malas seguidas: da suerte o te la quita
       talentos: []            // lo que has ido eligiendo aprender
     };
+
+    /* Eliges la época que quieres VIVIR, y eso fija tu año de nacimiento.
+       El día que naces puedes estar todavía en la anterior: si eliges
+       Guerras Clon naces en el 38 ABY, o sea en plena República tardía,
+       y llegas a la guerra con dieciséis años. */
+    if (!s.eraFija && SW.eraDeAnio && s.anioNace != null) {
+      const real = SW.eraDeAnio(s.anioNace);
+      const f = (SW.ERAS || []).filter(function (x) { return x.id === real; })[0];
+      if (f) { s.era = f.id; s.eraN = f.n; }
+    }
+
+    // la dificultad elegida se nota desde el primer día
+    if (SW.dificultadDe) {
+      const dif = SW.dificultadDe(s);
+      s.stats.creditos += dif.creditos;
+      s.stats.salud = U.clamp(s.stats.salud + dif.salud, 10, 100);
+    }
 
     // el dinero de la familia es inmediato; el resto es potencial
     const fuentes = [esp.mods, era.mods, cfg.rasgo.mods];
@@ -176,8 +199,11 @@
   };
 
   Game.prototype.log = function (txt, tipo) {
-    this.s.historia.push({ edad: this.s.edad, txt: txt, tipo: tipo || 'ev' });
-    this.logAño.push({ txt: txt, tipo: tipo || 'ev' });
+    // las contracciones se arreglan aquí para todo lo que se escribe,
+    // venga de una plantilla o de una concatenación a mano
+    const t = SW.contraer ? SW.contraer(txt) : txt;
+    this.s.historia.push({ edad: this.s.edad, txt: t, tipo: tipo || 'ev' });
+    this.logAño.push({ txt: t, tipo: tipo || 'ev' });
   };
   Game.prototype.hito = function (txt) {
     this.s.hitos.push({ edad: this.s.edad, txt: txt });
@@ -411,9 +437,22 @@
       s.añosEnTrabajo++;
       const bruto = Math.round(s.sueldo * (0.85 + s.rendimiento / 200));
       s.stats.creditos += bruto;
-      this.log('Trabajas de ' + s.rango + '. Ingresas ' + U.cr(bruto) + '.', 'cr');
+      /* Un jedi no cobra sueldo: cobra estipendio, y eso ya lo dice
+         otra línea. Decir «Trabajas de Padawan. Ingresas 0 cr.» todos
+         los años era ruido y encima contradecía al estipendio. */
+      if (bruto > 0) this.log('Trabajas de ' + s.rango + '. Ingresas ' + U.cr(bruto) + '.', 'cr');
+      else if (s.añosEnTrabajo === 1) this.log('Sirves como ' + s.rango + '. Aquí no se cobra.', 'res');
       this.chequearAscenso();
-    } else if (s.edadBio > 18) {
+    }
+    /* Tener mucho cuesta: escoltas, sobornos, casas que mantener y gente
+       que vive de ti. Sin esto los millones se apilaban solos y el dinero
+       dejaba de ser una decisión. */
+    if (s.stats.creditos > 200000) {
+      const tren = Math.round((s.stats.creditos - 200000) * 0.06) + 4000;
+      s.stats.creditos -= tren;
+      if (this.rng.chance(0.3)) this.log('Mantener lo que tienes cuesta ' + U.cr(tren) + ' al año.', 'cr');
+    }
+    if (!s.trabajo && s.edadBio > 18) {
       const gasto = 900 + s.edadBio * 14;
       s.stats.creditos -= gasto;
       if (s.stats.creditos < -20000) {
@@ -426,6 +465,9 @@
     this.curarse();
     this.envejecer();
     if (s.muerto) return;
+
+    // ¿ha cambiado la época? Va antes que nada: cambia el mundo entero
+    if (SW.pasoEra) SW.pasoEra(this);
 
     // la guerra se cobra antes que nada
     if (SW.añoDeGuerraViva) SW.añoDeGuerraViva(this);
@@ -772,7 +814,23 @@
     if (d.coste) {
       let c = d.coste;
       if (typeof c === 'string') c = 2000;
-      s.stats.creditos -= c;
+      /* Antes se restaba y punto: podías comprar una nave de 500.000
+         con cero en la cuenta y quedarte a -500.000 sin que pasara
+         nada. Ahora, si no llegas, o lo fías (y eso te busca un
+         prestamista) o no hay trato. */
+      if (c > 0 && s.stats.creditos < c) {
+        const falta = c - Math.max(0, s.stats.creditos);
+        if (falta > 40000 || s.stats.creditos < -30000) {
+          this.log('No te llega, y nadie te va a fiar tanto. Se queda en nada.', 'mal');
+          return;
+        }
+        s.stats.creditos -= c;
+        s.flags.debe_a_usureros = true;
+        s.contadores.deuda = (s.contadores.deuda || 0) + Math.round(falta * 1.4);
+        this.log('No te llega: lo pones a deber. Alguien se apunta ' + U.cr(Math.round(falta * 1.4)) + '.', 'mal');
+      } else {
+        s.stats.creditos -= c;
+      }
     }
 
     let res = d;
@@ -798,10 +856,16 @@
       return;
     }
     if (d.devuelveAccion) {
-      // no gastas el año por asomarte y no ver nada que te apetezca
+      // no gastas el año por asomarte y no ver nada que te apetezca,
+      // pero sólo una vez al año: si no, se puede mirar en bucle
       this._situaciones = null;
-      this.s.acciones = Math.min(this.s.accionesMax, this.s.acciones + 1);
-      this.log('Te lo piensas mejor y guardas el rato para otra cosa.', 'res');
+      if (this.s.devueltaEsteAño !== this.s.edad) {
+        this.s.devueltaEsteAño = this.s.edad;
+        this.s.acciones = Math.min(this.s.accionesMax, this.s.acciones + 1);
+        this.log('Te lo piensas mejor y guardas el rato para otra cosa.', 'res');
+      } else {
+        this.log('Vuelves a asomarte y vuelves a dejarlo. Se te ha ido la tarde.', 'res');
+      }
       if (!this.cola.length && !this.s.muerto) this.fase = 'menu';
       return;
     }
@@ -961,11 +1025,15 @@
         s.escalonPolitico = d.empleoPolitico;
         s.flags.carrera_politica = true;
         this.tomarEmpleo('politico', esc.sueldo);
-        s.rango = U.titleCase(esc.n);
-        this.log('Ahora eres <b>' + esc.n + '</b>. Sueldo: ' + U.cr(esc.sueldo) + '.', 'bien');
-        this.hito('Llega a ' + esc.n);
-        // a partir de senador, el sitio es Coruscant
-        if (d.empleoPolitico >= 3) {
+        // el cargo se llama como se llame en esta época
+        const nombreCargo = SW.nombreEscalon ? SW.nombreEscalon(s, d.empleoPolitico) : esc.n;
+        s.rango = U.titleCase(nombreCargo);
+        this.log('Ahora eres <b>' + nombreCargo + '</b>. Sueldo: ' + U.cr(esc.sueldo) + '.', 'bien');
+        this.hito('Llega a ' + nombreCargo);
+        // a partir del cuarto escalón te mudas... si hay Senado al que ir.
+        // Donde el Senado está disuelto, gobiernas desde tu propio mundo.
+        const hayEscano = !SW.hayEscano || SW.hayEscano(s);
+        if (d.empleoPolitico >= 3 && hayEscano) {
           s.flags.en_el_senado = true;
           const dest = SW.destinoDeCargo ? SW.destinoDeCargo(s, 'senador') : 'Coruscant';
           if (dest && s.mundo !== dest) this.mover(dest, 'a ocupar tu escaño');
@@ -1609,12 +1677,22 @@
     const s = this.s, rng = this.rng;
     // a Exegol o a Dagobah no se muda uno por casualidad: hay que ir a propósito
     const d = destino || (SW.mundoAleatorioNormal
-      ? SW.mundoAleatorioNormal(rng, s.mundo)
+      ? SW.mundoAleatorioNormal(rng, s.mundo, s.era)
       : rng.pick(SW.MUNDO_NOMBRES.filter(function (m) { return m !== s.mundo; })));
     if (d === s.mundo) { this.log('Te quedas en ' + s.mundo + '.', 'viaje'); return; }
     // un destino que no existe en la tabla dejaría el mundo en un
     // nombre inventado y todos los textos saldrían con el hueco sin rellenar
     if (!SW.mundo(d)) { this.log('No hay forma de llegar allí.', 'mal'); return; }
+    /* Y un destino que en esta época ya no existe tampoco vale: nadie se
+       muda a Alderaan en el 40 DBY. */
+    if (SW.mundoViable && !SW.mundoViable(d, s.era)) {
+      const caido = (SW.MUNDOS_CAIDOS || {})[d];
+      this.log(caido ? caido.txt : 'Allí ya no queda nada a donde llegar.', 'mal');
+      const alt = SW.refugioDe ? SW.refugioDe(rng, d) : this.mundoCercano();
+      if (!alt || alt === d || !SW.mundo(alt) || !SW.mundoViable(alt, s.era)) return;
+      this.log('Acabas en ' + alt + ', que es lo más cerca que se puede llegar.', 'res');
+      return this.mover(alt, motivo);
+    }
     const m = SW.mundo(d);
     const anterior = s.mundo;
     s.mundo = d;
@@ -2662,7 +2740,7 @@
     }
     if (d.fijarApodo) this.fijarApodo(d.fijarApodo);
     if (d.ponerNombreNave) {
-      s.naveNombre = d.ponerNombreNave;
+      s.naveNombre = SW.nombreLimpio(d.ponerNombreNave);
       this.log('Tu nave se llama "' + d.ponerNombreNave + '".', 'bien');
       this.hito('Bautiza su nave: ' + d.ponerNombreNave);
     }

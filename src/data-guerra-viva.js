@@ -44,7 +44,7 @@
   function frenteNuevo(rng, era, evitar) {
     const lista = (SW.FRENTES[era] || []).filter(function (m) {
       return m !== evitar && (!SW.mundo || SW.mundo(m)) &&
-             (!SW.mundoViable || SW.mundoViable({ era: era }, m) !== false);
+             (!SW.mundoViable || SW.mundoViable(m, era));
     });
     if (lista.length) return rng.pick(lista);
     return SW.mundoAleatorioNormal ? SW.mundoAleatorioNormal(rng, evitar) : evitar;
@@ -134,12 +134,8 @@
     }
 
     // titular del año
-    const t = rng.pick(PARTES)
-      .replace('{f}', w.frente)
-      .replace('{a}', w.bandos[0])
-      .replace('{b}', w.bandos[1])
-      .replace('{a}', w.bandos[0])
-      .replace('{b}', w.bandos[1]);
+    // por U.fill, que además arregla las contracciones («de el Imperio»)
+    const t = U.fill(rng.pick(PARTES), { f: w.frente, a: w.bandos[0], b: w.bandos[1] });
     g.log('<i>Parte de guerra:</i> ' + t, 'res');
 
     // vivir en el frente sin estar alistado también mata

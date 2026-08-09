@@ -1113,6 +1113,68 @@ body.sin-crt::after { display: none; }
                         mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent); }
 }
 
+/* ---------- filtro del registro ---------- */
+.log-filtros {
+  position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; flex-wrap: wrap;
+  padding: 6px 0 8px; margin-bottom: 4px;
+  background: linear-gradient(180deg, var(--bg) 70%, transparent);
+}
+.lf {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  background: transparent; border: 1px solid var(--linea); color: var(--txt-dim);
+  padding: 4px 9px; cursor: pointer; min-height: 26px;
+}
+.lf:hover { color: var(--txt); border-color: var(--cian-tenue); }
+.lf.on { color: var(--cian); border-color: var(--cian); background: rgba(58,214,255,.08); }
+@media (pointer: coarse) { .lf { min-height: 34px; padding: 6px 12px; } }
+
+/* ---------- ambición en la ficha ---------- */
+.ficha.ambicion .amb-n { font-size: 12.5px; color: var(--ambar); }
+.ficha.ambicion.hecha .amb-n { color: var(--verde); }
+.ficha.ambicion .amb-m { font-size: 10.5px; color: var(--txt-dim); margin-top: 2px; }
+
+/* ---------- el momento que define la época ---------- */
+.momento-tag {
+  display: inline-block; font-family: var(--disp); font-size: 11px; letter-spacing: .2em;
+  color: #0b0e13; background: var(--ambar); padding: 3px 10px; margin-bottom: 10px;
+}
+
+/* ---------- ambición al final ---------- */
+.fin-ambicion {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center;
+  border: 1px solid var(--linea); border-left-width: 3px; padding: 10px 14px; margin: 16px 0 4px;
+}
+.fin-ambicion span { font-size: 9.5px; letter-spacing: .18em; color: var(--txt-dim); }
+.fin-ambicion b { font-size: 14px; }
+.fin-ambicion em { font-style: normal; font-size: 11px; color: var(--txt-dim); }
+.fin-ambicion.ok { border-left-color: var(--verde); }
+.fin-ambicion.ok b { color: var(--verde); }
+.fin-ambicion.no { border-left-color: var(--ambar); }
+.fin-ambicion.no b { color: var(--ambar); }
+
+/* ---------- salón de vidas anteriores ---------- */
+.salon { display: grid; gap: 6px; margin-bottom: 14px; }
+.salon-fila {
+  display: grid; grid-template-columns: 26px 1fr auto; gap: 4px 12px; align-items: center;
+  border: 1px solid var(--linea); border-left-width: 3px; padding: 8px 10px;
+}
+.salon-fila.logro { border-left-color: var(--verde); }
+.salon-fila > b { font-family: var(--disp); font-size: 16px; color: var(--txt-dim); text-align: center; }
+.salon-n { display: block; font-size: 13px; color: var(--ambar); }
+.salon-sub { display: block; font-size: 10px; color: var(--txt-dim); }
+.salon-datos { display: flex; gap: 10px; font-size: 10.5px; color: var(--txt-dim); }
+.salon-amb { grid-column: 2 / -1; font-size: 11px; color: var(--txt); }
+.salon-fila.logro .salon-amb { color: var(--verde); }
+@media (max-width: 560px) { .salon-datos { flex-wrap: wrap; } }
+
+.cambio-era { color: var(--ambar); }
+
+/* recordatorio de atajos: discreto, sólo donde hay teclado */
+.atajos { font-size: 9.5px; color: #5a6470; letter-spacing: .06em; margin: 6px 0 0; text-align: center; }
+.atajos b { color: var(--txt-dim); }
+@media (pointer: coarse) { .atajos { display: none; } }
+.stat[title] { cursor: help; }
+
 </style>
 </head>
 <body>
@@ -1249,11 +1311,7 @@ body.sin-crt::after { display: none; }
       /* Las contracciones. Al meter «el bar» en una plantilla que dice
          «de {l}» salía «de el bar»; ahora sale «del bar». Se hace aquí
          una vez y no en trescientas plantillas. */
-      return s
-        .replace(/\bde el\b/g, 'del')
-        .replace(/\bDe el\b/g, 'Del')
-        .replace(/\ba el\b(?! que)/g, 'al')
-        .replace(/\bA el\b(?! que)/g, 'Al');
+      return global.SW.contraer(s);
     },
     titleCase: function (s) {
       return String(s).charAt(0).toUpperCase() + String(s).slice(1);
@@ -1384,7 +1442,33 @@ body.sin-crt::after { display: none; }
     } catch (e) { return null; }
   };
 
+  /* Los nombres los escribe el jugador y acaban dentro de decenas de
+     líneas del registro que se pintan como HTML. Escaparlos en origen
+     daría doble escape allí donde ya se usa U.esc, así que lo que se
+     hace es quitar de raíz lo que puede convertirse en etiqueta. */
   global.SW = global.SW || {};
+  /* «de el mercado» → «del mercado». Tolera una etiqueta HTML en medio,
+     porque los nombres se pintan en negrita y el artículo queda detrás
+     de la etiqueta: «Te acercas a <b>el Almirante Ackbar</b>». */
+  global.SW.contraer = function (s) {
+    /* Consume también el espacio que va detrás del artículo, y si hay
+       una etiqueta en medio la deja pegada a la palabra: «a <b>el
+       Almirante</b>» → «al <b>Almirante</b>», sin dobles espacios. */
+    return String(s)
+      .replace(/\b([Dd])e (<[^>]+>)?el\s/g, function (m2, d, tag) { return d + 'el ' + (tag || ''); })
+      .replace(/\b([Aa]) (<[^>]+>)?el\s/g, function (m2, a, tag) { return a + 'l ' + (tag || ''); })
+      .replace(/ {2,}/g, ' ');
+  };
+
+  global.SW.nombreLimpio = function (n) {
+    return String(n == null ? '' : n)
+      .replace(/[<>&"'`\\]/g, '')
+      .replace(/[\u0000-\u001f\u007f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 34) || 'Sin nombre';
+  };
+
   global.SW.RNG = RNG;
   global.SW.U = U;
 })(window);
@@ -1511,20 +1595,38 @@ body.sin-crt::after { display: none; }
     return SW.MUNDOS[0];
   };
 
-  /* ---------- FACCIONES ---------- */
+  /* ---------- FACCIONES ----------
+     Cada una en su época. Antes casi todas estaban marcadas como «de
+     todas las eras» y salía la Alianza Rebelde reclutando en la Alta
+     República, el Imperio existiendo mil años antes de fundarse y la
+     Confederación Separatista viva veinte años después de rendirse.
+     `eras` vacío = existe siempre (los cárteles y los gremios). */
   SW.FACCIONES = [
-    { id: 'orden_jedi', n: 'Orden Jedi', color: '#7fd8ff', desc: 'Guardianes de la paz. Papeleo místico.' },
-    { id: 'sith', n: 'Los Sith', color: '#ff4d5e', desc: 'Dos hay siempre. O más, según la década.' },
-    { id: 'imperio', n: 'Imperio', color: '#c9ced6', desc: 'Orden mediante miedo y presupuesto militar.' },
-    { id: 'rebelion', n: 'Alianza Rebelde', color: '#ff9d3d', desc: 'Poca flota, mucha convicción.' },
-    { id: 'republica', n: 'República', color: '#9fe8b4', desc: 'Comités, senados y buenas intenciones.' },
-    { id: 'separatistas', n: 'Confederación', color: '#b48cff', desc: 'Droides baratos, accionistas contentos.' },
+    { id: 'orden_jedi', n: 'Orden Jedi', color: '#7fd8ff', desc: 'Guardianes de la paz. Papeleo místico.',
+      eras: ['alta_republica', 'republica_tardia', 'guerras_clon', 'nueva_republica'] },
+    { id: 'jedi_ocultos', n: 'Jedi supervivientes', color: '#7fd8ff', desc: 'Los que quedaron. No se anuncian.',
+      eras: ['imperio_temprano', 'rebelion'] },
+    { id: 'sith', n: 'Los Sith', color: '#ff4d5e', desc: 'Dos hay siempre: maestro y aprendiz.',
+      eras: ['republica_tardia', 'guerras_clon', 'imperio_temprano', 'rebelion'] },
+    { id: 'imperio', n: 'Imperio', color: '#c9ced6', desc: 'Orden mediante miedo y presupuesto militar.',
+      eras: ['imperio_temprano', 'rebelion'] },
+    { id: 'rebelion', n: 'Alianza Rebelde', color: '#ff9d3d', desc: 'Poca flota, mucha convicción.',
+      eras: ['rebelion'] },
+    { id: 'celulas', n: 'Células insurgentes', color: '#ff9d3d', desc: 'Todavía no se llaman Alianza ni se hablan entre sí.',
+      eras: ['imperio_temprano'] },
+    { id: 'republica', n: 'República Galáctica', color: '#9fe8b4', desc: 'Comités, senados y buenas intenciones.',
+      eras: ['alta_republica', 'republica_tardia', 'guerras_clon'] },
+    { id: 'separatistas', n: 'Confederación', color: '#b48cff', desc: 'Droides baratos, accionistas contentos.',
+      eras: ['guerras_clon'] },
     { id: 'hutt', n: 'Cárteles Hutt', color: '#c8e05a', desc: 'La economía real del Borde Exterior.' },
     { id: 'mandalorianos', n: 'Clanes Mandalorianos', color: '#8fb8ff', desc: 'Honor con casco.' },
     { id: 'sol_negro', n: 'Sol Negro', color: '#ff6ad5', desc: 'Crimen con corbata.' },
     { id: 'gremio_caza', n: 'Gremio de Cazarrecompensas', color: '#ffcf5a', desc: 'El credo es el contrato.' },
     { id: 'contrabando', n: 'Sindicato de Contrabando', color: '#5ad9c8', desc: 'Rutas que no salen en las cartas.' },
-    { id: 'hermandad', n: 'Aquelarre de Dathomir', color: '#ff7a7a', desc: 'Magia que la Orden llama superstición.' }
+    { id: 'hermandad', n: 'Aquelarre de Dathomir', color: '#ff7a7a', desc: 'Magia que la Orden llama superstición.',
+      eras: ['alta_republica', 'republica_tardia', 'guerras_clon'] },
+    { id: 'brujas', n: 'Lo que queda de Dathomir', color: '#ff7a7a', desc: 'Después de la matanza quedaron pocas, y escondidas.',
+      eras: ['imperio_temprano', 'rebelion', 'nueva_republica'] }
   ];
 
   /* ---------- NOMBRES ---------- */
@@ -2155,19 +2257,12 @@ body.sin-crt::after { display: none; }
   };
 
   /** facciones que existen realmente en esa época */
+  /* Cada facción declara sus eras en la propia tabla; había además una
+     lista de exclusiones aquí que decía lo mismo con otras palabras, y
+     dos fuentes de verdad para lo mismo acaban discrepando. */
   SW.faccionesDeEra = function (era) {
     const out = SW.FACCIONES.filter(function (f) { return !f.eras || f.eras.indexOf(era) >= 0; });
-    const quitar = {
-      alta_republica: ['imperio', 'rebelion', 'separatistas', 'sith'],
-      republica_tardia: ['imperio', 'rebelion', 'gar'],
-      guerras_clon: ['imperio', 'rebelion'],
-      imperio_temprano: ['republica', 'separatistas', 'orden_jedi'],
-      rebelion: ['republica', 'separatistas'],
-      nueva_republica: ['imperio', 'separatistas'],
-      primera_orden: ['imperio', 'republica', 'separatistas', 'rebelion']
-    }[era] || [];
-    const filtrado = out.filter(function (f) { return quitar.indexOf(f.id) < 0; });
-    return filtrado.length ? filtrado : SW.FACCIONES;
+    return out.length ? out : SW.FACCIONES.filter(function (f) { return !f.eras; });
   };
 
   /** ¿hay una Orden Jedi a la que uno pueda presentarse? */
@@ -7968,11 +8063,16 @@ body.sin-crt::after { display: none; }
   SW.MUNDOS_OCULTOS = ['Exegol', 'Ilum Profundo', 'Nur', 'Mundo sin nombre', 'Korriban',
                        'Dxun', 'Dagobah', 'Tython', 'Ilum', 'Anzat', 'Scarif', 'Crait',
                        'Kef Bir', 'Ajan Kloss', 'Wobani', 'Zeffo'];
-  SW.mundoAleatorioNormal = function (rng, excluir) {
+  /* Un mundo cualquiera al que se pueda ir de verdad. Sin el filtro por
+     época te mandaba a Alderaan setenta años después de que lo
+     volaran, o a Kamino después de la purga. */
+  SW.mundoAleatorioNormal = function (rng, excluir, era) {
     const lista = SW.MUNDO_NOMBRES.filter(function (m) {
-      return m !== excluir && SW.MUNDOS_OCULTOS.indexOf(m) < 0;
+      if (m === excluir || SW.MUNDOS_OCULTOS.indexOf(m) >= 0) return false;
+      if (era && SW.mundoViable && !SW.mundoViable(m, era)) return false;
+      return true;
     });
-    return rng.pick(lista);
+    return rng.pick(lista.length ? lista : SW.MUNDO_NOMBRES.filter(function (m) { return m !== excluir; }));
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -12484,7 +12584,9 @@ body.sin-crt::after { display: none; }
         { v: 'robar los archivos personales de', dif: 45, pago: 0.85, al: -6 }
       ];
       const tipo = rng.pick(tipos);
-      const cliente = rng.pick(SW.FACCIONES);
+      // el cliente tiene que existir en esta época: antes podía salir
+      // el Imperio contratándote en plena Alta República
+      const cliente = rng.pick(SW.faccionesDeEra(s.era));
       const base = Math.round((8000 + rng.int(0, 40000)) * tipo.pago * (1 + s.edad / 120));
       return {
         id: 'gen_contrato', gen: true,
@@ -14402,7 +14504,58 @@ body.sin-crt::after { display: none; }
       req: function (s) { return s.stats.intelecto > 72 && s.stats.carisma > 76 && s.stats.reputacion > 70; } }
   ];
 
-  const escalonDe = function (s) { return SW.ESCALONES[s.escalonPolitico || 0]; };
+  /* ============================================================
+     LA POLÍTICA NO ES LA MISMA EN CADA ÉPOCA
+     Los mismos cinco escalones servían igual en la Alta República
+     que bajo el Imperio, y eso no se sostiene: en la Era de la
+     Rebelión el Senado está DISUELTO (lo cierra Tarkin), y en la
+     época de la Primera Orden no hay Senado galáctico porque
+     Hosnian Prime ya no existe. Aquí sólo cambian los nombres y el
+     techo; la mecánica es la misma.
+     ============================================================ */
+  SW.POLITICA_ERA = {
+    alta_republica: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
+                          'senador del sector', 'figura del Senado'], tope: 4,
+      casa: 'el Senado de la República', nota: 'La República se está expandiendo y hacen falta manos.' },
+    republica_tardia: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
+                            'senador del sector', 'figura del Senado'], tope: 4,
+      casa: 'el Senado Galáctico', nota: 'Todo se decide en comités que duran años.' },
+    guerras_clon: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
+                        'senador del sector', 'figura del Senado'], tope: 4,
+      casa: 'el Senado Galáctico', nota: 'Cada mes se votan poderes de emergencia nuevos.' },
+    imperio_temprano: { n: ['auxiliar de la administración', 'concejal de distrito', 'gobernador adjunto',
+                            'senador del Senado Imperial', 'portavoz de comité'], tope: 4,
+      casa: 'el Senado Imperial', nota: 'El Senado sigue reuniéndose. Decidir, decide otro.' },
+    rebelion: { n: ['auxiliar de la administración', 'concejal de distrito', 'gobernador adjunto',
+                    'gobernador planetario', 'enlace con el Moff del sector'], tope: 4,
+      casa: 'la administración imperial del sector',
+      nota: 'El Senado está disuelto desde hace años: ahora manda el moff que te toque.', sinSenado: true },
+    nueva_republica: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
+                           'senador de la Nueva República', 'figura del Senado'], tope: 4,
+      casa: 'el Senado de la Nueva República', nota: 'Un Senado nuevo que aún discute dónde sentarse.' },
+    primera_orden: { n: ['auxiliar de la administración', 'concejal de distrito', 'gobernador adjunto',
+                         'administrador de sector', 'gobernador general'], tope: 4,
+      casa: 'la administración de la Primera Orden',
+      nota: 'No hay Senado: voló con Hosnian Prime. Hay órdenes.', sinSenado: true },
+    era_perdida: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
+                       'consejero del sector', 'figura del consejo'], tope: 4,
+      casa: 'el consejo de sector', nota: 'Se gobierna a trozos.' }
+  };
+
+  SW.politicaDe = function (s) {
+    return SW.POLITICA_ERA[s.era] || SW.POLITICA_ERA.republica_tardia;
+  };
+  /** El nombre del escalón, con el vocabulario de su época. */
+  SW.nombreEscalon = function (s, i) {
+    const p = SW.politicaDe(s);
+    return (p.n && p.n[i]) || (SW.ESCALONES[i] || {}).n || 'cargo';
+  };
+  SW.hayEscano = function (s) { return !SW.politicaDe(s).sinSenado; };
+
+  const escalonDe = function (s) {
+    const base = SW.ESCALONES[s.escalonPolitico || 0];
+    return { id: base.id, sueldo: base.sueldo, req: base.req, n: SW.nombreEscalon(s, base.id) };
+  };
 
   /* La carrera tiene que estar registrada o tomarEmpleo() se sale sin
      hacer nada y te quedas de senador sin cobrar. */
@@ -14590,19 +14743,27 @@ body.sin-crt::after { display: none; }
      { t: 'Negociar con una corporación', fx: { creditos: 30000, alineamiento: -10, carisma: 10 } },
      { t: 'Abrir una investigación sobre quien manda aquí', fx: { intelecto: 12, notoriedad: 10, reputacion: 8 }, enemigo: true },
      { t: 'Declarar el estado de emergencia', fx: { reputacion: 8, alineamiento: -14 }, faccion: 'auto+18' }],
-    /* 3 · senador del sector */
-    [{ t: 'Presentar una ley en el Senado', generar: 'votacion', sub: 'La tuya, esta vez' },
+    /* 3 · senador del sector (o gobernador, según la época) */
+    [{ t: 'Presentar una ley en el Senado', generar: 'votacion', sub: 'La tuya, esta vez',
+       req: function (st) { return SW.hayEscano(st); } },
+     { t: 'Firmar un bando para todo el planeta', req: function (st) { return !SW.hayEscano(st); },
+       fx: { reputacion: 12, alineamiento: -6, cordura: -6 }, sub: 'Sin debate ni votación: se publica y ya' },
+     { t: 'Interpretar las órdenes de arriba a tu manera', req: function (st) { return !SW.hayEscano(st); },
+       fx: { intelecto: 12, alineamiento: 14, reputacion: 6 }, sub: 'Cumplir la letra y perderte la intención' },
      { t: 'Bloquear la ley de otro', fx: { intelecto: 12, reputacion: 8 }, enemigo: true,
-       sub: 'Te ganas a alguien con memoria' },
+       req: function (st) { return SW.hayEscano(st); }, sub: 'Te ganas a alguien con memoria' },
      { t: 'Pedir una comisión de investigación', fx: { intelecto: 14, notoriedad: 12, reputacion: 10 }, enemigo: true },
      { t: 'Pedir escolta de la flota para tu sector', fx: { reputacion: 12, creditos: -20000 }, faccion: 'republica+18' },
      { t: 'Usar tu inmunidad para tapar algo tuyo', fx: { alineamiento: -18, cordura: -8 }, limpiarBusca: true },
      { t: 'Traer fondos a tu mundo', fx: { reputacion: 20, alineamiento: 10, creditos: -6000 },
        sub: 'En tu mundo se acordarán de esto' }],
     /* 4 · figura del Senado */
-    [{ t: 'Liderar una coalición', fx: { carisma: 16, reputacion: 18, cordura: -10 } },
+    [{ t: 'Liderar una coalición', fx: { carisma: 16, reputacion: 18, cordura: -10 },
+       req: function (st) { return SW.hayEscano(st); } },
+     { t: 'Montar tu propia red de gobernadores', req: function (st) { return !SW.hayEscano(st); },
+       fx: { carisma: 16, reputacion: 14, notoriedad: 10 }, sub: 'Favores cruzados entre sectores' },
      { t: 'Presentar una moción de censura', fx: { notoriedad: 18, reputacion: 12 }, enemigo: true,
-       sub: 'O te la llevas por delante o te lleva a ti' },
+       req: function (st) { return SW.hayEscano(st); }, sub: 'O te la llevas por delante o te lleva a ti' },
      { t: 'Nombrar a los tuyos en puestos clave', fx: { reputacion: 14, alineamiento: -14, creditos: 25000 } },
      { t: 'Negociar la paz entre dos bandos', fx: { carisma: 20, alineamiento: 20, reputacion: 22, cordura: -12 } },
      { t: 'Presentarte a la jefatura', fx: { carisma: 14, notoriedad: 16, creditos: -50000, reputacion: 16 },
@@ -14631,8 +14792,13 @@ body.sin-crt::after { display: none; }
     c.push({ t: '◂ Volver', volver: true });
 
     // lo que puedes hacer, dicho en voz alta, para que no haya dudas
-    const alcance = nivel >= 4 ? 'Tu voto arrastra a otros y tu firma llega a toda la República.'
-                  : nivel === 3 ? 'Tienes escaño: puedes presentar leyes, bloquearlas y abrir comisiones.'
+    const pol = SW.politicaDe(s);
+    const alcance = nivel >= 4 ? (pol.sinSenado
+                        ? 'Mandas en un sector entero, y por encima de ti sólo hay uniformes.'
+                        : 'Tu voto arrastra a otros y tu firma llega a media galaxia.')
+                  : nivel === 3 ? (pol.sinSenado
+                        ? 'Gobiernas un planeta. Las órdenes vienen de arriba y tú decides cómo se cumplen.'
+                        : 'Tienes escaño en ' + pol.casa + ': puedes presentar leyes, bloquearlas y abrir comisiones.')
                   : nivel === 2 ? 'Mandas en ' + s.mundo + ', no en la galaxia.'
                   : nivel === 1 ? 'Mandas en tu distrito y en poco más.'
                   : 'Todavía no mandas en nada: aprendes y haces favores.';
@@ -16485,7 +16651,7 @@ body.sin-crt::after { display: none; }
   function frenteNuevo(rng, era, evitar) {
     const lista = (SW.FRENTES[era] || []).filter(function (m) {
       return m !== evitar && (!SW.mundo || SW.mundo(m)) &&
-             (!SW.mundoViable || SW.mundoViable({ era: era }, m) !== false);
+             (!SW.mundoViable || SW.mundoViable(m, era));
     });
     if (lista.length) return rng.pick(lista);
     return SW.mundoAleatorioNormal ? SW.mundoAleatorioNormal(rng, evitar) : evitar;
@@ -16575,12 +16741,8 @@ body.sin-crt::after { display: none; }
     }
 
     // titular del año
-    const t = rng.pick(PARTES)
-      .replace('{f}', w.frente)
-      .replace('{a}', w.bandos[0])
-      .replace('{b}', w.bandos[1])
-      .replace('{a}', w.bandos[0])
-      .replace('{b}', w.bandos[1]);
+    // por U.fill, que además arregla las contracciones («de el Imperio»)
+    const t = U.fill(rng.pick(PARTES), { f: w.frente, a: w.bandos[0], b: w.bandos[1] });
     g.log('<i>Parte de guerra:</i> ' + t, 'res');
 
     // vivir en el frente sin estar alistado también mata
@@ -20886,6 +21048,348 @@ body.sin-crt::after { display: none; }
 
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* ===== src/mejoras2.js ===== */
+/* ============================================================
+   HOLOVIDA :: SEGUNDA TANDA DE MEJORAS
+   Calendario galáctico, los momentos que definen cada época,
+   nombres que cambian con el poder de turno, una ambición que
+   llevas toda la vida, dificultad al empezar y un salón de la
+   fama con las vidas anteriores.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+
+  /* ============================================================
+     1 · CALENDARIO GALÁCTICO
+     Saber que naciste en el 32 ABY y que la Orden 66 te pilló con
+     trece años cambia por completo cómo se lee una vida.
+     ============================================================ */
+  /* Año de nacimiento de cada época. No es el año en que la época
+     empieza: es el año en que hay que nacer para VIVIRLA de joven.
+     Naciendo el mismo día que empiezan las Guerras Clon las vives con
+     tres años y a los seis ya no hay Orden Jedi a la que presentarse:
+     elegir «Guerras Clon» dejaba de significar nada. */
+  SW.ANIO_ERA = {
+    alta_republica: -250,    // adulto en plena expansión de la Frontera
+    republica_tardia: -60,   // veinteañero en los años de Naboo
+    guerras_clon: -38,       // 16 en Geonosis, 19 cuando cae la Orden
+    imperio_temprano: -32,   // 13 en la Purga, adulto bajo el Imperio
+    rebelion: -20,           // 18 en Yavin
+    nueva_republica: -10,    // 14 en Endor, adulto en la República nueva
+    primera_orden: 10,       // 24 cuando se apaga el sistema Hosnian
+    era_perdida: -3000
+  };
+
+  /** Año galáctico en el que estás ahora mismo.
+      El año de nacimiento se fija UNA vez: si se recalcula con la era
+      actual, al cambiar de época el calendario pega un salto (naces en
+      el 2 ABY, cumples 40 y te dice que estás en el 68 DBY). */
+  SW.anioNacimiento = function (s) {
+    if (s.anioNace == null) s.anioNace = SW.ANIO_ERA[s.eraNace || s.era];
+    return s.anioNace;
+  };
+  SW.anioGalactico = function (s) {
+    const base = SW.anioNacimiento(s);
+    if (base == null) return null;
+    return base + (s.edad || 0);
+  };
+
+  SW.formatoAnio = function (y) {
+    if (y == null) return '';
+    if (y < 0) return Math.abs(y) + ' ABY';
+    if (y === 0) return 'año 0';
+    return y + ' DBY';
+  };
+
+  /* ============================================================
+     1b · LA ÉPOCA AVANZA CONTIGO
+     Alguien nacido en el 22 ABY vive las Guerras Clon con tres
+     años, el Imperio con veinte y la Nueva República con setenta.
+     Hasta ahora la era se fijaba al nacer y te morías de viejo
+     «durante las Guerras Clon», con la Confederación todavía en pie
+     cincuenta años después de rendirse.
+     ============================================================ */
+  SW.LIMITES_ERA = [
+    { id: 'alta_republica',   hasta: -100 },
+    { id: 'republica_tardia', hasta: -22 },
+    { id: 'guerras_clon',     hasta: -19 },
+    { id: 'imperio_temprano', hasta: -2 },
+    { id: 'rebelion',         hasta: 5 },
+    { id: 'nueva_republica',  hasta: 28 },
+    { id: 'primera_orden',    hasta: 9999 }
+  ];
+
+  SW.eraDeAnio = function (y) {
+    for (let i = 0; i < SW.LIMITES_ERA.length; i++) {
+      if (y < SW.LIMITES_ERA[i].hasta) return SW.LIMITES_ERA[i].id;
+    }
+    return 'primera_orden';
+  };
+
+  const CAMBIO = {
+    republica_tardia: 'Los Nihil son historia y la Frontera se ha calmado. Empieza otra época, más gris y más burocrática.',
+    guerras_clon: 'La República se parte en dos. Hay guerra, y esta vez con ejércitos de verdad.',
+    imperio_temprano: 'Se acabó la República. Ahora hay un Imperio, y lo primero que hace es cambiarle el nombre a las cosas.',
+    rebelion: 'Ya no son cuatro descontentos: hay una Alianza, y el Imperio ha dejado de disimular.',
+    nueva_republica: 'El Imperio ha caído. Lo que queda de él se reparte el Borde mientras un Senado nuevo discute dónde sentarse.',
+    primera_orden: 'De los restos imperiales ha salido algo peor y con mejor uniforme. La Nueva República mira para otro lado.'
+  };
+
+  /** Tick anual: si el calendario ha cruzado a otra época, se cambia. */
+  SW.pasoEra = function (g) {
+    const s = g.s;
+    if (s.eraFija) return false;               // la Era Perdida no avanza
+    const y = SW.anioGalactico(s);
+    if (y == null) return false;
+    const nueva = SW.eraDeAnio(y);
+    if (nueva === s.era) return false;
+    const ficha = (SW.ERAS || []).filter(function (e) { return e.id === nueva; })[0];
+    if (!ficha) return false;
+    s.eraAnterior = s.era;
+    s.era = nueva;
+    s.eraN = ficha.n;
+    /* Cada época tiene su guerra: si arrastras la bandera de que «ya
+       estalló» de la época anterior, la nueva no empieza nunca. */
+    if (s.guerra && !s.guerra.activa) { s.guerra = null; s.flags.guerra_estallo = false; }
+    else if (!s.guerra) s.flags.guerra_estallo = false;
+    s.flags['momento_' + s.era] = s.flags['momento_' + s.era] || false;
+    g.log('<b class="cambio-era">' + SW.formatoAnio(y) + ' — ' + ficha.n + '.</b> ' +
+          (CAMBIO[nueva] || ficha.desc), 'res');
+    g.hito('Vive el paso a ' + ficha.n);
+    // el mundo donde estás puede haber dejado de ser habitable
+    if (SW.mundoViable && !SW.mundoViable(s.mundo, s.era) && g.mundoCercano) {
+      const caido = (SW.MUNDOS_CAIDOS || {})[s.mundo];
+      if (caido) g.log(caido.txt, 'mal');
+      g.mover(g.mundoCercano(), 'porque allí ya no se podía estar');
+    }
+    return true;
+  };
+
+  /* ============================================================
+     2 · LOS NOMBRES CAMBIAN CON QUIEN MANDA
+     Bajo el Imperio, Coruscant es el Centro Imperial. No es un
+     detalle tonto: es lo primero que hace un imperio.
+     ============================================================ */
+  SW.RENOMBRES = {
+    imperio_temprano: { Coruscant: 'Centro Imperial' },
+    rebelion: { Coruscant: 'Centro Imperial' }
+  };
+
+  SW.nombreDeMundo = function (s, mundo) {
+    const r = SW.RENOMBRES[s && s.era];
+    return (r && r[mundo]) || mundo;
+  };
+
+  /* ============================================================
+     3 · EL MOMENTO QUE DEFINE TU ÉPOCA
+     Si te toca vivirlo, lo vives. No de refilón: con una escena.
+     ============================================================ */
+  SW.GEN = SW.GEN || {};
+  SW.GUION = SW.GUION || [];
+
+  const MOMENTOS = {
+    guerras_clon: {
+      anio: -19, n: 'La Orden 66',
+      t: 'Los holos se cortan a la vez en toda la galaxia. Cuando vuelven, hay un Imperio y ya no hay jedi.',
+      c: [
+        { t: 'Esconder a alguien que huye', fx: { alineamiento: 22, cordura: -10 }, buscado: 25,
+          out: 'Se queda tres semanas en tu bodega y se va sin decir adónde.' },
+        { t: 'Aplaudir en la plaza como todos', fx: { alineamiento: -14, cordura: -8, reputacion: 6 },
+          out: 'Aplaudes. Miras a los lados y todo el mundo mira a los lados.' },
+        { t: 'Intentar entender qué ha pasado', fx: { intelecto: 12, cordura: -6 },
+          out: 'Tardas años en atar los cabos. Cuando lo haces, es peor.' },
+        { t: 'Marcharte al Borde ese mismo día', mover: 'cerca', motivo: 'porque el Núcleo dejó de ser un sitio',
+          fx: { cordura: 6, creditos: -8000 } }
+      ]
+    },
+    imperio_temprano: {
+      anio: -14, n: 'La leva imperial',
+      t: 'Llegan las cuotas: cada mundo debe entregar gente y materia prima. En {mundoAqui} ya han empezado a contar cabezas.',
+      c: [
+        { t: 'Presentarte voluntario', menuAlistar: true, faccion: 'imperio+18' },
+        { t: 'Comprar tu exención', coste: 22000, fx: { alineamiento: -8 } },
+        { t: 'Esconder a los que van en la lista', fx: { alineamiento: 20, reputacion: 12 }, buscado: 22 },
+        { t: 'Aprovechar el desorden para hacer caja', fx: { creditos: 26000, alineamiento: -16 } }
+      ]
+    },
+    rebelion: {
+      anio: 0, n: 'Alderaan',
+      t: 'Alderaan ya no está. No hay guerra, no hay batalla: había un planeta y ahora hay polvo. Todo el mundo se acuerda de dónde estaba ese día.',
+      c: [
+        { t: 'Buscar a los alderaanianos que quedaban fuera', fx: { alineamiento: 22, cordura: -12, reputacion: 12 },
+          out: 'Los que estaban de viaje se quedaron sin sitio al que volver. Ayudas a los que puedes.' },
+        { t: 'Decidir de qué lado estás, de una vez', fx: { cordura: 10, alineamiento: 14 }, faccion: 'rebelion+25',
+          out: 'Ese día se acabó lo de mirar para otro lado.' },
+        { t: 'Callarte más que nunca', fx: { cordura: -14, notoriedad: -10 },
+          out: 'Si pueden hacer eso, pueden hacer cualquier cosa.' },
+        { t: 'Comerciar con lo que la gente vende para huir', fx: { creditos: 40000, alineamiento: -24 } }
+      ]
+    },
+    nueva_republica: {
+      anio: 12, n: 'El reparto del Borde',
+      t: 'La Nueva República dice que la guerra terminó. En el Borde Exterior nadie se ha enterado: los restos imperiales y los cárteles se están repartiendo sectores enteros.',
+      c: [
+        { t: 'Alistarte para poner orden', menuAlistar: true, faccion: 'nueva_republica+18' },
+        { t: 'Montar tu propio negocio en el hueco', fx: { creditos: 30000, notoriedad: 10 }, flag: 'autonomo' },
+        { t: 'Defender tu mundo por vuestra cuenta', fx: { reputacion: 18, fisico: 8, alineamiento: 14 } },
+        { t: 'Irte al Núcleo, donde sí hay ley', mover: 'cerca', motivo: 'buscando un sitio con ley' }
+      ]
+    },
+    primera_orden: {
+      anio: 34, n: 'El sistema Hosnian',
+      t: 'Se ve desde aquí. Cinco planetas apagándose a la vez en el cielo, sin ruido, como si alguien cerrara una puerta. Con ellos se va el Senado y la Nueva República.',
+      c: [
+        { t: 'Buscar a la Resistencia', fx: { alineamiento: 18 }, faccion: 'resistencia+25', buscado: 18 },
+        { t: 'Ponerte del lado que ha ganado', fx: { creditos: 25000, alineamiento: -22 }, faccion: 'primera_orden+25' },
+        { t: 'Coger a los tuyos y desaparecer', mover: 'cerca', motivo: 'hacia donde no llegue la nueva bandera',
+          fx: { cordura: -8, creditos: -10000 } },
+        { t: 'Seguir con tu vida como si nada', fx: { cordura: -12 } }
+      ]
+    },
+    alta_republica: {
+      anio: -230, n: 'El Gran Desastre',
+      t: 'Un carguero se ha roto en pleno hiperespacio y sus pedazos están saliendo a velocidad de la luz por media Frontera. Caen del cielo, sin aviso, durante días.',
+      c: [
+        { t: 'Ayudar en la evacuación', fx: { alineamiento: 20, reputacion: 14, salud: -10 } },
+        { t: 'Ponerte a salvo y ya', fx: { cordura: -6 } },
+        { t: 'Rebuscar entre lo que cae', fx: { creditos: 18000, alineamiento: -12, salud: -8 } },
+        { t: 'Preguntarte quién rompe un carguero en el hiperespacio', fx: { intelecto: 14 }, flag: 'sospecha_nihil' }
+      ]
+    }
+  };
+
+  /* Uno por época, no uno por vida: quien vive ochenta años ve varios. */
+  SW.GUION.push({
+    id: 'mm_momento', min: 3, max: 200, prio: 99, repetible: true,
+    req: function (s) {
+      const m = MOMENTOS[s.era];
+      if (!m) return false;
+      if ((s.flags || {})['momento_' + s.era]) return false;
+      const y = SW.anioGalactico(s);
+      return y != null && y >= m.anio;
+    },
+    gen: true, c: [],
+    hazlo: function (g) {
+      const m = MOMENTOS[g.s.era];
+      if (!m) return null;
+      g.s.flags['momento_' + g.s.era] = true;
+      g.hito(m.n);
+      /* Un crío de seis años no decide de qué lado está en una guerra
+         galáctica: lo vive por debajo, mirando a los mayores. */
+      const critico = g.s.edadBio < 13;
+      const c = critico ? [
+        { t: 'Preguntar qué pasa', fx: { intelecto: 8, cordura: -6 },
+          out: 'Nadie te contesta del todo. Eso te dice bastante.' },
+        { t: 'Agarrarte a los tuyos', fx: { cordura: 6 },
+          out: 'Están tan asustados como tú, pero disimulan mejor.' },
+        { t: 'Fijarte en todo y no olvidarlo', fx: { intelecto: 10, cordura: -4 },
+          out: 'Vas a acordarte de ese día toda la vida.' },
+        { t: 'Seguir jugando', fx: { cordura: 8 },
+          out: 'Ya te enterarás de mayor de lo que pasó ese día.' }
+      ] : m.c;
+      return {
+        gen: true, id: 'mm_' + g.s.era,
+        t: '<span class="momento-tag">' + U.esc(m.n.toUpperCase()) + ' · ' + SW.formatoAnio(SW.anioGalactico(g.s)) + '</span>' +
+           '<p>' + U.fill(m.t, { mundoAqui: g.s.mundo }) + '</p>' +
+           (critico ? '<p class="dim">Tienes ' + g.s.edad + ' años y lo ves desde abajo.</p>' : ''),
+        c: c
+      };
+    }
+  });
+
+  /* ============================================================
+     4 · UNA AMBICIÓN PARA TODA LA VIDA
+     Eliges qué querías conseguir. Al morir se te dice si lo hiciste.
+     ============================================================ */
+  SW.AMBICIONES = [
+    { id: 'rico', n: 'Morir rico', d: 'Que no te falte nunca más.',
+      ok: function (s) { return s.stats.creditos >= 250000; },
+      medida: function (s) { return U.cr(Math.max(0, s.stats.creditos)) + ' de 250.000'; } },
+    { id: 'familia', n: 'Formar una familia', d: 'Gente tuya, y que te quiera.',
+      ok: function (s) { return (s.contadores.hijos || 0) >= 2 && (s.relaciones || []).some(function (r) { return r.afecto > 55; }); },
+      medida: function (s) { return (s.contadores.hijos || 0) + ' hijos'; } },
+    { id: 'maestro', n: 'Dominar la Fuerza', d: 'Llegar hasta donde llegue.',
+      ok: function (s) { return s.sensible && s.stats.fuerza >= 80; },
+      medida: function (s) { return 'Fuerza ' + s.stats.fuerza + ' de 80'; } },
+    { id: 'galaxia', n: 'Ver la galaxia entera', d: 'No morirte donde naciste.',
+      ok: function (s) { return (s.contadores.mundosVisitados || 0) >= 18; },
+      medida: function (s) { return (s.contadores.mundosVisitados || 0) + ' mundos de 18'; } },
+    { id: 'nombre', n: 'Que se sepa tu nombre', d: 'Fama, para bien o para mal.',
+      ok: function (s) { return s.stats.reputacion >= 80 || s.stats.notoriedad >= 85; },
+      medida: function (s) { return 'reputación ' + s.stats.reputacion + ' · notoriedad ' + s.stats.notoriedad; } },
+    { id: 'justo', n: 'Vivir sin deber nada a nadie', d: 'Irte con las manos limpias.',
+      ok: function (s) { return s.stats.alineamiento >= 55 && (s.buscado || 0) < 15; },
+      medida: function (s) { return SW.etiquetaAlineamiento(s.stats.alineamiento); } },
+    { id: 'poder', n: 'Mandar sobre otros', d: 'Que las decisiones sean tuyas.',
+      ok: function (s) { return (s.escalonPolitico || 0) >= 3 || /maestro|general|jefe|figura|gobernador/i.test(s.rango || ''); },
+      medida: function (s) { return s.rango || 'sin cargo'; } },
+    { id: 'paz', n: 'Llegar a viejo en paz', d: 'Sin sobresaltos y con la cabeza en su sitio.',
+      ok: function (s) { return s.edad >= 65 && s.stats.cordura >= 55; },
+      medida: function (s) { return s.edad + ' años · cordura ' + s.stats.cordura; } },
+    { id: 'legado', n: 'Dejar algo detrás', d: 'Que quede una cosa cuando tú no estés.',
+      ok: function (s) { return !!s.legado || (s.titulos || []).length >= 2; },
+      medida: function (s) { return s.legado || ((s.titulos || []).length + ' títulos'); } }
+  ];
+
+  SW.ambicionDe = function (s) {
+    return SW.AMBICIONES.filter(function (a) { return a.id === s.ambicion; })[0] || null;
+  };
+  SW.cumpleAmbicion = function (s) {
+    const a = SW.ambicionDe(s);
+    if (!a) return null;
+    let ok = false;
+    try { ok = a.ok(s); } catch (e) { ok = false; }
+    let m = '';
+    try { m = a.medida(s); } catch (e) { m = ''; }
+    return { n: a.n, d: a.d, ok: ok, medida: m };
+  };
+
+  /* ============================================================
+     5 · DIFICULTAD
+     No todo el mundo quiere lo mismo de una partida.
+     ============================================================ */
+  SW.DIFICULTADES = [
+    { id: 'suave', n: 'Acomodada', d: 'Empiezas con dinero, mueres menos y la vejez perdona.',
+      creditos: 20000, letal: 0.55, salud: 12 },
+    { id: 'normal', n: 'Normal', d: 'La galaxia como es.', creditos: 0, letal: 1, salud: 0 },
+    { id: 'dura', n: 'Dura', d: 'Sin colchón, todo cuesta y cualquier error se paga.',
+      creditos: -3000, letal: 1.5, salud: -10 }
+  ];
+  SW.dificultadDe = function (s) {
+    return SW.DIFICULTADES.filter(function (d) { return d.id === (s && s.dificultad); })[0] || SW.DIFICULTADES[1];
+  };
+
+  /* ============================================================
+     6 · SALÓN DE LA FAMA
+     Las vidas anteriores, guardadas en el propio navegador.
+     ============================================================ */
+  const CLAVE = 'holovida_salon';
+
+  SW.guardarEnSalon = function (s) {
+    try {
+      const previo = JSON.parse(localStorage.getItem(CLAVE) || '[]');
+      const amb = SW.cumpleAmbicion(s);
+      previo.unshift({
+        n: s.nombre, e: s.especieN, era: s.eraN, ed: s.edad,
+        cm: s.causaMuerte || '', cr: s.stats.creditos,
+        rep: s.stats.reputacion, not: s.stats.notoriedad,
+        amb: amb ? amb.n : null, ok: amb ? !!amb.ok : null,
+        tr: (SW.tramasDe ? SW.tramasDe(s) : []).filter(function (x) { return x.cerrada; }).length,
+        hi: (s.hitos || []).length, t: Date.now()
+      });
+      localStorage.setItem(CLAVE, JSON.stringify(previo.slice(0, 12)));
+    } catch (e) { /* sin almacenamiento, sin salón */ }
+  };
+
+  SW.leerSalon = function () {
+    try { return JSON.parse(localStorage.getItem(CLAVE) || '[]'); } catch (e) { return []; }
+  };
+  SW.borrarSalon = function () { try { localStorage.removeItem(CLAVE); } catch (e) {} };
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== src/data-canon-consecuencias.js ===== */
 /* ============================================================
    HOLOVIDA :: LOS ENCUENTROS CANÓNICOS TIENEN CONSECUENCIAS
@@ -21580,7 +22084,7 @@ body.sin-crt::after { display: none; }
     const s = {
       version: 2,
       semilla: rng.seedStr,
-      nombre: cfg.nombre,
+      nombre: SW.nombreLimpio(cfg.nombre),
       pronombre: cfg.pronombre || 'él',
       especie: esp.id,
       especieN: esp.n,
@@ -21647,10 +22151,33 @@ body.sin-crt::after { display: none; }
       accionesMax: 3,
       historia: [],
       hitos: [],
+      eraFija: (era.id === 'era_perdida'),
+      eraNace: era.id,                  // la época que elegiste, que fija el año de nacimiento
+      anioNace: (SW.ANIO_ERA || {})[era.id],
+      eraElegida: era.id,
+      ambicion: cfg.ambicion || null,   // qué querías conseguir con tu vida
+      dificultad: cfg.dificultad || 'normal',
       tramas: {},             // hilos largos que cruzan la vida entera
       racha: 0,               // buenas o malas seguidas: da suerte o te la quita
       talentos: []            // lo que has ido eligiendo aprender
     };
+
+    /* Eliges la época que quieres VIVIR, y eso fija tu año de nacimiento.
+       El día que naces puedes estar todavía en la anterior: si eliges
+       Guerras Clon naces en el 38 ABY, o sea en plena República tardía,
+       y llegas a la guerra con dieciséis años. */
+    if (!s.eraFija && SW.eraDeAnio && s.anioNace != null) {
+      const real = SW.eraDeAnio(s.anioNace);
+      const f = (SW.ERAS || []).filter(function (x) { return x.id === real; })[0];
+      if (f) { s.era = f.id; s.eraN = f.n; }
+    }
+
+    // la dificultad elegida se nota desde el primer día
+    if (SW.dificultadDe) {
+      const dif = SW.dificultadDe(s);
+      s.stats.creditos += dif.creditos;
+      s.stats.salud = U.clamp(s.stats.salud + dif.salud, 10, 100);
+    }
 
     // el dinero de la familia es inmediato; el resto es potencial
     const fuentes = [esp.mods, era.mods, cfg.rasgo.mods];
@@ -21719,8 +22246,11 @@ body.sin-crt::after { display: none; }
   };
 
   Game.prototype.log = function (txt, tipo) {
-    this.s.historia.push({ edad: this.s.edad, txt: txt, tipo: tipo || 'ev' });
-    this.logAño.push({ txt: txt, tipo: tipo || 'ev' });
+    // las contracciones se arreglan aquí para todo lo que se escribe,
+    // venga de una plantilla o de una concatenación a mano
+    const t = SW.contraer ? SW.contraer(txt) : txt;
+    this.s.historia.push({ edad: this.s.edad, txt: t, tipo: tipo || 'ev' });
+    this.logAño.push({ txt: t, tipo: tipo || 'ev' });
   };
   Game.prototype.hito = function (txt) {
     this.s.hitos.push({ edad: this.s.edad, txt: txt });
@@ -21954,9 +22484,22 @@ body.sin-crt::after { display: none; }
       s.añosEnTrabajo++;
       const bruto = Math.round(s.sueldo * (0.85 + s.rendimiento / 200));
       s.stats.creditos += bruto;
-      this.log('Trabajas de ' + s.rango + '. Ingresas ' + U.cr(bruto) + '.', 'cr');
+      /* Un jedi no cobra sueldo: cobra estipendio, y eso ya lo dice
+         otra línea. Decir «Trabajas de Padawan. Ingresas 0 cr.» todos
+         los años era ruido y encima contradecía al estipendio. */
+      if (bruto > 0) this.log('Trabajas de ' + s.rango + '. Ingresas ' + U.cr(bruto) + '.', 'cr');
+      else if (s.añosEnTrabajo === 1) this.log('Sirves como ' + s.rango + '. Aquí no se cobra.', 'res');
       this.chequearAscenso();
-    } else if (s.edadBio > 18) {
+    }
+    /* Tener mucho cuesta: escoltas, sobornos, casas que mantener y gente
+       que vive de ti. Sin esto los millones se apilaban solos y el dinero
+       dejaba de ser una decisión. */
+    if (s.stats.creditos > 200000) {
+      const tren = Math.round((s.stats.creditos - 200000) * 0.06) + 4000;
+      s.stats.creditos -= tren;
+      if (this.rng.chance(0.3)) this.log('Mantener lo que tienes cuesta ' + U.cr(tren) + ' al año.', 'cr');
+    }
+    if (!s.trabajo && s.edadBio > 18) {
       const gasto = 900 + s.edadBio * 14;
       s.stats.creditos -= gasto;
       if (s.stats.creditos < -20000) {
@@ -21969,6 +22512,9 @@ body.sin-crt::after { display: none; }
     this.curarse();
     this.envejecer();
     if (s.muerto) return;
+
+    // ¿ha cambiado la época? Va antes que nada: cambia el mundo entero
+    if (SW.pasoEra) SW.pasoEra(this);
 
     // la guerra se cobra antes que nada
     if (SW.añoDeGuerraViva) SW.añoDeGuerraViva(this);
@@ -22315,7 +22861,23 @@ body.sin-crt::after { display: none; }
     if (d.coste) {
       let c = d.coste;
       if (typeof c === 'string') c = 2000;
-      s.stats.creditos -= c;
+      /* Antes se restaba y punto: podías comprar una nave de 500.000
+         con cero en la cuenta y quedarte a -500.000 sin que pasara
+         nada. Ahora, si no llegas, o lo fías (y eso te busca un
+         prestamista) o no hay trato. */
+      if (c > 0 && s.stats.creditos < c) {
+        const falta = c - Math.max(0, s.stats.creditos);
+        if (falta > 40000 || s.stats.creditos < -30000) {
+          this.log('No te llega, y nadie te va a fiar tanto. Se queda en nada.', 'mal');
+          return;
+        }
+        s.stats.creditos -= c;
+        s.flags.debe_a_usureros = true;
+        s.contadores.deuda = (s.contadores.deuda || 0) + Math.round(falta * 1.4);
+        this.log('No te llega: lo pones a deber. Alguien se apunta ' + U.cr(Math.round(falta * 1.4)) + '.', 'mal');
+      } else {
+        s.stats.creditos -= c;
+      }
     }
 
     let res = d;
@@ -22341,10 +22903,16 @@ body.sin-crt::after { display: none; }
       return;
     }
     if (d.devuelveAccion) {
-      // no gastas el año por asomarte y no ver nada que te apetezca
+      // no gastas el año por asomarte y no ver nada que te apetezca,
+      // pero sólo una vez al año: si no, se puede mirar en bucle
       this._situaciones = null;
-      this.s.acciones = Math.min(this.s.accionesMax, this.s.acciones + 1);
-      this.log('Te lo piensas mejor y guardas el rato para otra cosa.', 'res');
+      if (this.s.devueltaEsteAño !== this.s.edad) {
+        this.s.devueltaEsteAño = this.s.edad;
+        this.s.acciones = Math.min(this.s.accionesMax, this.s.acciones + 1);
+        this.log('Te lo piensas mejor y guardas el rato para otra cosa.', 'res');
+      } else {
+        this.log('Vuelves a asomarte y vuelves a dejarlo. Se te ha ido la tarde.', 'res');
+      }
       if (!this.cola.length && !this.s.muerto) this.fase = 'menu';
       return;
     }
@@ -22504,11 +23072,15 @@ body.sin-crt::after { display: none; }
         s.escalonPolitico = d.empleoPolitico;
         s.flags.carrera_politica = true;
         this.tomarEmpleo('politico', esc.sueldo);
-        s.rango = U.titleCase(esc.n);
-        this.log('Ahora eres <b>' + esc.n + '</b>. Sueldo: ' + U.cr(esc.sueldo) + '.', 'bien');
-        this.hito('Llega a ' + esc.n);
-        // a partir de senador, el sitio es Coruscant
-        if (d.empleoPolitico >= 3) {
+        // el cargo se llama como se llame en esta época
+        const nombreCargo = SW.nombreEscalon ? SW.nombreEscalon(s, d.empleoPolitico) : esc.n;
+        s.rango = U.titleCase(nombreCargo);
+        this.log('Ahora eres <b>' + nombreCargo + '</b>. Sueldo: ' + U.cr(esc.sueldo) + '.', 'bien');
+        this.hito('Llega a ' + nombreCargo);
+        // a partir del cuarto escalón te mudas... si hay Senado al que ir.
+        // Donde el Senado está disuelto, gobiernas desde tu propio mundo.
+        const hayEscano = !SW.hayEscano || SW.hayEscano(s);
+        if (d.empleoPolitico >= 3 && hayEscano) {
           s.flags.en_el_senado = true;
           const dest = SW.destinoDeCargo ? SW.destinoDeCargo(s, 'senador') : 'Coruscant';
           if (dest && s.mundo !== dest) this.mover(dest, 'a ocupar tu escaño');
@@ -23152,12 +23724,22 @@ body.sin-crt::after { display: none; }
     const s = this.s, rng = this.rng;
     // a Exegol o a Dagobah no se muda uno por casualidad: hay que ir a propósito
     const d = destino || (SW.mundoAleatorioNormal
-      ? SW.mundoAleatorioNormal(rng, s.mundo)
+      ? SW.mundoAleatorioNormal(rng, s.mundo, s.era)
       : rng.pick(SW.MUNDO_NOMBRES.filter(function (m) { return m !== s.mundo; })));
     if (d === s.mundo) { this.log('Te quedas en ' + s.mundo + '.', 'viaje'); return; }
     // un destino que no existe en la tabla dejaría el mundo en un
     // nombre inventado y todos los textos saldrían con el hueco sin rellenar
     if (!SW.mundo(d)) { this.log('No hay forma de llegar allí.', 'mal'); return; }
+    /* Y un destino que en esta época ya no existe tampoco vale: nadie se
+       muda a Alderaan en el 40 DBY. */
+    if (SW.mundoViable && !SW.mundoViable(d, s.era)) {
+      const caido = (SW.MUNDOS_CAIDOS || {})[d];
+      this.log(caido ? caido.txt : 'Allí ya no queda nada a donde llegar.', 'mal');
+      const alt = SW.refugioDe ? SW.refugioDe(rng, d) : this.mundoCercano();
+      if (!alt || alt === d || !SW.mundo(alt) || !SW.mundoViable(alt, s.era)) return;
+      this.log('Acabas en ' + alt + ', que es lo más cerca que se puede llegar.', 'res');
+      return this.mover(alt, motivo);
+    }
     const m = SW.mundo(d);
     const anterior = s.mundo;
     s.mundo = d;
@@ -24205,7 +24787,7 @@ body.sin-crt::after { display: none; }
     }
     if (d.fijarApodo) this.fijarApodo(d.fijarApodo);
     if (d.ponerNombreNave) {
-      s.naveNombre = d.ponerNombreNave;
+      s.naveNombre = SW.nombreLimpio(d.ponerNombreNave);
       this.log('Tu nave se llama "' + d.ponerNombreNave + '".', 'bien');
       this.hito('Bautiza su nave: ' + d.ponerNombreNave);
     }
@@ -24628,6 +25210,9 @@ body.sin-crt::after { display: none; }
 
   UI.init = function () {
     UI.aplicarPreferencias();
+    // los atajos se enganchan aquí y no en la partida: si no, Esc no
+    // cerraba los diálogos abiertos desde la pantalla de inicio
+    UI.bindTeclado();
     UI.app = $('#app');
     const hash = location.hash || '';
     if (hash.indexOf('#v=') === 0) { UI.pantallaCompartida(hash.slice(3)); return; }
@@ -24654,6 +25239,8 @@ body.sin-crt::after { display: none; }
       '<button class="btn grande" data-a="crear">▸ NUEVA VIDA</button>' +
       (guardada ? '<button class="btn" data-a="continuar">▸ CONTINUAR PARTIDA</button>' : '') +
       '<button class="btn" data-a="rapida">▸ VIDA ALEATORIA (rápida)</button>' +
+      ((SW.leerSalon && SW.leerSalon().length)
+        ? '<button class="btn" data-a="salon">▸ VIDAS ANTERIORES (' + SW.leerSalon().length + ')</button>' : '') +
       '<button class="btn fantasma" data-a="info">▸ ¿QUÉ ES ESTO?</button>' +
       '</div>' +
       '<div class="metricas">' +
@@ -24671,11 +25258,44 @@ body.sin-crt::after { display: none; }
       const b = e.target.closest('[data-a]');
       if (!b) return;
       const a = b.getAttribute('data-a');
+      if (a === 'salon') { UI.salonFama(); return; }
       if (a === 'crear') UI.pantallaCrear();
       else if (a === 'rapida') UI.vidaRapida();
       else if (a === 'continuar') UI.cargarPartida();
       else if (a === 'info') UI.modalInfo();
     };
+  };
+
+  /* Las vidas anteriores, para poder compararte contigo mismo. */
+  UI.salonFama = function () {
+    const lista = SW.leerSalon ? SW.leerSalon() : [];
+    let h = '';
+    if (!lista.length) h = '<p class="nota">Todavía no has terminado ninguna vida. Vuelve cuando te hayas muerto una vez.</p>';
+    else {
+      h = '<div class="salon">';
+      lista.forEach(function (v, i) {
+        h += '<div class="salon-fila' + (v.ok ? ' logro' : '') + '">' +
+          '<b>' + (i + 1) + '</b>' +
+          '<div class="salon-id"><span class="salon-n">' + U.esc(v.n) + '</span>' +
+          '<span class="salon-sub">' + U.esc(v.e) + ' · ' + U.esc(v.era) + '</span></div>' +
+          '<div class="salon-datos">' +
+            '<span>' + v.ed + ' años</span>' +
+            '<span>' + U.cr(v.cr) + '</span>' +
+            '<span>' + (v.tr || 0) + ' historias cerradas</span>' +
+          '</div>' +
+          '<div class="salon-amb">' + (v.amb ? (v.ok ? '✔ ' : '✕ ') + U.esc(v.amb) : '—') + '</div>' +
+          '</div>';
+      });
+      h += '</div><button class="btn fantasma" data-m="borrar-salon">Vaciar el salón</button>';
+    }
+    UI.modal('VIDAS ANTERIORES', h, null, function (root) {
+      root.onclick = function (e) {
+        const b = e.target.closest('[data-m="borrar-salon"]');
+        if (!b) return;
+        if (SW.borrarSalon) SW.borrarSalon();
+        UI.cerrarModal(); UI.salonFama();
+      };
+    });
   };
 
   UI.modalInfo = function () {
@@ -24707,6 +25327,8 @@ body.sin-crt::after { display: none; }
       mundo: h ? h.mundo : rng.pick(esp.home),
       rasgo: 'ninguno',
       pronombre: 'él',
+      ambicion: (SW.AMBICIONES[0] || {}).id,
+      dificultad: 'normal',
       semilla: '',
       apariencia: UI.aparienciaAleatoria(rng)
     };
@@ -24802,7 +25424,10 @@ body.sin-crt::after { display: none; }
       const bloq = esp.soloEra && esp.soloEra.indexOf(e.id) < 0;
       h += '<button class="chip' + (e.id === c.era ? ' on' : '') + (bloq ? ' bloq' : '') + '" data-era="' + e.id + '"' + (bloq ? ' disabled' : '') + '>' + U.esc(e.n) + '</button>';
     });
-    h += '</div><p class="nota">' + U.esc(era.desc) + ' <span class="dim">(' + era.y + ')</span>' +
+    h += '</div><p class="nota">' + U.esc(era.desc) +
+      (SW.ANIO_ERA && SW.ANIO_ERA[era.id] != null
+        ? ' <b class="dim">Naces en ' + SW.formatoAnio(SW.ANIO_ERA[era.id]) +
+          ', así que la vives de joven.</b>' : '') + ' <span class="dim">(' + era.y + ')</span>' +
       (esp.soloEra ? '<br><span class="aviso">Esta especie solo existe en: ' + esp.soloEra.map(function (i) { return SW.ERAS.filter(function (x) { return x.id === i; })[0].n; }).join(', ') + '.</span>' : '') +
       '</p></div>';
 
@@ -24819,6 +25444,22 @@ body.sin-crt::after { display: none; }
     });
     h += '</div><p class="nota">' + U.esc(rasgo.desc) + '</p></div>';
 
+    /* Qué querías conseguir con esta vida: se te recuerda en la ficha
+       y se te dice al final si lo lograste. */
+    const amb = SW.AMBICIONES.filter(function (a) { return a.id === c.ambicion; })[0] || SW.AMBICIONES[0];
+    h += '<div class="bloque"><h3>AMBICIÓN</h3><div class="chips">';
+    SW.AMBICIONES.forEach(function (a) {
+      h += '<button class="chip' + (a.id === c.ambicion ? ' on' : '') + '" data-amb="' + a.id + '">' + U.esc(a.n) + '</button>';
+    });
+    h += '</div><p class="nota">' + U.esc(amb.d) + '</p></div>';
+
+    const dif = SW.DIFICULTADES.filter(function (x) { return x.id === c.dificultad; })[0] || SW.DIFICULTADES[1];
+    h += '<div class="bloque"><h3>DIFICULTAD</h3><div class="chips">';
+    SW.DIFICULTADES.forEach(function (x) {
+      h += '<button class="chip' + (x.id === c.dificultad ? ' on' : '') + '" data-dif="' + x.id + '">' + U.esc(x.n) + '</button>';
+    });
+    h += '</div><p class="nota">' + U.esc(dif.d) + '</p></div>';
+
     h += '<label class="campo">SEMILLA <span class="dim">(opcional — misma semilla, misma vida)</span><input id="in-semilla" value="' + U.esc(c.semilla) + '" placeholder="dejar vacío = azar"></label>';
     h += '<div class="acciones"><button class="btn grande" data-a="empezar">▸ EMPEZAR VIDA</button>' +
       '<button class="btn fantasma" data-a="rand-todo">⟳ todo al azar</button></div>' +
@@ -24832,7 +25473,7 @@ body.sin-crt::after { display: none; }
   UI.bindCrear = function () {
     const c = UI.creador;
     UI.app.onclick = function (e) {
-      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo],[data-apv],[data-apciclo],[data-rand]');
+      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo],[data-apv],[data-apciclo],[data-rand],[data-amb],[data-dif]');
       if (!b || b.disabled) return;
       UI.leerCampos();
       if (b.dataset.rand) {
@@ -24878,6 +25519,8 @@ body.sin-crt::after { display: none; }
       const a = b.dataset.a;
       if (a === 'volver') { UI.pantallaInicio(); return; }
       if (a === 'rand-cara') { c.apariencia = UI.aparienciaAleatoria(c.rng); UI.renderCrear(); return; }
+      if (b.dataset.amb) { c.ambicion = b.dataset.amb; UI.renderCrear(); return; }
+      if (b.dataset.dif) { c.dificultad = b.dataset.dif; UI.renderCrear(); return; }
       if (a === 'rand-nombre') { c.nombre = SW.genNombreCompleto(c.rng, c.especie); UI.renderCrear(); return; }
       if (a === 'rand-todo') {
         const rng = c.rng;
@@ -24919,7 +25562,8 @@ body.sin-crt::after { display: none; }
     UI.juego = new SW.Game({
       semilla: c.semilla || (c.nombre + ':' + Date.now() + ':' + Math.random()),
       nombre: c.nombre, especie: esp, era: era, mundo: c.mundo,
-      rasgo: rasgo, apariencia: c.apariencia, pronombre: c.pronombre
+      rasgo: rasgo, apariencia: c.apariencia, pronombre: c.pronombre,
+      ambicion: c.ambicion, dificultad: c.dificultad
     });
     UI.app.onchange = null;
     // la sangre pesa: dinero, nombre, reputación y un talento heredados
@@ -24959,8 +25603,12 @@ body.sin-crt::after { display: none; }
     h += '<header class="topbar">' +
       '<button class="btn mini tb-ficha solo-movil" data-a="ficha" title="ficha">☰</button>' +
       '<div class="tb-id"><b>' + U.esc(s.nombre) + '</b><span>' + U.esc(s.especieN) + '</span></div>' +
-      '<div class="tb-edad"><b>' + s.edad + '</b><span>' + (s.ritmo > 1 ? 'años · asp. ' + s.edadBio : 'años') + '</span></div>' +
-      '<div class="tb-mundo"><b><i class="bioma-punto"></i>' + U.esc(s.mundo) + '</b><span>' + U.esc(m.r) + '</span></div>' +
+      '<div class="tb-edad"><b>' + s.edad + '</b><span>' +
+        (SW.anioGalactico && SW.anioGalactico(s) != null
+          ? SW.formatoAnio(SW.anioGalactico(s))
+          : (s.ritmo > 1 ? 'años · asp. ' + s.edadBio : 'años')) + '</span></div>' +
+      '<div class="tb-mundo"><b><i class="bioma-punto"></i>' +
+        U.esc(SW.nombreDeMundo ? SW.nombreDeMundo(s, s.mundo) : s.mundo) + '</b><span>' + U.esc(m.r) + '</span></div>' +
       '<div class="tb-cr"><b>' + U.cr(s.stats.creditos) + '</b><span>créditos</span></div>' +
       '<div class="tb-acc"><b>' + UI.pips(s) + '</b><span>acciones</span></div>' +
       UI.tbAvisos(s) +
@@ -24996,6 +25644,8 @@ body.sin-crt::after { display: none; }
       h += '</div>';
       h += '<button class="btn grande avanzar" data-a="avanzar">▸ AÑO ' + (s.edad + 1) +
         (s.acciones > 0 ? ' <em>(te quedan ' + s.acciones + ')</em>' : '') + '</button>';
+      h += '<p class="atajos">1-9 elegir · <b>Enter</b> avanzar · <b>R</b> repetir ' +
+        (UI.ultimaActividad ? U.esc(UI.ultimaActividad) : 'lo último') + ' · <b>M</b> mapa · <b>F</b> ficha</p>';
     }
     h += '</footer></div>';
 
@@ -25047,12 +25697,26 @@ body.sin-crt::after { display: none; }
     const ap = Object.assign({}, s.apariencia || {}, { edad: s.edadBio });
     let h = '<div class="holo-mini">' + SW.retrato(ap, 116, s.especie) + '</div>';
 
+    /* Para qué sirve cada número. Estaban ahí sin explicar y había que
+       adivinar si conviene subir carisma o intelecto. */
+    const PARAQUE = {
+      salud: 'Si llega a cero, te mueres. Baja con las heridas y con los años.',
+      fisico: 'Pega más fuerte y aguanta más en las peleas y en el frente.',
+      destreza: 'Puntería, reflejos y pilotar. Manda en los minijuegos.',
+      intelecto: 'Abre opciones de pensar en vez de pelear, y sube el sueldo.',
+      carisma: 'Convencer, negociar y caer bien. La vía sin sangre.',
+      cordura: 'Aguantar lo que has visto. Si se hunde, la salud se va detrás.',
+      suerte: 'Inclina los resultados dudosos. La racha la mueve arriba y abajo.',
+      reputacion: 'Lo que la gente decente piensa de ti. Abre puertas legales.',
+      notoriedad: 'Lo que se cuenta de ti en los bajos fondos. Abre las otras.'
+    };
     h += '<div class="stats">';
     [['salud', 'Salud'], ['fisico', 'Físico'], ['destreza', 'Destreza'], ['intelecto', 'Intelecto'],
      ['carisma', 'Carisma'], ['cordura', 'Cordura'], ['suerte', 'Suerte'],
      ['reputacion', 'Reputación'], ['notoriedad', 'Notoriedad']
     ].forEach(function (p) {
-      h += '<div class="stat s-' + p[0] + '"><span>' + p[1] + '</span><div class="barra"><i style="width:' + s.stats[p[0]] + '%"></i></div><b>' + s.stats[p[0]] + '</b></div>';
+      h += '<div class="stat s-' + p[0] + '" title="' + U.esc(PARAQUE[p[0]] || '') + '">' +
+        '<span>' + p[1] + '</span><div class="barra"><i style="width:' + s.stats[p[0]] + '%"></i></div><b>' + s.stats[p[0]] + '</b></div>';
     });
     h += '</div>';
 
@@ -25062,6 +25726,15 @@ body.sin-crt::after { display: none; }
         ? '<div class="barra"><i style="width:' + s.stats.fuerza + '%"></i></div><b>' + s.stats.fuerza + '</b>'
         : '<em>no sensible</em>') +
       '</div>';
+
+    if (SW.cumpleAmbicion) {
+      const amb = SW.cumpleAmbicion(s);
+      if (amb) {
+        h += '<div class="ficha ambicion' + (amb.ok ? ' hecha' : '') + '"><h4>Lo que querías</h4>' +
+          '<div class="amb-n">' + (amb.ok ? '✔ ' : '◌ ') + U.esc(amb.n) + '</div>' +
+          '<div class="amb-m">' + U.esc(amb.medida) + '</div></div>';
+      }
+    }
 
     const al = s.stats.alineamiento;
     h += '<div class="align"><span>Alineamiento</span><div class="align-barra"><i style="left:' + ((al + 100) / 2) + '%"></i></div><b>' + SW.etiquetaAlineamiento(al) + '</b></div>';
@@ -25184,12 +25857,33 @@ body.sin-crt::after { display: none; }
     return { c: 'vejez', n: 'vejez' };
   };
 
+  /* Con trescientas líneas por vida, encontrar «cuándo conocí a este»
+     era imposible. Filtro por tipo, que se recuerda entre repintados. */
+  UI.FILTROS = [
+    { id: 'todo', n: 'Todo', tipos: null },
+    { id: 'clave', n: 'Lo importante', tipos: ['nac', 'muerte', 'hito', 'res', 'bien', 'mal'] },
+    { id: 'gente', n: 'Gente', tipos: ['rel'] },
+    { id: 'dinero', n: 'Dinero', tipos: ['cr'] },
+    { id: 'viajes', n: 'Viajes', tipos: ['viaje'] }
+  ];
+  UI.filtro = UI.filtro || 'todo';
+
+  UI.htmlFiltros = function () {
+    return '<div class="log-filtros">' + UI.FILTROS.map(function (f) {
+      return '<button class="lf' + (UI.filtro === f.id ? ' on' : '') + '" data-lf="' + f.id + '">' + f.n + '</button>';
+    }).join('') + '</div>';
+  };
+
   UI.htmlConsola = function () {
     const s = UI.juego.s;
-    let h = '';
+    const filtro = UI.FILTROS.filter(function (f) { return f.id === UI.filtro; })[0] || UI.FILTROS[0];
+    let h = UI.htmlFiltros();
     let ultimaEdad = -1;
     let etapaPrev = null;
-    s.historia.slice(-90).forEach(function (l) {
+    const lineas = filtro.tipos
+      ? s.historia.filter(function (l) { return filtro.tipos.indexOf(l.tipo) >= 0; })
+      : s.historia;
+    lineas.slice(-90).forEach(function (l) {
       if (l.edad !== ultimaEdad) {
         const et = UI.etapaVital(l.edad);
         const cambio = etapaPrev !== et.c;
@@ -25496,6 +26190,12 @@ body.sin-crt::after { display: none; }
         if (av) { av.click(); e.preventDefault(); }
         return;
       }
+      if (e.key === 'r' || e.key === 'R') {
+        // repetir la última vía que abriste, que es lo que uno hace
+        const ult = UI.ultimaActividad;
+        if (ult) { const b = document.querySelector('.act[data-act="' + ult + '"]:not(.off)'); if (b) b.click(); }
+        return;
+      }
       if (e.key === 'm' || e.key === 'M') { const b = document.querySelector('[data-a="mapa"]'); if (b) b.click(); return; }
       if (e.key === 'f' || e.key === 'F') { document.body.classList.toggle('panel-abierto'); return; }
     });
@@ -25504,11 +26204,13 @@ body.sin-crt::after { display: none; }
   UI.bindJuego = function () {
     UI.bindTeclado();
     UI.app.onclick = function (e) {
-      const b = e.target.closest('[data-a],[data-act],[data-op]');
+      const b = e.target.closest('[data-a],[data-act],[data-op],[data-lf]');
       if (!b || b.disabled) return;
+      if (b.dataset.lf) { UI.filtro = b.dataset.lf; UI.renderJuego(); return; }
       if (b.dataset.op != null) { UI.elegirOpcion(parseInt(b.dataset.op, 10)); return; }
       if (b.dataset.act) {
         if (UI.juego.s.acciones <= 0) { UI.flash('Ya no te queda tiempo este año. Avanza de año.'); return; }
+        UI.ultimaActividad = b.dataset.act;
         UI.juego.hacerActividad(b.dataset.act);
         UI.renderJuego(); return;
       }
@@ -25827,6 +26529,17 @@ body.sin-crt::after { display: none; }
       }
     }
 
+    /* ¿Conseguiste lo que querías? Es la última pregunta de la vida. */
+    if (SW.cumpleAmbicion) {
+      const amb = SW.cumpleAmbicion(s);
+      if (amb) {
+        h += '<div class="fin-ambicion ' + (amb.ok ? 'ok' : 'no') + '">' +
+          '<span>LO QUE QUERÍAS</span><b>' + (amb.ok ? '✔ ' : '✕ ') + U.esc(amb.n) + '</b>' +
+          '<em>' + U.esc(amb.medida) + '</em></div>';
+      }
+    }
+    if (SW.guardarEnSalon) SW.guardarEnSalon(s);
+
     const puede = SW.puedeHeredar && SW.puedeHeredar(s);
     h += '<div class="fin-acciones">' +
       '<button class="btn grande" data-a="link">⧉ COPIAR ENLACE PARA COMPARTIR</button>' +
@@ -25952,7 +26665,7 @@ body.sin-crt::after { display: none; }
       const esp = SW.ESPECIES.filter(function (e) { return e.id === data.s.especie; })[0] || SW.ESPECIES[0];
       const era = SW.ERAS.filter(function (e) { return e.id === data.s.era; })[0] || SW.ERAS[0];
       const g = new SW.Game({
-        semilla: data.semilla, nombre: data.s.nombre, especie: esp, era: era,
+        semilla: data.semilla, nombre: SW.nombreLimpio(data.s.nombre), especie: esp, era: era,
         mundo: data.s.mundo, rasgo: SW.RASGOS[0], apariencia: data.s.apariencia
       });
       g.s = data.s;

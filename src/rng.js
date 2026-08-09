@@ -128,11 +128,7 @@
       /* Las contracciones. Al meter «el bar» en una plantilla que dice
          «de {l}» salía «de el bar»; ahora sale «del bar». Se hace aquí
          una vez y no en trescientas plantillas. */
-      return s
-        .replace(/\bde el\b/g, 'del')
-        .replace(/\bDe el\b/g, 'Del')
-        .replace(/\ba el\b(?! que)/g, 'al')
-        .replace(/\bA el\b(?! que)/g, 'Al');
+      return global.SW.contraer(s);
     },
     titleCase: function (s) {
       return String(s).charAt(0).toUpperCase() + String(s).slice(1);
@@ -263,7 +259,33 @@
     } catch (e) { return null; }
   };
 
+  /* Los nombres los escribe el jugador y acaban dentro de decenas de
+     líneas del registro que se pintan como HTML. Escaparlos en origen
+     daría doble escape allí donde ya se usa U.esc, así que lo que se
+     hace es quitar de raíz lo que puede convertirse en etiqueta. */
   global.SW = global.SW || {};
+  /* «de el mercado» → «del mercado». Tolera una etiqueta HTML en medio,
+     porque los nombres se pintan en negrita y el artículo queda detrás
+     de la etiqueta: «Te acercas a <b>el Almirante Ackbar</b>». */
+  global.SW.contraer = function (s) {
+    /* Consume también el espacio que va detrás del artículo, y si hay
+       una etiqueta en medio la deja pegada a la palabra: «a <b>el
+       Almirante</b>» → «al <b>Almirante</b>», sin dobles espacios. */
+    return String(s)
+      .replace(/\b([Dd])e (<[^>]+>)?el\s/g, function (m2, d, tag) { return d + 'el ' + (tag || ''); })
+      .replace(/\b([Aa]) (<[^>]+>)?el\s/g, function (m2, a, tag) { return a + 'l ' + (tag || ''); })
+      .replace(/ {2,}/g, ' ');
+  };
+
+  global.SW.nombreLimpio = function (n) {
+    return String(n == null ? '' : n)
+      .replace(/[<>&"'`\\]/g, '')
+      .replace(/[\u0000-\u001f\u007f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 34) || 'Sin nombre';
+  };
+
   global.SW.RNG = RNG;
   global.SW.U = U;
 })(window);

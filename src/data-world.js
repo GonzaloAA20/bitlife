@@ -119,20 +119,38 @@
     return SW.MUNDOS[0];
   };
 
-  /* ---------- FACCIONES ---------- */
+  /* ---------- FACCIONES ----------
+     Cada una en su época. Antes casi todas estaban marcadas como «de
+     todas las eras» y salía la Alianza Rebelde reclutando en la Alta
+     República, el Imperio existiendo mil años antes de fundarse y la
+     Confederación Separatista viva veinte años después de rendirse.
+     `eras` vacío = existe siempre (los cárteles y los gremios). */
   SW.FACCIONES = [
-    { id: 'orden_jedi', n: 'Orden Jedi', color: '#7fd8ff', desc: 'Guardianes de la paz. Papeleo místico.' },
-    { id: 'sith', n: 'Los Sith', color: '#ff4d5e', desc: 'Dos hay siempre. O más, según la década.' },
-    { id: 'imperio', n: 'Imperio', color: '#c9ced6', desc: 'Orden mediante miedo y presupuesto militar.' },
-    { id: 'rebelion', n: 'Alianza Rebelde', color: '#ff9d3d', desc: 'Poca flota, mucha convicción.' },
-    { id: 'republica', n: 'República', color: '#9fe8b4', desc: 'Comités, senados y buenas intenciones.' },
-    { id: 'separatistas', n: 'Confederación', color: '#b48cff', desc: 'Droides baratos, accionistas contentos.' },
+    { id: 'orden_jedi', n: 'Orden Jedi', color: '#7fd8ff', desc: 'Guardianes de la paz. Papeleo místico.',
+      eras: ['alta_republica', 'republica_tardia', 'guerras_clon', 'nueva_republica'] },
+    { id: 'jedi_ocultos', n: 'Jedi supervivientes', color: '#7fd8ff', desc: 'Los que quedaron. No se anuncian.',
+      eras: ['imperio_temprano', 'rebelion'] },
+    { id: 'sith', n: 'Los Sith', color: '#ff4d5e', desc: 'Dos hay siempre: maestro y aprendiz.',
+      eras: ['republica_tardia', 'guerras_clon', 'imperio_temprano', 'rebelion'] },
+    { id: 'imperio', n: 'Imperio', color: '#c9ced6', desc: 'Orden mediante miedo y presupuesto militar.',
+      eras: ['imperio_temprano', 'rebelion'] },
+    { id: 'rebelion', n: 'Alianza Rebelde', color: '#ff9d3d', desc: 'Poca flota, mucha convicción.',
+      eras: ['rebelion'] },
+    { id: 'celulas', n: 'Células insurgentes', color: '#ff9d3d', desc: 'Todavía no se llaman Alianza ni se hablan entre sí.',
+      eras: ['imperio_temprano'] },
+    { id: 'republica', n: 'República Galáctica', color: '#9fe8b4', desc: 'Comités, senados y buenas intenciones.',
+      eras: ['alta_republica', 'republica_tardia', 'guerras_clon'] },
+    { id: 'separatistas', n: 'Confederación', color: '#b48cff', desc: 'Droides baratos, accionistas contentos.',
+      eras: ['guerras_clon'] },
     { id: 'hutt', n: 'Cárteles Hutt', color: '#c8e05a', desc: 'La economía real del Borde Exterior.' },
     { id: 'mandalorianos', n: 'Clanes Mandalorianos', color: '#8fb8ff', desc: 'Honor con casco.' },
     { id: 'sol_negro', n: 'Sol Negro', color: '#ff6ad5', desc: 'Crimen con corbata.' },
     { id: 'gremio_caza', n: 'Gremio de Cazarrecompensas', color: '#ffcf5a', desc: 'El credo es el contrato.' },
     { id: 'contrabando', n: 'Sindicato de Contrabando', color: '#5ad9c8', desc: 'Rutas que no salen en las cartas.' },
-    { id: 'hermandad', n: 'Aquelarre de Dathomir', color: '#ff7a7a', desc: 'Magia que la Orden llama superstición.' }
+    { id: 'hermandad', n: 'Aquelarre de Dathomir', color: '#ff7a7a', desc: 'Magia que la Orden llama superstición.',
+      eras: ['alta_republica', 'republica_tardia', 'guerras_clon'] },
+    { id: 'brujas', n: 'Lo que queda de Dathomir', color: '#ff7a7a', desc: 'Después de la matanza quedaron pocas, y escondidas.',
+      eras: ['imperio_temprano', 'rebelion', 'nueva_republica'] }
   ];
 
   /* ---------- NOMBRES ---------- */
