@@ -811,6 +811,15 @@
         '<button class="draw-zona" id="draw-zona"><span id="draw-txt">ESPERA…</span></button>' +
         '<p class="mini-pie">Pulsa en cuanto el recuadro cambie. Si te adelantas, pierdes.</p></div>';
     }
+    if (ref.minijuego === 'fuerza') {
+      let g = '<div class="mini mini-fuerza" id="mini"><div class="fz-rejilla" id="fz-rejilla">';
+      const GLIFOS = ['◈', '◉', '✦', '❂', '◐', '⬡', '⟁', '✧', '◇'];
+      for (let i = 0; i < 9; i++) {
+        g += '<button class="fz-glifo" data-fz="' + i + '" disabled>' + GLIFOS[i] + '</button>';
+      }
+      g += '</div><p class="mini-pie" id="fz-pie">Mira. Todavía no toques nada.</p></div>';
+      return g;
+    }
     return '<div class="mini mini-filo" id="mini">' +
       '<div class="filo-pista" id="filo-pista"><div class="filo-zona" id="filo-zona"></div><div class="filo-marca" id="filo-marca"></div></div>' +
       '<button class="btn grande bloque" id="filo-golpe">GOLPEAR</button>' +
@@ -857,6 +866,56 @@
       return;
     }
 
+    /* modo fuerza: la secuencia se enseña una vez y hay que repetirla */
+    if (ref.minijuego === 'fuerza') {
+      const rejilla = $('#fz-rejilla'), pie = $('#fz-pie');
+      const botones = [].slice.call(rejilla.querySelectorAll('.fz-glifo'));
+      // cuanto más difícil, más larga la secuencia y menos tiempo en pantalla
+      const largo = U.clamp(Math.round(3 + dif / 22 - (ref.pericia || 40) / 90), 3, 7);
+      const visible = Math.max(260, 760 - dif * 4.5 + (ref.pericia || 40) * 2);
+      const seq = [];
+      for (let i = 0; i < largo; i++) seq.push(Math.floor(Math.random() * 9));
+      const st = { terminado: false, timers: [], entrada: [] };
+      UI.mini = st;
+      const espera = function (ms, fn) { st.timers.push(setTimeout(fn, ms)); };
+
+      pie.textContent = 'Mira la secuencia (' + largo + ').';
+      let t = 350;
+      seq.forEach(function (idx) {
+        espera(t, function () {
+          if (st.terminado) return;
+          botones[idx].classList.add('on');
+        });
+        espera(t + visible, function () {
+          if (st.terminado) return;
+          botones[idx].classList.remove('on');
+        });
+        t += visible + 170;
+      });
+      espera(t + 120, function () {
+        if (st.terminado) return;
+        pie.textContent = 'Ahora tú. En el mismo orden.';
+        botones.forEach(function (b) { b.disabled = false; });
+      });
+
+      rejilla.onclick = function (ev) {
+        const b = ev.target.closest('.fz-glifo');
+        if (!b || b.disabled || st.terminado) return;
+        const idx = parseInt(b.dataset.fz, 10);
+        st.entrada.push(idx);
+        b.classList.add('pulsado');
+        setTimeout(function () { b.classList.remove('pulsado'); }, 140);
+        if (st.entrada.length < seq.length) return;
+        st.terminado = true;
+        let aciertos = 0;
+        for (let i = 0; i < seq.length; i++) if (st.entrada[i] === seq[i]) aciertos++;
+        const r = aciertos / seq.length;
+        const grado = r === 1 ? 2 : (r >= 0.75 ? 1 : (r >= 0.45 ? 0 : -1));
+        UI.finMinijuego(grado, aciertos + ' de ' + seq.length + ' en su sitio.');
+      };
+      return;
+    }
+
     /* modo filo: barra en movimiento */
     const pista = $('#filo-pista'), marca = $('#filo-marca'), zonaEl = $('#filo-zona'), btn = $('#filo-golpe');
     let anchoZona = U.clamp(18 - dif / 7 + s.stats.destreza / 22 + (s.sensible ? s.stats.fuerza / 34 : 0), 4.5, 16);
@@ -899,6 +958,7 @@
     UI.mini.terminado = true;
     if (UI.mini.timer) clearTimeout(UI.mini.timer);
     if (UI.mini.raf) cancelAnimationFrame(UI.mini.raf);
+    if (UI.mini.timers) UI.mini.timers.forEach(clearTimeout);
     UI.mini = null;
   };
 

@@ -267,7 +267,7 @@
         const sl = ev.slots || {};
         for (const k in sl) v *= (pools[sl[k]] || 1);
         escenarios += v;
-        nodos += v * ev.c.length;
+        nodos += v * ((ev.c && ev.c.length) || 0);
       });
     }
     contar(SW.EVENTOS);

@@ -198,24 +198,77 @@
     req: function (s) { return !!s.flags.carrera_politica; }
   });
 
+  /* Lo que puedes hacer depende del escalón. Antes el menú era el
+     mismo siendo concejal que siendo senador, y por eso a veces
+     parecía que mandabas y a veces no. */
+  const PODERES = [
+    /* 0 · aprendiz de despacho */
+    [{ t: 'Redactar informes para otro', fx: { intelecto: 10, cordura: -4 }, sub: 'Firma él, trabajas tú' },
+     { t: 'Colarte en reuniones a las que no te llaman', fx: { intelecto: 8, carisma: 8, reputacion: -4 } },
+     { t: 'Hacerte imprescindible para alguien', fx: { carisma: 12, reputacion: 6 },
+       rel: { tipo: 'mentor', afecto: 35 }, sub: 'Un padrino en el despacho' }],
+    /* 1 · concejal de distrito */
+    [{ t: 'Conceder o negar licencias en tu distrito', fx: { creditos: 12000, alineamiento: -6, reputacion: 4 },
+       sub: 'Poder pequeño, dinero rápido' },
+     { t: 'Arreglar algo que lleva años roto', fx: { reputacion: 16, alineamiento: 12, creditos: -8000 } },
+     { t: 'Montar tu propia red de fieles', fx: { carisma: 12, reputacion: 8, alineamiento: -4 } }],
+    /* 2 · delegado planetario */
+    [{ t: 'Firmar un decreto para todo el planeta', fx: { reputacion: 14, alineamiento: 8, cordura: -6 },
+       sub: 'Tu firma vale en todo el planeta' },
+     { t: 'Negociar con una corporación', fx: { creditos: 30000, alineamiento: -10, carisma: 10 } },
+     { t: 'Abrir una investigación sobre quien manda aquí', fx: { intelecto: 12, notoriedad: 10, reputacion: 8 }, enemigo: true },
+     { t: 'Declarar el estado de emergencia', fx: { reputacion: 8, alineamiento: -14 }, faccion: 'auto+18' }],
+    /* 3 · senador del sector */
+    [{ t: 'Presentar una ley en el Senado', generar: 'votacion', sub: 'La tuya, esta vez' },
+     { t: 'Bloquear la ley de otro', fx: { intelecto: 12, reputacion: 8 }, enemigo: true,
+       sub: 'Te ganas a alguien con memoria' },
+     { t: 'Pedir una comisión de investigación', fx: { intelecto: 14, notoriedad: 12, reputacion: 10 }, enemigo: true },
+     { t: 'Pedir escolta de la flota para tu sector', fx: { reputacion: 12, creditos: -20000 }, faccion: 'republica+18' },
+     { t: 'Usar tu inmunidad para tapar algo tuyo', fx: { alineamiento: -18, cordura: -8 }, limpiarBusca: true },
+     { t: 'Traer fondos a tu mundo', fx: { reputacion: 20, alineamiento: 10, creditos: -6000 },
+       sub: 'En tu mundo se acordarán de esto' }],
+    /* 4 · figura del Senado */
+    [{ t: 'Liderar una coalición', fx: { carisma: 16, reputacion: 18, cordura: -10 } },
+     { t: 'Presentar una moción de censura', fx: { notoriedad: 18, reputacion: 12 }, enemigo: true,
+       sub: 'O te la llevas por delante o te lleva a ti' },
+     { t: 'Nombrar a los tuyos en puestos clave', fx: { reputacion: 14, alineamiento: -14, creditos: 25000 } },
+     { t: 'Negociar la paz entre dos bandos', fx: { carisma: 20, alineamiento: 20, reputacion: 22, cordura: -12 } },
+     { t: 'Presentarte a la jefatura', fx: { carisma: 14, notoriedad: 16, creditos: -50000, reputacion: 16 },
+       sub: 'Muy caro y sin garantías' },
+     { t: 'Retirarte con honores', dejarCargo: true, fx: { cordura: 16, reputacion: 10 } }]
+  ];
+
   SW.menuPolitica = function (g) {
     const s = g.s;
+    const nivel = s.escalonPolitico || 0;
     const e = escalonDe(s);
-    const sig = SW.ESCALONES[(s.escalonPolitico || 0) + 1];
-    const c = [
-      { t: 'Optar al siguiente escalón', generar: 'ascensoPolitico',
-        sub: sig ? 'Siguiente: ' + sig.n : 'Ya estás arriba del todo' },
-      { t: 'Ir a una votación', generar: 'votacion', sub: 'Lo que votes te va a seguir' },
-      { t: 'Trabajar el distrito', fx: { reputacion: 10, carisma: 6, cordura: -4 },
-        sub: 'Aburrido, seguro y suma' },
-      { t: 'Estudiar los expedientes a fondo', fx: { intelecto: 10, cordura: -4 } },
-      { t: 'Hacer campaña con tu propio dinero', req: function (st) { return st.stats.creditos > 20000; },
-        coste: 20000, fx: { reputacion: 18, carisma: 8 } },
-      { t: '◂ Volver', volver: true }
-    ];
+    const sig = SW.ESCALONES[nivel + 1];
+    const c = [];
+    // los poderes de tu escalón y los de todos los anteriores
+    for (let i = 0; i <= nivel && i < PODERES.length; i++) {
+      PODERES[i].forEach(function (o) { c.push(o); });
+    }
+    c.push({ t: 'Optar al siguiente escalón', generar: 'ascensoPolitico',
+      sub: sig ? 'Siguiente: ' + sig.n : 'Ya estás arriba del todo' });
+    c.push({ t: 'Ir a una votación', generar: 'votacion', sub: 'Lo que votes te va a seguir' });
+    c.push({ t: 'Trabajar el distrito', fx: { reputacion: 10, carisma: 6, cordura: -4 },
+      sub: 'Aburrido, seguro y suma' });
+    c.push({ t: 'Estudiar los expedientes a fondo', fx: { intelecto: 10, cordura: -4 } });
+    c.push({ t: 'Hacer campaña con tu propio dinero', req: function (st) { return st.stats.creditos > 20000; },
+      coste: 20000, fx: { reputacion: 18, carisma: 8 } });
+    c.push({ t: '◂ Volver', volver: true });
+
+    // lo que puedes hacer, dicho en voz alta, para que no haya dudas
+    const alcance = nivel >= 4 ? 'Tu voto arrastra a otros y tu firma llega a toda la República.'
+                  : nivel === 3 ? 'Tienes escaño: puedes presentar leyes, bloquearlas y abrir comisiones.'
+                  : nivel === 2 ? 'Mandas en ' + s.mundo + ', no en la galaxia.'
+                  : nivel === 1 ? 'Mandas en tu distrito y en poco más.'
+                  : 'Todavía no mandas en nada: aprendes y haces favores.';
+
     return {
       id: 'menu_politica', gen: true, esMenu: true,
       t: 'POLÍTICA — eres <b>' + e.n + '</b>' +
+         '<br><span class="dim">' + alcance + '</span>' +
          '<br><span class="dim">Intelecto ' + s.stats.intelecto + ' · carisma ' + s.stats.carisma +
          ' · reputación ' + s.stats.reputacion + '</span>',
       c: c

@@ -453,6 +453,17 @@ body.solo-tarjeta .pantalla { padding: 30px 14px; }
 .filo-marca { position: absolute; top: -4px; bottom: -4px; width: 3px; background: #fff; box-shadow: 0 0 14px #fff; transform: translateX(-50%); }
 #filo-golpe { margin-top: 10px; text-align: center; }
 
+/* concentración: repetir la secuencia que enseña la Fuerza */
+.fz-rejilla { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: 260px; margin: 0 auto; }
+.fz-glifo {
+  aspect-ratio: 1 / 1; font-size: 26px; line-height: 1;
+  background: #0d1218; border: 1px solid var(--linea); color: #4a5560;
+  cursor: pointer; transition: none;
+}
+.fz-glifo:disabled { cursor: default; }
+.fz-glifo.on { background: #123040; border-color: var(--cian); color: #cfefff; box-shadow: 0 0 26px rgba(58,214,255,.45) inset; }
+.fz-glifo.pulsado { background: #1b2630; color: #e8f4ff; border-color: #7fb3c8; }
+
 .solo-movil { display: none; }
 
 @media (max-width: 900px) {
@@ -810,7 +821,11 @@ body.en-juego::before {
    ESCENA DEL PLANETA: la franja de ambientación sobre el registro
    ============================================================ */
 .escena {
-  position: relative;
+  /* se queda pegada arriba: antes había que subir todo el registro
+     para volver a ver el planeta en el que estás */
+  position: sticky;
+  top: 0;
+  z-index: 3;
   height: clamp(120px, 22vh, 230px);
   flex: 0 0 auto;
   background-image: var(--fondo-escena, none);
@@ -876,3 +891,6 @@ body.en-juego::before {
 .azar-lienzo { display: flex; justify-content: center; }
 .azar-lienzo canvas { image-rendering: pixelated; image-rendering: crisp-edges; border: 1px solid var(--linea); }
 .azar-pie { margin: 12px 0 0; font-size: 11px; color: var(--txt-dim); letter-spacing: .1em; }
+
+/* quién es quién, dentro del texto de una decisión */
+.quien { font-style: normal; font-size: 11px; color: var(--txt-dim); letter-spacing: .02em; }

@@ -55,6 +55,8 @@
       mejorasNave: [],
       contrato: null,
       escalonPolitico: 0,
+      aprendizSith: null,
+      estudiando: null,
       puestoGuerra: null,
       edad: 0,
       edadBio: 0,
@@ -198,11 +200,13 @@
         case 'objeto': slots[k] = rng.pick(SW.OBJETOS).n; break;
         /* gente que YA conoces: sin esto, cada evento inventaba a alguien
            nuevo y tu hermano no volvía a aparecer en toda la partida */
-        case 'conocido': { const r = this.relacionCualquiera(); slots[k] = r ? r.nombre : SW.genNombreCompleto(rng, 'humano', rng.chance(0.5) ? 'm' : 'f'); if (r) slots['_rel'] = r.nombre; break; }
-        case 'hermano': { const r = this.relacionDe(['hermano', 'hermana', 'hermano de lote']); slots[k] = r ? r.nombre : 'tu hermano'; if (r) slots['_rel'] = r.nombre; break; }
-        case 'amigo': { const r = this.relacionDe(['amigo', 'contacto', 'socio']); slots[k] = r ? r.nombre : 'alguien de confianza'; if (r) slots['_rel'] = r.nombre; break; }
-        case 'pareja': { const r = this.relacionDe(['pareja', 'cónyuge']); slots[k] = r ? r.nombre : 'la persona con la que vives'; if (r) slots['_rel'] = r.nombre; break; }
-        case 'rivalN': { const r = this.relacionDe(['rival']); slots[k] = r ? r.nombre : 'alguien que te tiene ganas'; if (r) slots['_rel'] = r.nombre; break; }
+        /* Con el nombre a secas no te acordabas de quién era. Ahora
+           se dice quién es y cómo os lleváis. */
+        case 'conocido': { const r = this.relacionCualquiera(); slots[k] = this.etiquetaRel(r, 'alguien que conociste'); if (r) slots['_rel'] = r.nombre; break; }
+        case 'hermano': { const r = this.relacionDe(['hermano', 'hermana', 'hermano de lote']); slots[k] = this.etiquetaRel(r, 'tu hermano'); if (r) slots['_rel'] = r.nombre; break; }
+        case 'amigo': { const r = this.relacionDe(['amigo', 'contacto', 'socio']); slots[k] = this.etiquetaRel(r, 'alguien de confianza'); if (r) slots['_rel'] = r.nombre; break; }
+        case 'pareja': { const r = this.relacionDe(['pareja', 'cónyuge']); slots[k] = this.etiquetaRel(r, 'la persona con la que vives'); if (r) slots['_rel'] = r.nombre; break; }
+        case 'rivalN': { const r = this.relacionDe(['rival']); slots[k] = this.etiquetaRel(r, 'alguien que te tiene ganas'); if (r) slots['_rel'] = r.nombre; break; }
         case 'nombre': slots[k] = SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'zabrak', 'rodiano', 'duros']), rng.chance(0.5) ? 'm' : 'f'); break;
         case 'faccion': { const f = rng.pick(SW.faccionesDeEra(this.s.era)); slots[k] = f.n; slots['_faccion'] = f.id; break; }
         case 'rumor': slots[k] = rng.pick(SW.RUMORES); break;
@@ -221,6 +225,20 @@
       }
     }
     return slots;
+  };
+
+  /** «Kira Vos (tu hermana, os lleváis bien)» en vez de un nombre suelto */
+  Game.prototype.etiquetaRel = function (r, sino) {
+    if (!r) return sino;
+    const t = r.tipo || 'conocido';
+    let como;
+    if (r.afecto >= 60) como = 'te fías de ' + (r.gen === 'f' ? 'ella' : 'él');
+    else if (r.afecto >= 20) como = 'os lleváis bien';
+    else if (r.afecto > -20) como = 'ni fu ni fa';
+    else if (r.afecto > -60) como = 'hay mal rollo';
+    else como = 'no os habláis';
+    const suyo = r.quien ? ', ' + r.quien : '';
+    return '<b>' + r.nombre + '</b> <i class="quien">(' + t + suyo + ' · ' + como + ')</i>';
   };
 
   /** una relación de los tipos pedidos, la de más peso */
@@ -377,18 +395,32 @@
     if (s.muerto) return;
 
     // la guerra se cobra antes que nada
+    if (SW.añoDeGuerraViva) SW.añoDeGuerraViva(this);
+    if (s.muerto) return;
     if (SW.añoDeGuerra) SW.añoDeGuerra(this);
     if (s.muerto) return;
     if (SW.cobrarPeligro) SW.cobrarPeligro(this);
     if (SW.olvidoAtencion) SW.olvidoAtencion(this);
+    this.avanzarEstudio();
+    if (SW.pasoAprendiz) SW.pasoAprendiz(this);
+    if (s.muerto) return;
     if (s.muerto) return;
 
     // eventos guionizados: los momentos que SÍ o SÍ deben ocurrir
     const guion = this.eventosPosibles(SW.GUION || []);
     if (guion.length) {
       const ev = guion.sort(function (a, b) { return (b.prio || 0) - (a.prio || 0); })[0];
-      const inst = this.prepararEvento(ev);
+      // algunos guiones se construyen sobre la marcha (a quién mataste, a quién debes)
+      let inst = null;
+      if (ev.hazlo) { const g = ev.hazlo(this); if (g) { inst = this.prepararGen(g); this.marcarVisto(ev.id); } }
+      else inst = this.prepararEvento(ev);
       if (inst) this.cola.push(inst);
+    }
+
+    // una misión de la Orden sin cerrar te persigue igual que un contrato
+    if (s.mision && SW.pasoMision && this.rng.chance(0.7)) {
+      const p = SW.pasoMision(this);
+      if (p) this.cola.push(this.prepararGen(p));
     }
 
     // un contrato en marcha manda sobre lo demás: es lo que estás haciendo
@@ -664,6 +696,14 @@
     const op = inst && inst.opciones && inst.opciones[i];
     if (!op) return;
     const d = op.def;
+    if (d.retoSalta) {
+      // renunciar al reto: sale regular, pero sale
+      this.log('› ' + op.txt, 'eleccion');
+      const r = this.reto; this.reto = null;
+      if (r) { this.cambios = {}; this.aplicarNodo(r.medio || r.mal, {}, null, false); this.volcarCambios(); }
+      if (!this.cola.length && !this.s.muerto) this.fase = 'menu';
+      return;
+    }
     if (d.tactica === 'cancelar') { this.cola.unshift(this.escenaCombateEvento()); return; }
     if (d.tactica) { this.log('› ' + op.txt, 'eleccion'); this.resolverTactica(d.tactica); return; }
     if (d.tacticaN) { this.log('› ' + op.txt, 'eleccion'); this.resolverTacticaNave(d.tacticaN); return; }
@@ -694,7 +734,18 @@
     if (d.pendiente) this.añadirPendiente(U.fill(d.pendiente, slots));
     if (d.buscado) { s.buscado = Math.min(100, s.buscado + d.buscado); this.log('Hay gente buscándote en ' + s.mundo + '.', 'mal'); }
     if (d.darItem) this.darObjeto(d.darItem);
+    // misiones de la Orden
+    if (d.aceptaMision && SW.aceptarMision) SW.aceptarMision(this, d.aceptaMision);
+    if (d.pista && s.mision) s.mision.pistas = (s.mision.pistas || 0) + d.pista;
+    if (d.abandonaMision && SW.abandonarMision) SW.abandonarMision(this, d.abandonaMision);
+    if (d.retoMision && SW.retoMision) SW.retoMision(this, d.retoMision);
+    if (d.cierraMision && SW.cerrarMision) SW.cerrarMision(this, d.cierraMision);
+    if (d.cierraMisionGrado != null && SW.cerrarMision) SW.cerrarMision(this, 'fuerza', d.cierraMisionGrado);
     if (d.conocer) this.conocerCanon(d.conocer);
+    if (d.conocerN) this.conocerCanon({ n: d.conocerN });
+    // marcar cómo acabó una leyenda: eso vuelve más tarde
+    if (d.canonMarca && SW.marcarCanon) SW.marcarCanon(this, d.canonMarca[0], d.canonMarca[1]);
+    if (d.afectoNombre) this.afectoCon(d.afectoNombre.nombre, d.afectoNombre.delta, d.afectoNombre.nota);
     if (d.flag) s.flags[U.fill(d.flag, slots)] = true;
     if (d.quitarFlag) delete s.flags[d.quitarFlag];
     if (d.contador) for (const k in d.contador) s.contadores[k] = (s.contadores[k] || 0) + d.contador[k];
@@ -781,6 +832,11 @@
     if (d.flag2) s.flags[U.fill(d.flag2, slots)] = true;
     if (d.quitarRuido) { s.stats.notoriedad = Math.max(0, s.stats.notoriedad - 10); }
     if (d.instalarMejora) this.instalarMejora(d.instalarMejora);
+    // no se puede ser jedi y senador a la vez: hay que salirse de uno
+    if (d.empleoPolitico != null && SW.caminoLibre && !SW.caminoLibre(s, 'politico')) {
+      this.cola.unshift(this.prepararGen(SW.GEN.dejarCamino(rng, s, 'politico')));
+      return;
+    }
     if (d.empleoPolitico != null && SW.ESCALONES) {
       const esc = SW.ESCALONES[d.empleoPolitico];
       if (esc) {
@@ -812,6 +868,66 @@
     if (d.accionMenu) this.cola.unshift(this.prepararGen(SW.GEN[rng.chance(0.45) && s.nave ? 'dogfight' : 'accion'](rng, s)));
     if (d.nombrarNave) this.cola.unshift(this.prepararGen(this.menuNombreNave()));
     if (d.construirSable) this.cola.unshift(this.prepararGen(this.menuSable()));
+    if (d.dejarOrden) {
+      const era = s.trabajo;
+      s.trabajo = null; s.rango = null; s.sueldo = 0;
+      if (era === 'jedi') { s.faccionRep.orden_jedi = (s.faccionRep.orden_jedi || 0) - 30; }
+      this.log('Dejas ' + ((SW.CAMINOS[era] || {}).n || 'lo que hacías') + '.', 'mal');
+      this.hito('Deja ' + ((SW.CAMINOS[era] || {}).n || 'su camino'));
+    }
+    if (d.dejarCargo) {
+      s.trabajo = null; s.rango = null; s.sueldo = 0;
+      s.flags.carrera_politica = false; s.flags.en_el_senado = false;
+      this.log('Se acabó tu carrera política.', 'mal');
+    }
+    if (d.tomarCamino === 'sith') this.unirseOrden('sith');
+    if (d.tomarCamino === 'politico' && SW.ESCALONES) {
+      s.flags.carrera_politica = true;
+      this.tomarEmpleo('politico', SW.ESCALONES[s.escalonPolitico || 0].sueldo);
+    }
+    if (d.sableRojo) {
+      // sangrar el cristal cambia la hoja de verdad: color, tinte y ficha
+      if (!s.sable) s.sable = { color: 'rojo', hex: '#ff3a3a', forma: s.forma || 'Makashi' };
+      else { s.sable.color = 'rojo'; s.sable.hex = '#ff3a3a'; }
+      s.sable.sangrado = true;
+      if (s.kyber) { s.kyber.c = 'rojo'; s.kyber.hex = '#ff3a3a'; }
+      this.log('El cristal cede y se vuelve <b>rojo</b>.', 'mal');
+      this.popup({ arte: 'sable', color: '#ff3a3a', titulo: 'Cristal sangrado', texto: 'Ya no vuelve a ser azul.' });
+    }
+    if (d.buscarAprendiz && SW.buscarAprendiz) SW.buscarAprendiz(this);
+    if (d.entrenarAprendiz && s.aprendizSith) {
+      s.aprendizSith.poder += rng.int(4, 9);
+      s.aprendizSith.lealtad += rng.int(-8, 6);
+      this.aplicarFx({ fuerza: 5, carisma: 4 }, {});
+      this.log('Tu aprendiz mejora. Eso es bueno y es malo.', 'res');
+    }
+    if (d.aprendizSucio && s.aprendizSith) {
+      s.aprendizSith.lealtad -= rng.int(6, 16);
+      this.aplicarFx({ creditos: 18000, alineamiento: -12, notoriedad: 6 }, {});
+      this.log('Lo hace él. La mancha es suya y el beneficio tuyo.', 'res');
+    }
+    if (d.matarAprendiz && s.aprendizSith) {
+      const a = s.aprendizSith;
+      if (rng.chance(U.clamp(0.5 + (s.stats.fuerza - a.poder) / 90, 0.15, 0.92))) {
+        this.log('Acabas con ' + a.n + ' antes de que se le ocurra a él.', 'mal');
+        this.matarRelacion('aprendiz');
+        s.aprendizSith = null;
+        this.aplicarFx({ alineamiento: -16, cordura: -10, fuerza: 6 }, {});
+      } else {
+        this.log(a.n + ' lo esperaba.', 'mal');
+        s.aprendizSith = null;
+        this.iniciarCombate({ dif: a.poder + 18, duelo: true, sable: true, aMuerte: true });
+      }
+    }
+    if (d.cazarJedi) {
+      const dif = 52 + rng.int(0, 30);
+      this.log('Sales a cazar. Encuentras a uno.', 'res');
+      s.contadores.jedisCazados = (s.contadores.jedisCazados || 0) + 1;
+      this.aplicarFx({ alineamiento: -14, notoriedad: 14 }, {});
+      this.iniciarCombate({ dif: dif, duelo: true, sable: true, aMuerte: true, sableBotin: !s.sable });
+    }
+    if (d.conspira && SW.resolverConspiracion) SW.resolverConspiracion(this, d.conspira, d.modo);
+    if (d.menuAlistar) this.cola.unshift(this.prepararGen(this.menuAlistarse()));
     if (d.unirse) this.unirseOrden(d.unirse);
     if (d.poder) this.darPoder(d.poder);
     if (d.habilidad && s.habilidades.indexOf(d.habilidad) < 0) { s.habilidades.push(d.habilidad); this.log('Nueva habilidad: ' + d.habilidad + '.', 'bien'); }
@@ -1190,23 +1306,58 @@
       s.stats.alineamiento -= 25;
       s.stats.fuerza += 10;
       this.hito('Abraza el lado oscuro');
+      // un maestro sith no deja a su aprendiz con las manos vacías
+      if (!s.sable) {
+        if (!s.kyber) s.kyber = { c: 'rojo', hex: '#ff3a3a', s: 'Un cristal ya sangrado por otro antes que tú.' };
+        s.forma = s.forma || 'Makashi';
+        s.sable = { color: 'rojo', hex: '#ff3a3a', forma: s.forma, sangrado: true };
+        this.log('Tu maestro te entrega una hoja <b>roja</b>. No preguntes de quién era.', 'mal');
+        this.hito('Recibe un sable de hoja roja');
+      }
     }
     clampStats(s);
   };
 
   /* ---------------- Estudios ---------------- */
+  /** Matricularse ya no es instantáneo: se apunta y los años pasan.
+      Antes te dabas ocho años de Templo en un solo año de vida. */
   Game.prototype.matricular = function (id) {
     const s = this.s;
     const e = SW.ESTUDIOS.filter(function (x) { return x.id === id; })[0];
     if (!e) return;
     if (s.stats.creditos < e.coste) { this.log('No puedes pagar la matrícula.', 'mal'); return; }
     s.stats.creditos -= e.coste;
-    for (const k in (e.mods || {})) if (s.stats[k] != null) s.stats[k] += e.mods[k];
-    s.estudios.push(e.n);
-    if (e.faccion) s.faccionRep[e.faccion] = U.clamp((s.faccionRep[e.faccion] || 0) + 15, -100, 100);
+    const años = SW.añosDeEstudio ? SW.añosDeEstudio(e.id) : 3;
+    s.estudiando = { id: e.id, n: e.n, quedan: años, total: años };
+    this.log('Te matriculas en <b>' + e.n + '</b>. Son ' + años + ' años.', 'bien');
+  };
+
+  /** un año más de formación; al acabar, el título y sus efectos */
+  Game.prototype.avanzarEstudio = function () {
+    const s = this.s;
+    const est = s.estudiando;
+    if (!est) return;
+    est.quedan--;
+    const e = SW.ESTUDIOS.filter(function (x) { return x.id === est.id; })[0];
+    // se aprende poco a poco, no todo de golpe al final
+    if (e && e.mods) {
+      for (const k in e.mods) {
+        if (s.stats[k] == null) continue;
+        s.stats[k] += e.mods[k] / est.total;
+      }
+    }
+    if (est.quedan > 0) {
+      this.log('Sigues formándote en ' + est.n + '. Quedan ' + est.quedan + ' año(s).', 'res');
+      s.acciones = Math.max(1, s.acciones - 1);   // estudiar ocupa
+      clampStats(s);
+      return;
+    }
+    s.estudios.push(est.n);
+    if (e && e.faccion) s.faccionRep[e.faccion] = U.clamp((s.faccionRep[e.faccion] || 0) + 15, -100, 100);
+    s.estudiando = null;
     clampStats(s);
-    this.log('Completas: ' + e.n + '.', 'bien');
-    this.hito('Se forma en ' + e.n);
+    this.log('Terminas <b>' + est.n + '</b>.', 'bien');
+    this.hito('Se forma en ' + est.n);
   };
 
   /* ---------------- Fuerza ---------------- */
@@ -1608,9 +1759,40 @@
     };
   };
 
+  /* --- reto de concentración: un minijuego fuera del combate ---
+     Lo usan las misiones de la Orden. No hay a quién pegar: hay que
+     acertar la secuencia que la Fuerza te enseña. */
+  Game.prototype.retoFuerza = function (cfg) {
+    const s = this.s;
+    this.reto = cfg;
+    this.cola.unshift(this.prepararGen({
+      id: 'reto_fuerza', gen: true,
+      t: '<span class="scene-tag">CONCENTRACIÓN</span><p>' +
+         (cfg.txt || 'Cierra los ojos. Durante un instante la Fuerza te enseña el orden de las cosas. Repítelo.') + '</p>',
+      minijuego: 'fuerza',
+      dificultad: U.clamp(cfg.dif || 50, 15, 98),
+      pericia: Math.round(s.stats.fuerza * 0.6 + s.stats.intelecto * 0.3 + s.stats.cordura * 0.1),
+      c: [{ t: 'No fiarte de la Fuerza y hacerlo a ojo', retoSalta: true }]
+    }));
+  };
+
   /** llamado por la interfaz con el resultado del minijuego */
   Game.prototype.resolverMinijuego = function (grado) {
     const e = this.escena, s = this.s, rng = this.rng;
+    // los retos de concentración no viven dentro de un combate
+    if (this.reto) {
+      const r = this.reto;
+      this.reto = null;
+      const nodo = grado >= 2 ? (r.critico || r.bien)
+                 : grado === 1 ? r.bien
+                 : grado === 0 ? (r.medio || r.mal) : r.mal;
+      if (nodo) { this.cambios = {}; this.aplicarNodo(nodo, {}, null, false); this.volcarCambios(); }
+      if (grado >= 1) this.aplicarFx({ fuerza: grado === 2 ? 6 : 3 }, {});
+      else if (grado < 0) this.aplicarFx({ cordura: -5 }, {});
+      clampStats(this.s);
+      if (!this.cola.length && !this.s.muerto) this.fase = 'menu';
+      return;
+    }
     if (!e) return;
 
     // si el minijuego era el disparo de aturdimiento de una caza,
@@ -1654,12 +1836,24 @@
   Game.prototype.finCombate = function (victoria) {
     const e = this.escena, s = this.s;
     if (!e) return;
+    // una misión de la Orden que se resuelve a golpes se cierra aquí
+    if (e.cfg.mision && SW.cerrarMision) SW.cerrarMision(this, 'combate', victoria ? 1 : -1);
     if (victoria) {
       if (e.cfg.sableOscuro) this.darSableOscuro();
+      // al que cae se le queda el sable: es como se han armado siempre los sith
+      if (e.cfg.sableBotin && !s.sable) {
+        const oscuro = s.stats.alineamiento < -20;
+        s.sable = { color: oscuro ? 'rojo' : 'azul', hex: oscuro ? '#ff3a3a' : '#3ad6ff',
+                    forma: s.forma || 'Makashi', sangrado: oscuro };
+        this.log('Te quedas con su sable. Hoja <b>' + s.sable.color + '</b>.', oscuro ? 'mal' : 'bien');
+        this.hito('Se queda con el sable de su enemigo');
+      }
       if (e.cfg.canon) {
         this.log('Has ganado un combate del que se va a hablar.', 'bien');
         this.aplicarFx({ reputacion: 15, notoriedad: 15 }, {});
         this.hito('Vence a alguien de leyenda');
+        // ganar a una leyenda deja secuelas: alguien vendrá a preguntar
+        if (SW.marcarCanon) SW.marcarCanon(this, e.cfg.canon, e.cfg.aMuerte ? 'muerto' : 'vencido');
       }
       const botin = e.cfg.botin || 0;
       if (botin) { s.stats.creditos += botin; this.log('Victoria. Cobras ' + U.cr(botin) + '.', 'cr'); }
@@ -1868,6 +2062,28 @@
   };
 
   /** el hangar ya no vende mejoras: eso es cosa del taller */
+  /** alistarse: se ve a qué te apuntas y lo mortal que es cada puesto */
+  Game.prototype.menuAlistarse = function () {
+    const s = this.s;
+    const bando = SW.bandosDeEra ? SW.bandosDeEra(s.era) : null;
+    const c = (SW.PUESTOS_GUERRA || []).filter(function (p) {
+      return !p.req || p.req(s);
+    }).map(function (p) {
+      const riesgo = Math.round((SW.RIESGO_GUERRA[p.id] || 0.15) * 100);
+      return Object.assign({
+        t: p.n, sub: p.sub + ' · ' + p.aviso + ' (~' + riesgo + '% al año)',
+        guerra: true, puesto: p.id, habilidad: p.habilidad
+      }, { fx: p.fx });
+    });
+    c.push({ t: '◂ Pensarlo mejor', volver: true });
+    return {
+      id: 'menu_alistarse', gen: true, esMenu: true,
+      t: 'ALISTAMIENTO' + (bando ? ' — ' + bando : '') +
+         '<br><span class="dim">Cada puesto tiene su probabilidad de no volver. Elige sabiendo.</span>',
+      c: c
+    };
+  };
+
   Game.prototype.menuHangar = function () {
     const s = this.s, rng = this.rng;
     const c = [];
@@ -2055,6 +2271,13 @@
     if (id === 'senado' && SW.menuPolitica) {
       this.cola.push(this.prepararGen(SW.menuPolitica(this))); this.fase = 'evento'; return;
     }
+    if (id === 'oscuro' && SW.menuOscuro) {
+      this.cola.push(this.prepararGen(SW.menuOscuro(this))); this.fase = 'evento'; return;
+    }
+    if (id === 'orden' && SW.menuOrden) {
+      const m = SW.menuOrden(this);
+      if (m) { this.cola.push(this.prepararGen(m)); this.fase = 'evento'; return; }
+    }
     const pool = SW.ACTOS[id] || [];
     let posibles = this.eventosPosibles(pool);
     // si ya has vivido todo lo escrito para esa vía, se genera algo nuevo
@@ -2084,6 +2307,7 @@
       else if (id === 'salud') this.cola.push(this.prepararGen(this.menuClinica()));
       else if (id === 'clinica') this.cola.push(this.prepararGen(this.menuClinica()));
       else if (id === 'senado' && SW.menuPolitica) this.cola.push(this.prepararGen(SW.menuPolitica(this)));
+      else if (id === 'oscuro' && SW.menuOscuro) this.cola.push(this.prepararGen(SW.menuOscuro(this)));
       else if (id === 'fuerza') this.cola.push(this.prepararGen(this.menuFuerza()));
       else if (id === 'taller' && SW.menuTaller && s.nave) this.cola.push(this.prepararGen(SW.menuTaller(this)));
       else if (id === 'gremio' && SW.GEN.contratoCaza) {

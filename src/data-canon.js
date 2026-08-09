@@ -245,6 +245,11 @@
     const pool = SW.canonDeEra(s.era);
     if (!pool.length) return null;
     const p = rng.weighted(pool, function (c) { return c.w || 1; });
+    // algunos tienen escena propia con consecuencias, no la plantilla genérica
+    if (SW.GEN['canon_' + p.id]) {
+      const esp = SW.GEN['canon_' + p.id](rng, s);
+      if (esp) return esp;
+    }
     const lugar = rng.pick(SW.LUGARES);
     const oscuro = s.stats.alineamiento < -30;
     const luminoso = s.stats.alineamiento > 30;
