@@ -22,7 +22,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # enablement: true hace que el propio workflow dé de alta el sitio de
+      # Pages si no lo está, en vez de fallar pidiendo que alguien entre en
+      # Settings. Necesita los permisos `pages: write` e `id-token: write`
+      # de arriba. Si la cuenta no puede (repo privado sin plan de pago, o
+      # una política de la organización), el paso falla diciendo por qué y
+      # entonces sí toca activarlo a mano.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
