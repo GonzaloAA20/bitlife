@@ -15,11 +15,11 @@ Naces, creces, eliges, te equivocas y mueres. Al final te llevas una tarjeta con
 
 | | |
 |---|---|
-| Decisiones posibles | **~13,5 millones** de nodos de decisión |
-| Escenarios únicos | ~3,5 millones |
+| Decisiones posibles | **~1.470 millones** de nodos de decisión |
+| Escenarios únicos | ~370 millones |
 | Especies jugables | 61 (incluido el clon de Kamino) |
-| Mundos | 113, con dato real de cada uno al llegar |
-| Carreras | 50 |
+| Mundos | 117, con dato real de cada uno al llegar |
+| Carreras | 51 |
 | Poderes de la Fuerza | 30 |
 | Personajes conocidos | 54, cada uno solo en su época |
 
@@ -143,15 +143,29 @@ Al morir tienes tres opciones:
 
 ## Publicar en GitHub Pages
 
-El repositorio ya trae el workflow (`.github/workflows/pages.yml`) y un `.nojekyll`. Solo hay que:
+El repositorio ya trae todo lo necesario: el workflow (`.github/workflows/pages.yml`), un `.nojekyll` y la tarjeta de previsualización (`assets/og.png`). Quedan dos pasos:
 
-1. Fusionar esta rama en `main`.
-2. Ir a **Settings → Pages** del repositorio.
-3. En **Source**, elegir **GitHub Actions**.
+1. **Fusionar la rama de trabajo en `main`.** El workflow se dispara con cada push a `main`.
+2. **Settings → Pages → Source: GitHub Actions.** Esto hay que hacerlo una sola vez y solo puede hacerlo quien administre el repositorio; no se puede activar desde un commit.
 
-En un minuto la web queda en `https://<usuario>.github.io/<repo>/`.
+En un par de minutos la web queda en:
 
-> Alternativa sin Actions: en **Settings → Pages** elegir *Deploy from a branch* → `main` → `/ (root)`. Funciona igual, porque el juego es HTML estático puro.
+**https://gonzaloaa20.github.io/bitlife/**
+
+Después de eso, cada push a `main` la actualiza solo. En la pestaña **Actions** se ve el despliegue en marcha.
+
+> Alternativa sin Actions: en **Settings → Pages** elegir *Deploy from a branch* → `main` → `/ (root)`. Funciona igual, porque el juego es HTML estático puro. Con esta opción, ignora el paso 2.
+
+> Si el repositorio es **privado**, Pages solo funciona con una cuenta de pago. Con el repositorio público es gratis.
+
+### Pasárselo a alguien
+
+- **El enlace de siempre:** `https://gonzaloaa20.github.io/bitlife/`. Al pegarlo en WhatsApp, Discord o Telegram sale una tarjeta con el logo y las cifras, porque el `index.html` lleva las etiquetas Open Graph apuntando a `assets/og.png`.
+- **Un solo archivo, sin internet:** `dist/holovida.html` es el juego entero —CSS y los 58 scripts incrustados— en un fichero. Se puede mandar por correo y se abre con doble clic. También queda servido en `https://gonzaloaa20.github.io/bitlife/dist/holovida.html`.
+- **Una partida concreta:** desde la tarjeta de fin de vida, el botón de compartir genera un enlace con el resumen comprimido en el `#`. Quien lo abra ve esa vida, no la suya.
+- **Retar a alguien:** la semilla es determinista. Misma semilla, misma vida: se la pasas y jugáis la misma partida.
+
+> Si cambias el nombre del repositorio o el usuario, hay que tocar las cuatro URL absolutas del `<head>` de `index.html` (`og:url`, `og:image`, `twitter:image`): los rastreadores de enlaces no resuelven rutas relativas.
 
 ---
 
