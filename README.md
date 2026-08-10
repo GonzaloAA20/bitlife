@@ -146,7 +146,7 @@ Al morir tienes tres opciones:
 El repositorio ya trae todo lo necesario: el workflow (`.github/workflows/pages.yml`), un `.nojekyll` y la tarjeta de previsualización (`assets/og.png`). Quedan dos pasos:
 
 1. **Fusionar la rama de trabajo en `main`.** El workflow se dispara con cada push a `main`.
-2. **Settings → Pages → Source: GitHub Actions.** Esto hay que hacerlo una sola vez y solo puede hacerlo quien administre el repositorio; no se puede activar desde un commit.
+2. **Settings → Pages → Source: GitHub Actions.** Una sola vez, y tiene que hacerlo una persona: GitHub no deja crear el sitio con el token de Actions aunque el workflow tenga `pages: write` (falla con *Resource not accessible by integration*). Después de guardarlo, en **Actions** hay que volver a lanzar el último despliegue —botón *Re-run jobs*— porque el que se ejecutó antes de activarlo falló.
 
 En un par de minutos la web queda en:
 
