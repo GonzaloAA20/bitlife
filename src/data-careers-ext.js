@@ -113,3 +113,61 @@
   });
 
 })(window);
+
+/* ============================================================
+   UN OFICIO A LA VEZ
+   El motor solo tiene una casilla de trabajo, así que aceptar uno
+   nuevo borraba el anterior sin decir nada: te metías en el Gremio
+   de Cazarrecompensas y seguías figurando de mecánico. Ahora se
+   avisa y decides tú.
+
+   No todo choca. Un escaño en el Senado se compagina con casi
+   cualquier cosa —para eso es un cargo, no un turno— y con el bajo
+   mundo se compagina en secreto, que es como se ha hecho siempre.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+
+  // oficios que son un cargo, no una jornada: caben junto a otra cosa
+  const CARGOS = ['senador', 'gobernador', 'academico', 'musico'];
+  // y los que exigen tu vida entera
+  const EXCLUSIVOS = ['jedi', 'sith', 'inquisidor', 'cazarrecompensas', 'mando'];
+
+  SW.chocaConTrabajo = function (s, nuevo) {
+    if (!s.trabajo || s.trabajo === nuevo) return false;
+    if (CARGOS.indexOf(nuevo) >= 0 && CARGOS.indexOf(s.trabajo) < 0) return false;
+    if (CARGOS.indexOf(s.trabajo) >= 0 && CARGOS.indexOf(nuevo) < 0) return false;
+    return true;
+  };
+
+  SW.menuDejarTrabajo = function (g, empleo) {
+    const s = g.s;
+    const viejo = SW.carrera(s.trabajo);
+    const nuevo = SW.carrera(empleo.id);
+    const exclusivo = EXCLUSIVOS.indexOf(empleo.id) >= 0;
+    return {
+      id: 'trabajo_choca', gen: true, esMenu: true,
+      t: '<span class="scene-tag">NO CABEN LAS DOS COSAS</span>' +
+        '<p>Ahora mismo eres <b>' + U.esc(s.rango || (viejo ? viejo.n : 'algo')) + '</b>' +
+        (viejo ? ' (' + U.esc(viejo.n) + ')' : '') + '.</p>' +
+        '<p>Para entrar en <b>' + U.esc(nuevo ? nuevo.n : empleo.id) + '</b> hay que dejarlo. ' +
+        (exclusivo ? 'Esto no es un empleo con horario: es a lo que te dedicas.'
+                   : 'Nadie hace dos jornadas completas.') + '</p>' +
+        '<p class="dim">Sueldo actual ' + U.cr(s.sueldo || 0) + ' · ' + (s.añosEnTrabajo || 0) + ' años dentro.</p>',
+      c: [
+        { t: 'Dejarlo y empezar de cero', sub: 'Se acabó lo anterior.',
+          cambiarEmpleo: empleo, fx: { cordura: -4 } },
+        { t: 'Dejarlo bien, avisando con tiempo',
+          req: function (st) { return (st.añosEnTrabajo || 0) >= 2; },
+          sub: 'Pierdes unos meses de sueldo y ganas una puerta abierta.',
+          cambiarEmpleo: empleo, fx: { creditos: -3000, reputacion: 8, cordura: 4 },
+          out: 'Te despiden con un apretón de manos. Eso vale más de lo que parece.' },
+        { t: 'Quedarte donde estás', fx: { cordura: 4 },
+          out: 'Lo dejas pasar. A lo mejor vuelve a salir, a lo mejor no.' }
+      ]
+    };
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);

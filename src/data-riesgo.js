@@ -183,6 +183,17 @@
       g.morir(rng.pick(SW.MUERTES_GUERRA));
       return;
     }
+
+    /* Estar en el frente tiene que ser jugarlo, no que te lo cuenten.
+       Antes esto era la tirada de arriba y tres frases: una guerra
+       entera sin una sola decisión. Ahora, la mayoría de los años, la
+       campaña te da una misión que se juega. */
+    if (SW.GEN.misionGuerra && rng.chance(0.78)) {
+      g.cola.push(g.prepararGen(SW.GEN.misionGuerra(rng, s)));
+      g.fase = 'evento';
+      return;   // la misión ES el año: el resumen de abajo sobra
+    }
+
     // sobrevives el año: nadie sale igual
     const dur = rng.int(0, 3);
     if (dur === 0) {

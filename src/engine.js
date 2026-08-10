@@ -535,6 +535,19 @@
       if (paso) this.cola.push(this.prepararGen(paso));
     }
 
+    /* Si vives del Gremio, el Gremio te busca. Antes los contratos solo
+       aparecían si el sorteo general escupía la escena del tablón, que
+       compite con otras mil: se podía llegar a Leyenda del Gremio sin
+       que te ofrecieran uno. Ahora, si eres del oficio y estás libre,
+       el trabajo viene a ti. */
+    if (!s.contrato && !s.muerto && SW.GEN.contratoCaza && s.edadBio >= 16 &&
+        (s.flags.en_el_gremio || s.trabajo === 'cazarrecompensas') && !s.flags.gremio_desconfia) {
+      const suyo = s.trabajo === 'cazarrecompensas';
+      if (this.rng.chance(suyo ? 0.78 : 0.35)) {
+        this.cola.push(this.prepararGen(SW.GEN.contratoCaza(this.rng, s)));
+      }
+    }
+
     // encuentro con alguien conocido: muy raro, y más si eres un don nadie
     if (s.edadBio > 12 && SW.GEN.canon) {
       const fama = (s.stats.reputacion + s.stats.notoriedad) / 200;
@@ -1023,7 +1036,17 @@
     if (d.despido) this.perderTrabajo();
     if (d.ascenso != null && rng.chance(d.ascenso)) { s.rendimiento += 20; this.chequearAscenso(); }
     if (d.carcel) { s.carcelAños = d.carcel; this.log('Condena: ' + d.carcel + ' año(s).', 'mal'); this.hito('Entra en prisión (' + d.carcel + ' años)'); }
-    if (d.empleo) this.tomarEmpleo(d.empleo.id, d.empleo.sueldo);
+    /* Un oficio a la vez, y avisando. Antes tomarEmpleo pisaba el
+       anterior en silencio: te metías en el Gremio y seguías «siendo»
+       mecánico, con las dos pestañas abiertas y ninguna coherente. */
+    if (d.empleo) {
+      if (SW.chocaConTrabajo && SW.chocaConTrabajo(s, d.empleo.id)) {
+        this.cola.unshift(this.prepararGen(SW.menuDejarTrabajo(this, d.empleo)));
+        this.fase = 'evento';
+      } else {
+        this.tomarEmpleo(d.empleo.id, d.empleo.sueldo);
+      }
+    }
     if (d.buscarEmpleo) this.cola.unshift(this.prepararGen(SW.GEN.empleo(rng, s, d.buscarEmpleo)));
     if (d.generar && SW.GEN[d.generar]) this.cola.unshift(this.prepararGen(SW.GEN[d.generar](rng, s)));
 
@@ -1034,6 +1057,12 @@
     if (d.mercancia) this.cola.unshift(this.prepararGen(this.menuMercancia()));
     if (d.venderCarga) this.venderCarga();
     if (d.cargar) this.comprarCarga(d.cargar);
+    if (d.venderCarga) this.venderCarga();
+    if (d.tirarCarga && s.carga) {
+      this.log('Sueltas ' + s.carga.n + ' por la esclusa. Adiós a ' + U.cr(s.carga.coste) + '.', 'mal');
+      s.carga = null;
+    }
+    if (d.viajarA) { this.abrirMapaViaje = true; s.destinoSugerido = d.viajarA; }
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
     if (d.taller && SW.menuTaller && s.nave) this.cola.unshift(this.prepararGen(SW.menuTaller(this)));
     if (d.carrera && SW.iniciarCarrera) SW.iniciarCarrera(this, d.circuito);
@@ -1211,6 +1240,12 @@
       s.flags.en_el_frente = true;
       s.puestoGuerra = d.puesto || s.puestoGuerra || 'infanteria';
       s.añosDeFrenteRestantes = d.campaña || rng.int(2, 5);
+      /* Sin bando no hay unidad, y sin unidad la pestaña de Escuadrón
+         no aparece: te alistabas y no te llegaba una sola misión en toda
+         la guerra. Si la escena no dice de qué lado vas, se toma el
+         ejército regular de tu época. */
+      if (!s.bando) this.fijarBando(d.bandoGuerra || (SW.bandoRegular ? SW.bandoRegular(s) : 'republica'), slots);
+      s.campaña = { mision: 0, medallas: 0, puesto: s.puestoGuerra };
       this.hito('Va a la guerra');
       this.log('Estás en el frente. A partir de ahora, cada año cuenta.', 'mal');
     }
@@ -1234,7 +1269,11 @@
       const rc = s.relaciones.filter(function (r) { return r.nombre === d.relCambio.nombre; })[0];
       if (rc) rc.afecto = U.clamp(rc.afecto + (d.relCambio.afecto || 0), -100, 100);
     }
+    if (d.cambiarEmpleo) { this.perderTrabajo(); this.tomarEmpleo(d.cambiarEmpleo.id, d.cambiarEmpleo.sueldo); }
     if (d.pruebaOk && SW.contarPrueba) SW.contarPrueba(this, d);
+    if (d.medalla && SW.darMedalla) SW.darMedalla(this);
+    // «medallaSi»: te la dan si sales vivo del combate que abre la opción
+    if (d.medallaSi) s.pendienteMedalla = true;
     if (d.hazteInquisidor && SW.hazteInquisidor) SW.hazteInquisidor(this);
     if (d.cazaJedi && SW.marcarJediCazado) SW.marcarJediCazado(this, d.cazaJedi);
     if (d.aceptaCaza) {
@@ -1544,6 +1583,15 @@
     const c = SW.carrera(id);
     if (!c) return;
     s.trabajo = id;
+    /* Si tu oficio ES el Gremio, tienes la placa. Parece obvio y no lo
+       era: los rangos de la carrera se llaman «Novato del Gremio» y
+       «Leyenda del Gremio», pero la pestaña de contratos pedía el flag
+       `en_el_gremio`, que solo ponía un evento suelto de bar. Se podía
+       llegar a Leyenda del Gremio sin recibir un solo contrato. */
+    if (id === 'cazarrecompensas' && !s.flags.en_el_gremio) {
+      s.flags.en_el_gremio = true;
+      this.log('Con el oficio viene la placa: ya estás en el Gremio de Cazarrecompensas.', 'bien');
+    }
     s.rango = c.rangos[0];
     s.sueldo = sueldo || c.sueldoBase;
     s.añosEnTrabajo = 0;
@@ -1733,7 +1781,11 @@
     let factor = 1 + saltos * 0.055 + (m.riq - origen.riq) * 0.04;
     if (s.carga.ilegal) factor += (9 - m.ley) * 0.035;
     else factor -= Math.max(0, (5 - m.ley)) * 0.02;
-    return Math.round(s.carga.coste * U.clamp(factor, 0.4, 1.9));
+    /* Vender es negociar: quien cae bien y tiene nombre saca más por lo
+       mismo. Con lo ilegal manda la notoriedad, que ahí es currículum. */
+    factor += (s.stats.carisma - 50) / 420;
+    factor += ((s.carga.ilegal ? s.stats.notoriedad : s.stats.reputacion) - 40) / 600;
+    return Math.round(s.carga.coste * U.clamp(factor, 0.4, 2.1));
   };
 
   Game.prototype.comprarCarga = function (tipo) {
@@ -2254,6 +2306,8 @@
       else this.log('Victoria.', 'bien');
       this.aplicarFx({ destreza: 3, fisico: 2, reputacion: 4, notoriedad: e.cfg.contrato ? 6 : 3 }, {});
       if (e.cfg.contrato) s.contadores.cazas = (s.contadores.cazas || 0) + 1;
+      if (e.cfg.frente && s.pendienteMedalla && SW.darMedalla) SW.darMedalla(this);
+      s.pendienteMedalla = false;
       if (e.cfg.duelo) { s.contadores.duelos = (s.contadores.duelos || 0) + 1; this.hito('Gana un duelo'); }
     } else {
       const hp = e.hpEnemigo;
@@ -2392,7 +2446,13 @@
       };
     });
     c.push({ t: 'Ir a la armería', sub: 'armas y protección', armeria: true });
-    c.push({ t: 'Mercancía a granel', sub: 'comprar barato aquí para vender lejos', mercancia: true });
+    /* La lonja ya no vive aquí escondida entre las chucherías: tiene
+       pestaña propia y exige bodega. Comprar mercancía sin nave era
+       comprar algo que no te podías llevar. */
+    if (!s.nave) {
+      c.push({ t: '✕ Mercancía a granel', bloqueada: true,
+        sub: 'hace falta una nave con bodega: se compra en el Hangar' });
+    }
     if (s.carga) {
       const v = this.valorCargaEn(s.mundo);
       c.push({ t: 'Vender tu carga: ' + s.carga.n + ' — ' + U.cr(v),
@@ -2461,9 +2521,21 @@
   Game.prototype.menuAlistarse = function () {
     const s = this.s;
     const bando = SW.bandosDeEra ? SW.bandosDeEra(s.era) : null;
-    const c = (SW.PUESTOS_GUERRA || []).filter(function (p) {
-      return !p.req || p.req(s);
-    }).map(function (p) {
+    /* No todo el mundo puede ir a todas las guerras. En las Guerras
+       Clon el Gran Ejército es de clones: a un civil le queda la
+       milicia de su mundo y a un cazarrecompensas con nombre le
+       contratan, que es otra cosa y sale en otra escena. */
+    const puertas = SW.puestosDeGuerra ? SW.puestosDeGuerra(s)
+                                       : { lista: (SW.PUESTOS_GUERRA || []), nota: null };
+    if (!puertas.lista.length) {
+      return {
+        id: 'menu_alistarse', gen: true, esMenu: true,
+        t: 'ALISTAMIENTO' + (bando ? ' — ' + bando : '') + '<br>' +
+           '<span class="dim">' + (puertas.nota || 'Aquí no hay sitio para ti.') + '</span>',
+        c: [{ t: '◂ Dejarlo estar', volver: true }]
+      };
+    }
+    const c = puertas.lista.map(function (p) {
       const riesgo = Math.round((SW.RIESGO_GUERRA[p.id] || 0.15) * 100);
       return Object.assign({
         t: p.n, sub: p.sub + ' · ' + p.aviso + ' (~' + riesgo + '% al año)',
@@ -2473,8 +2545,9 @@
     c.push({ t: '◂ Pensarlo mejor', volver: true });
     return {
       id: 'menu_alistarse', gen: true, esMenu: true,
-      t: 'ALISTAMIENTO' + (bando ? ' — ' + bando : '') +
-         '<br><span class="dim">Cada puesto tiene su probabilidad de no volver. Elige sabiendo.</span>',
+      t: 'ALISTAMIENTO' + (puertas.milicia ? ' — MILICIA PLANETARIA' : (bando ? ' — ' + bando : '')) +
+         '<br><span class="dim">' + (puertas.nota ? puertas.nota + ' ' : '') +
+         'Cada puesto tiene su probabilidad de no volver. Elige sabiendo.</span>',
       c: c
     };
   };
@@ -2719,6 +2792,10 @@
     if (id === 'orden' && SW.menuOrden) {
       const m = SW.menuOrden(this);
       if (m) { this.cola.push(this.prepararGen(m)); this.fase = 'evento'; return; }
+    }
+    if (id === 'mercancia') {
+      this.cola.push(this.prepararGen(SW.menuBodega ? SW.menuBodega(this) : this.menuMercancia()));
+      this.actividadUsada = s.acciones <= 0; this.fase = 'evento'; return;
     }
     if (id === 'inquisicion' && SW.menuInquisicion) {
       const m = SW.menuInquisicion(this);

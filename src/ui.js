@@ -1215,8 +1215,10 @@
     }
     if (ref.minijuego === 'desenfundar') {
       return '<div class="mini mini-draw" id="mini">' +
-        '<button class="draw-zona" id="draw-zona"><span id="draw-txt">ESPERA…</span></button>' +
-        '<p class="mini-pie">Pulsa en cuanto el recuadro cambie. Si te adelantas, pierdes.</p></div>';
+        '<button class="draw-zona" id="draw-zona"><span id="draw-txt">QUIETO…</span></button>' +
+        '<div class="draw-marcas" id="draw-marcas"></div>' +
+        '<p class="mini-pie" id="draw-pie">Va a amagar antes de ir de verdad. ' +
+        'Si desenfundas con un amago, te ha ganado. Espera al <b>rojo</b>.</p></div>';
     }
     if (ref.minijuego === 'fuerza') {
       let g = '<div class="mini mini-fuerza" id="mini"><div class="fz-rejilla" id="fz-rejilla">';
@@ -1377,37 +1379,88 @@
       return;
     }
 
+    /* ---------- desenfundar ----------
+       Antes esto era una prueba de tiempo de reacción pura, y estaba
+       mal calibrada hasta lo imposible: con dificultad 50 la ventana
+       era de 228 ms y el «perfecto» pedía bajar de 102 ms. Un humano
+       reacciona en 200-300 ms, así que no se podía ganar por diseño.
+
+       Ahora la gracia no es ser más rápido que la biología: es aguantar
+       los amagos. El rival finge dos o tres veces (ámbar) antes de ir
+       de verdad (rojo). Picar un amago te cuesta el duelo; la ventana
+       real es amplia y lo que se mide encima es lo ajustado que vas. */
     if (ref.minijuego === 'desenfundar') {
-      const zona = $('#draw-zona'), txt = $('#draw-txt');
-      const espera = 700 + Math.random() * 1800;
-      const st = { listo: false, t0: 0, timer: 0, terminado: false };
+      const zona = $('#draw-zona'), txt = $('#draw-txt'), pie = $('#draw-pie'), marcas = $('#draw-marcas');
+      const pericia = U.clamp(ref.pericia || 30, 0, 120);
+      // cuanto peor es el rival, más se le ve venir; la pericia te da aire
+      const amagos = U.clamp(Math.round(1 + dif / 30 - pericia / 90), 1, 4);
+      // ventana real: de sobra para un humano, estrecha contra una leyenda
+      let ventana = 900 - dif * 3.4 + pericia * 1.6;
+      if (ref.rival === 'leyenda') ventana *= 0.62;
+      ventana = Math.round(U.clamp(ventana, 330, 1200));
+
+      const st = { fase: 0, listo: false, t0: 0, timers: [], terminado: false, picados: 0 };
       UI.mini = st;
-      st.timer = setTimeout(function () {
+      const espera = function (ms, fn) { st.timers.push(setTimeout(fn, ms)); };
+      let hechos = 0;
+      const pintar = function () {
+        let h = '';
+        for (let i = 0; i < amagos; i++) h += '<i class="' + (i < hechos ? 'ok' : '') + '"></i>';
+        h += '<b class="' + (st.listo ? 'on' : '') + '"></b>';
+        marcas.innerHTML = h;
+      };
+      pintar();
+
+      let t = 600 + Math.random() * 700;
+      for (let i = 0; i < amagos; i++) {
+        (function (n) {
+          espera(t, function () {
+            if (st.terminado) return;
+            zona.classList.add('amago');
+            txt.textContent = 'AMAGO';
+          });
+          espera(t + 170, function () {
+            if (st.terminado) return;
+            zona.classList.remove('amago');
+            txt.textContent = 'QUIETO…';
+            hechos = n + 1; pintar();
+          });
+        })(i);
+        t += 700 + Math.random() * 900;
+      }
+      espera(t, function () {
         if (st.terminado) return;
-        st.listo = true; st.t0 = Date.now();
+        st.listo = true; st.t0 = performance.now();
         zona.classList.add('ya');
         txt.textContent = '¡AHORA!';
-      }, espera);
+        pintar();
+        // si no reaccionas, te dispara él
+        espera(ventana + 260, function () {
+          if (st.terminado) return;
+          st.terminado = true;
+          UI.finMinijuego(-1, 'No llegas a sacar. Él sí.');
+        });
+      });
+
       zona.onclick = function () {
         if (st.terminado) return;
+        if (!st.listo) {
+          // picar un amago no siempre es mortal: es ir por detrás
+          st.picados++;
+          st.terminado = true;
+          UI.finMinijuego(st.picados > 0 && Math.random() < 0.4 ? 0 : -1,
+            'Picas el amago. Sacas a destiempo y te lo come él.');
+          return;
+        }
         st.terminado = true;
-        clearTimeout(st.timer);
-        if (!st.listo) { UI.finMinijuego(-1, 'Disparas antes de tiempo.'); return; }
-        const ms = Date.now() - st.t0;
-        // ventana base 480 ms, que se estrecha con la dificultad del rival
-        // y se ensancha con tu pericia. Contra una leyenda es casi imposible.
-        // Un humano reacciona en ~250 ms. La ventana base ronda eso, así
-        // que acertar exige ir de verdad: antes daba 400 ms de margen.
-        const pericia = (ref.pericia || 30) / 100;
-        let ventana = 300 * (1.25 - dif / 105) * (0.78 + pericia * 0.5);
-        if (ref.rival === 'leyenda') ventana *= 0.5;
-        ventana = Math.max(70, ventana);
+        const ms = Math.round(performance.now() - st.t0);
         let grado;
-        if (ms < ventana * 0.45) grado = 2;
-        else if (ms < ventana) grado = 1;
-        else if (ms < ventana * 1.35) grado = 0;
+        if (ms < ventana * 0.42) grado = 2;
+        else if (ms < ventana * 0.78) grado = 1;
+        else if (ms < ventana) grado = 0;
         else grado = -1;
-        UI.finMinijuego(grado, 'Reacción: ' + ms + ' ms · ventana ' + Math.round(ventana) + ' ms.');
+        UI.finMinijuego(grado, 'Aguantas ' + amagos + ' amago' + (amagos > 1 ? 's' : '') +
+          ' y sacas en ' + ms + ' ms (margen ' + ventana + ' ms).');
       };
       return;
     }

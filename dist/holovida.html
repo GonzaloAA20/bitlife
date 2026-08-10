@@ -1306,6 +1306,17 @@ body.sin-crt::after { display: none; }
   font-style: normal; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--txt-dim);
 }
 
+/* el desenfundar: amagos en ámbar, el bueno en rojo */
+.draw-zona.amago { background: #2a1c06; border-color: var(--ambar); color: var(--ambar); }
+.draw-marcas { display: flex; gap: 6px; justify-content: center; margin-top: 8px; align-items: center; }
+.draw-marcas i, .draw-marcas b {
+  width: 10px; height: 10px; border: 1px solid #2b3138; background: #0d1116;
+  transform: rotate(45deg); display: block;
+}
+.draw-marcas i.ok { background: var(--ambar); border-color: var(--ambar); }
+.draw-marcas b { width: 13px; height: 13px; border-color: #5a2028; }
+.draw-marcas b.on { background: var(--rojo); border-color: var(--rojo); box-shadow: 0 0 12px rgba(255,77,94,.6); }
+
 </style>
 </head>
 <body>
@@ -2133,7 +2144,7 @@ body.sin-crt::after { display: none; }
     { id: 'taller', n: 'Taller', ico: '⚙', desc: 'Mejoras que cambian lo que tu nave te deja hacer.', min: 14,
       req: function (s) { return !!s.nave; } },
     { id: 'gremio', n: 'Gremio', ico: '✵', desc: 'Contratos de caza: buscar, seguir, capturar y entregar.', min: 16,
-      req: function (s) { return !!s.flags.en_el_gremio; } },
+      req: function (s) { return !!s.flags.en_el_gremio || s.trabajo === 'cazarrecompensas'; } },
     { id: 'viaje', n: 'Viajar', ico: '✈', desc: 'Saltar a otro mundo. Todo cambia.', min: 10 },
     { id: 'fuerza', n: 'La Fuerza', ico: '✦', desc: 'Poderes, sables, holocrones, visiones.', min: 6, req: function (s) { return s.stats.fuerza > 5; } },
     { id: 'mercado', n: 'Mercado', ico: '⌂', desc: 'Objetos, médicos, cirugía, apuestas.', min: 10 },
@@ -8950,6 +8961,64 @@ body.sin-crt::after { display: none; }
 
 })(window);
 
+/* ============================================================
+   UN OFICIO A LA VEZ
+   El motor solo tiene una casilla de trabajo, así que aceptar uno
+   nuevo borraba el anterior sin decir nada: te metías en el Gremio
+   de Cazarrecompensas y seguías figurando de mecánico. Ahora se
+   avisa y decides tú.
+
+   No todo choca. Un escaño en el Senado se compagina con casi
+   cualquier cosa —para eso es un cargo, no un turno— y con el bajo
+   mundo se compagina en secreto, que es como se ha hecho siempre.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+
+  // oficios que son un cargo, no una jornada: caben junto a otra cosa
+  const CARGOS = ['senador', 'gobernador', 'academico', 'musico'];
+  // y los que exigen tu vida entera
+  const EXCLUSIVOS = ['jedi', 'sith', 'inquisidor', 'cazarrecompensas', 'mando'];
+
+  SW.chocaConTrabajo = function (s, nuevo) {
+    if (!s.trabajo || s.trabajo === nuevo) return false;
+    if (CARGOS.indexOf(nuevo) >= 0 && CARGOS.indexOf(s.trabajo) < 0) return false;
+    if (CARGOS.indexOf(s.trabajo) >= 0 && CARGOS.indexOf(nuevo) < 0) return false;
+    return true;
+  };
+
+  SW.menuDejarTrabajo = function (g, empleo) {
+    const s = g.s;
+    const viejo = SW.carrera(s.trabajo);
+    const nuevo = SW.carrera(empleo.id);
+    const exclusivo = EXCLUSIVOS.indexOf(empleo.id) >= 0;
+    return {
+      id: 'trabajo_choca', gen: true, esMenu: true,
+      t: '<span class="scene-tag">NO CABEN LAS DOS COSAS</span>' +
+        '<p>Ahora mismo eres <b>' + U.esc(s.rango || (viejo ? viejo.n : 'algo')) + '</b>' +
+        (viejo ? ' (' + U.esc(viejo.n) + ')' : '') + '.</p>' +
+        '<p>Para entrar en <b>' + U.esc(nuevo ? nuevo.n : empleo.id) + '</b> hay que dejarlo. ' +
+        (exclusivo ? 'Esto no es un empleo con horario: es a lo que te dedicas.'
+                   : 'Nadie hace dos jornadas completas.') + '</p>' +
+        '<p class="dim">Sueldo actual ' + U.cr(s.sueldo || 0) + ' · ' + (s.añosEnTrabajo || 0) + ' años dentro.</p>',
+      c: [
+        { t: 'Dejarlo y empezar de cero', sub: 'Se acabó lo anterior.',
+          cambiarEmpleo: empleo, fx: { cordura: -4 } },
+        { t: 'Dejarlo bien, avisando con tiempo',
+          req: function (st) { return (st.añosEnTrabajo || 0) >= 2; },
+          sub: 'Pierdes unos meses de sueldo y ganas una puerta abierta.',
+          cambiarEmpleo: empleo, fx: { creditos: -3000, reputacion: 8, cordura: 4 },
+          out: 'Te despiden con un apretón de manos. Eso vale más de lo que parece.' },
+        { t: 'Quedarte donde estás', fx: { cordura: 4 },
+          out: 'Lo dejas pasar. A lo mejor vuelve a salir, a lo mejor no.' }
+      ]
+    };
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== src/data-events-vida.js ===== */
 /* ============================================================
    HOLOVIDA :: eventos de vida (ciclo anual automático)
@@ -14414,6 +14483,17 @@ body.sin-crt::after { display: none; }
       g.morir(rng.pick(SW.MUERTES_GUERRA));
       return;
     }
+
+    /* Estar en el frente tiene que ser jugarlo, no que te lo cuenten.
+       Antes esto era la tirada de arriba y tres frases: una guerra
+       entera sin una sola decisión. Ahora, la mayoría de los años, la
+       campaña te da una misión que se juega. */
+    if (SW.GEN.misionGuerra && rng.chance(0.78)) {
+      g.cola.push(g.prepararGen(SW.GEN.misionGuerra(rng, s)));
+      g.fase = 'evento';
+      return;   // la misión ES el año: el resumen de abajo sobra
+    }
+
     // sobrevives el año: nadie sale igual
     const dur = rng.int(0, 3);
     if (dur === 0) {
@@ -14557,7 +14637,7 @@ body.sin-crt::after { display: none; }
       if (s.flags.orden66_pasada || s.flags.superviviente_purga) return false;
       return true;
     }
-    if (id === 'gremio') return !!s.flags.en_el_gremio;
+    if (id === 'gremio') return !!s.flags.en_el_gremio || s.trabajo === 'cazarrecompensas';
     if (id === 'senado') return !!s.flags.en_el_senado;
     if (id === 'fuerza') return s.sensible || s.stats.fuerza > 5;
     return true;
@@ -24410,6 +24490,413 @@ body.sin-crt::after { display: none; }
 
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* ===== src/data-guerra-misiones.js ===== */
+/* ============================================================
+   HOLOVIDA :: LA GUERRA, POR DENTRO
+   Alistarse era una tirada de muerte anual y un par de frases de
+   sabor: se podía pasar una guerra entera sin una sola decisión. Y
+   además te dejaba alistarte en sitios donde no pintabas nada — un
+   cazarrecompensas de piloto en el Gran Ejército de la República,
+   que es solo de clones.
+
+   Aquí vive lo uno y lo otro: quién puede ir a cada guerra y con
+   quién, y qué te pasa una vez estás dentro.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+  SW.GEN = SW.GEN || {};
+  SW.ESCENAS = SW.ESCENAS || {};
+
+  const esClon = function (s) { return s.especie === 'clon' || s.especie === 'clon_nulo'; };
+  const esFuerza = function (s) {
+    return s.trabajo === 'jedi' || s.trabajo === 'sith' || (s.sensible && s.stats.fuerza > 40);
+  };
+
+  /* ------------------------------------------------------------
+     EL EJÉRCITO REGULAR DE CADA ÉPOCA
+     ------------------------------------------------------------ */
+  const REGULAR = {
+    alta_republica: 'republica', republica_tardia: 'republica',
+    guerras_clon: 'republica', imperio_temprano: 'imperio',
+    rebelion: 'imperio', nueva_republica: 'nueva_republica',
+    primera_orden: 'primera_orden', era_perdida: 'piratas'
+  };
+  SW.bandoRegular = function (s) { return REGULAR[s.era] || 'republica'; };
+
+  /* ------------------------------------------------------------
+     QUIÉN PUEDE ALISTARSE, Y EN QUÉ
+     En las Guerras Clon el Gran Ejército es de clones y punto. Los
+     jedi van de generales porque el Senado se lo impuso a la Orden,
+     no porque se alisten. Un civil puede ir a una fuerza de defensa
+     planetaria, y a un cazarrecompensas con nombre le CONTRATAN —
+     que es otra cosa y se paga mejor.
+     ------------------------------------------------------------ */
+  SW.puestosDeGuerra = function (s) {
+    const base = (SW.PUESTOS_GUERRA || []).filter(function (p) {
+      try { return !p.req || p.req(s); } catch (e) { return false; }
+    });
+    if (s.era !== 'guerras_clon') return { lista: base, nota: null };
+
+    // Guerras Clon: la puerta está cerrada para casi todo el mundo
+    if (esClon(s)) return { lista: base, nota: 'Naciste dentro. No hay nada que firmar.' };
+    if (esFuerza(s)) {
+      return { lista: base.filter(function (p) { return p.id === 'oficial' || p.id === 'comando'; }),
+        nota: 'A ti no te alistan: te asignan. Los sensibles a la Fuerza van al mando, no a la fila.' };
+    }
+    // civil: solo milicia planetaria y puestos de retaguardia
+    return {
+      lista: base.filter(function (p) { return ['infanteria', 'medico', 'ingeniero'].indexOf(p.id) >= 0; }),
+      nota: 'El Gran Ejército de la República es de clones: no admite voluntarios. ' +
+            'Lo que sí admite gente es la fuerza de defensa de tu mundo.',
+      milicia: true
+    };
+  };
+
+  /* Al cazarrecompensas notorio no se le alista: se le contrata. Y en
+     esta guerra el que paga bien y sin preguntas es el otro bando. */
+  SW.GUION = SW.GUION || [];
+  SW.GUION.push({
+    id: 'gw_contrato_separatista', min: 18, max: 200, prio: 74, unaVez: true, gen: true, c: [],
+    req: function (s) {
+      if (s.era !== 'guerras_clon' || !SW.guerraActiva || !SW.guerraActiva(s)) return false;
+      if (esClon(s) || esFuerza(s) || s.flags.en_el_frente) return false;
+      const cazador = s.trabajo === 'cazarrecompensas' || s.flags.en_el_gremio;
+      return cazador && s.stats.notoriedad >= 35;
+    },
+    hazlo: function (g) {
+      const s = g.s;
+      const pago = 40000 + Math.round(s.stats.notoriedad * 900);
+      return {
+        id: 'gw_contrato_separatista', gen: true,
+        t: '<span class="scene-tag">UNA OFERTA, NO UN ALISTAMIENTO</span>' +
+          '<p>No te llama ningún ejército: a ti te llama un intermediario con acento de Muunilinst y ' +
+          'una habitación alquilada por horas.</p>' +
+          '<p>«La Confederación no recluta. La Confederación <i>compra</i>. Y ahora mismo está comprando ' +
+          'a gente que sepa encontrar a personas concretas detrás de las líneas republicanas.»</p>' +
+          '<p class="dim">' + U.cr(pago) + ' por contrato. Sin uniforme, sin bandera y sin nadie que te ' +
+          'reclame si te cogen.</p>',
+        c: [
+          { t: 'Firmar', sub: 'El dinero es el dinero.',
+            fx: { creditos: pago, notoriedad: 18, alineamiento: -12 },
+            faccion: 'separatistas+30', flag: 'contratado_por_la_confederacion',
+            bando: 'separatistas', out: 'Ni juras bandera ni te la dan. Te dan coordenadas.' },
+          { t: 'Firmar y vender lo que veas a los dos lados',
+            req: function (st) { return st.stats.intelecto > 50; },
+            sub: 'El doble de dinero y el doble de gente queriéndote muerto.',
+            fx: { creditos: Math.round(pago * 1.6), notoriedad: 26, alineamiento: -20 },
+            flag: 'agente_doble', buscado: 30,
+            out: 'Cobras dos veces por el mismo viaje. Funciona hasta que deja de funcionar.' },
+          { t: 'Ofrecerte a la República en vez de eso',
+            sub: 'Pagan menos y preguntan más.',
+            fx: { creditos: Math.round(pago * 0.55), reputacion: 10, alineamiento: 6 },
+            faccion: 'republica+20', bando: 'republica',
+            out: 'Contrato de rastreo para Inteligencia. Papeleo, pero duermes en camas.' },
+          { t: 'No meterte en la guerra de otros', fx: { cordura: 8 },
+            out: 'Se levanta sin insistir. Vuelve a llamar dentro de un año.' }
+        ]
+      };
+    }
+  });
+
+  /* ============================================================
+     LAS MISIONES: lo que hacías en la guerra y no existía
+     ============================================================ */
+  const OBJETIVOS = {
+    republica: [
+      { v: 'romper el cerco de droides sobre una capital', dif: 66, al: 4, en: 'oleadas de B1 y dos droidekas' },
+      { v: 'sacar a una guarnición rodeada antes de que caiga', dif: 60, al: 12, en: 'artillería que no para' },
+      { v: 'tomar un puente que lleva tres meses cambiando de manos', dif: 70, al: -2, en: 'lo que quede de los dos bandos' },
+      { v: 'escoltar un convoy médico por una ruta minada', dif: 52, al: 14, en: 'francotiradores y minas' }
+    ],
+    separatistas: [
+      { v: 'cortar la línea de suministro republicana en un sector', dif: 62, al: -6, en: 'clones veteranos' },
+      { v: 'capturar un oficial jedi vivo', dif: 82, al: -18, en: 'un caballero jedi y su compañía' },
+      { v: 'volar un astillero antes de que boten la flota', dif: 68, al: -10, en: 'seguridad de astillero' }
+    ],
+    imperio: [
+      { v: 'limpiar una célula rebelde en los niveles bajos', dif: 58, al: -16, en: 'insurgentes y civiles mezclados' },
+      { v: 'escoltar un cargamento imperial que nadie te explica', dif: 55, al: -4, en: 'piratas, o eso dicen' },
+      { v: 'pacificar un mundo que ha dejado de pagar impuestos', dif: 60, al: -24, en: 'granjeros con rifles viejos' },
+      { v: 'perseguir a un piloto rebelde por un campo de asteroides', dif: 66, al: -6, en: 'un ala-X que vuela mejor que tú' }
+    ],
+    rebelion: [
+      { v: 'robar los planos de una guarnición imperial', dif: 64, al: 10, en: 'tropas de asalto y un oficial listo' },
+      { v: 'sacar a una familia entera de un mundo ocupado', dif: 56, al: 18, en: 'controles en cada esquina' },
+      { v: 'volar un depósito de combustible y salir vivo', dif: 68, al: 6, en: 'la guarnición entera detrás de ti' }
+    ],
+    generico: [
+      { v: 'defender una posición que no vale nada', dif: 60, al: 0, en: 'gente igual de cansada que tú' },
+      { v: 'recuperar los cuerpos de una patrulla perdida', dif: 50, al: 12, en: 'el frío y algo más' },
+      { v: 'reconocer un valle del que no ha vuelto nadie', dif: 58, al: 2, en: 'no se sabe, y eso es lo malo' }
+    ]
+  };
+
+  const bandoDe = function (s) {
+    const b = s.bando || SW.bandoRegular(s);
+    return OBJETIVOS[b] ? b : 'generico';
+  };
+
+  /** Una misión de campaña. Se juega, no se tira un dado por ti. */
+  SW.GEN.misionGuerra = function (rng, s) {
+    const fam = bandoDe(s);
+    const t = rng.pick(OBJETIVOS[fam]);
+    const w = s.guerra || {};
+    const donde = w.frente || s.mundo;
+    const puesto = s.puestoGuerra || 'infanteria';
+    s.campaña = s.campaña || { mision: 0, medallas: 0 };
+    s.campaña.mision++;
+    const n = s.campaña.mision;
+
+    const c = [
+      { t: '⚔ Ir delante', sub: 'Lo que se espera de ti. Y lo que te mata.',
+        combate: { dif: t.dif, frente: true }, fx: { reputacion: 8, alineamiento: t.al },
+        contador: { batallas: 1 }, medallaSi: true },
+      { t: '◈ Planificarla hasta el último detalle',
+        sub: 'Depende de tu intelecto. Si sale, vuelve todo el mundo.',
+        r: [
+          { p: U.clamp(0.30 + s.stats.intelecto / 190, 0.25, 0.78),
+            t: 'Sale como estaba escrito. Es tan raro que hasta el mando pregunta cómo lo hiciste.',
+            fx: { intelecto: 10, reputacion: 14, alineamiento: t.al }, rendimiento: 15,
+            contador: { batallas: 1 }, medalla: true },
+          { p: 0.45, t: 'El enemigo no había leído tu plan.',
+            combate: { dif: t.dif + 6, frente: true }, fx: { alineamiento: t.al } }
+        ] },
+      { t: '↯ Colarte por donde no miran',
+        sub: 'Depende de tu destreza. Menos gente, menos ruido, más riesgo si te ven.',
+        r: [
+          { p: U.clamp(0.26 + s.stats.destreza / 175, 0.22, 0.76),
+            t: 'Entras, haces lo que hay que hacer y sales sin que suene una alarma.',
+            fx: { destreza: 12, reputacion: 10, notoriedad: 6, alineamiento: t.al },
+            contador: { batallas: 1 }, medalla: true },
+          { p: 0.5, t: 'Te ven a mitad de camino y ya no hay sigilo que valga.',
+            combate: { dif: t.dif + 10, frente: true }, fx: { salud: -12 } }
+        ] },
+      { t: '⛨ Mandarlo desde atrás', sub: 'Vuelves entero. No todos.',
+        fx: { reputacion: -6, cordura: -8, intelecto: 5 }, contador: { batallas: 1 },
+        out: 'Firmas el parte de bajas sin haber visto ninguna. Eso también pesa.' }
+    ];
+    if (t.al <= -14) {
+      c.push({ t: '✕ Negarte a ejecutarla', sub: 'Esto no es una batalla: es otra cosa.',
+        fx: { alineamiento: 25, reputacion: -20, cordura: 12 }, flag: 'insubordinado',
+        out: 'Consejo de guerra abierto. No te fusilan porque hacen falta manos, pero queda escrito.' });
+    }
+    if (s.sensible && s.stats.fuerza > 35) {
+      c.push({ t: '✦ Resolverla con la Fuerza', sub: 'Delante de doscientos testigos.',
+        r: [{ p: U.clamp(0.32 + s.stats.fuerza / 160, 0.3, 0.85),
+              t: 'Haces algo que la tropa va a contar mal durante años.',
+              fx: { fuerza: 10, reputacion: 18, notoriedad: 14, alineamiento: t.al },
+              contador: { batallas: 1 }, medalla: true },
+             { p: 0.4, t: 'La Fuerza no es un arma de asedio y hoy te lo recuerda.',
+               combate: { dif: t.dif + 4, frente: true }, fx: { cordura: -10 } }] });
+    }
+
+    return {
+      id: 'gw_mision', gen: true,
+      t: '<span class="scene-tag">MISIÓN ' + n + ' · ' + U.esc(String(donde).toUpperCase()) + '</span>' +
+        '<p>Objetivo: <b>' + t.v + '</b>.</p>' +
+        '<p>Enfrente: ' + t.en + '.</p>' +
+        '<p class="dim">Vas de ' + puesto + '. Salud ' + s.stats.salud + '%.</p>',
+      c: c
+    };
+  };
+
+  /* Las medallas: lo que la guerra te deja además de las cicatrices. */
+  SW.darMedalla = function (g) {
+    const s = g.s;
+    s.campaña = s.campaña || { mision: 0, medallas: 0 };
+    s.campaña.medallas++;
+    const m = s.campaña.medallas;
+    g.aplicarFx({ reputacion: 10 }, {});
+    if (m === 1) { g.hito('Primera condecoración'); g.log('Te dan una medalla. Pesa poco y abre puertas.', 'bien'); }
+    else if (m === 3) {
+      g.hito('Héroe de guerra condecorado tres veces');
+      s.flags.heroe_de_guerra = true;
+      g.log('Tres condecoraciones. Ya eres una foto que sale en los carteles.', 'bien');
+      g.aplicarFx({ reputacion: 12, carisma: 6 }, {});
+    } else if (m === 5) {
+      g.hito('Leyenda del frente');
+      g.log('Cinco. En tu unidad ya no dicen tu nombre: dicen «el que estuvo en todas».', 'bien');
+      g.aplicarFx({ reputacion: 18, notoriedad: 10 }, {});
+    } else {
+      g.log('Otra condecoración para la caja.', 'bien');
+    }
+  };
+
+  /* ============================================================
+     LO QUE LA GUERRA TE DEJA DESPUÉS
+     ============================================================ */
+  SW.GUION.push({
+    id: 'gw_despues', min: 16, max: 200, prio: 72, unaVez: true, gen: true, c: [],
+    req: function (s) {
+      return s.flags.veterano && !s.flags.en_el_frente && !s.flags.guerra_cerrada &&
+             (s.campaña && s.campaña.mision >= 2);
+    },
+    hazlo: function (g) {
+      const s = g.s;
+      s.flags.guerra_cerrada = true;
+      const m = (s.campaña && s.campaña.medallas) || 0;
+      return {
+        id: 'gw_despues', gen: true,
+        t: '<span class="scene-tag">LICENCIADO</span>' +
+          '<p>Se acabó tu campaña: ' + s.campaña.mision + ' misiones y ' +
+          (m ? m + ' condecoraciones' : 'ninguna condecoración') + '.</p>' +
+          '<p>Te devuelven la ropa con la que entraste. No te vale.</p>',
+        c: [
+          { t: 'Volver a casa y no hablar de esto nunca',
+            fx: { cordura: -10, salud: 8 }, flag: 'veterano_callado',
+            out: 'Funciona de día. De noche, regular.' },
+          { t: 'Usar el uniforme para abrirte puertas',
+            req: function (st) { return (st.campaña && st.campaña.medallas) >= 1; },
+            fx: { reputacion: 16, carisma: 10, creditos: 12000 }, flag: 'tira_del_uniforme',
+            out: 'Un veterano condecorado entra en despachos donde otros esperan meses.' },
+          { t: 'Quedarte: no sabes hacer otra cosa',
+            fx: { fisico: 6, cordura: -14, reputacion: 6 }, guerra: true, campaña: 3,
+            out: 'Firmas otra campaña antes de pensarlo. Es más fácil que volver.' },
+          { t: 'Buscar a los de tu unidad que quedan',
+            fx: { cordura: 14, carisma: 8 },
+            rel: { tipo: 'camarada', afecto: 70, quien: 'estuvo contigo en el frente' },
+            out: 'Quedáis una vez al año. No habláis de la guerra: por eso funciona.' }
+        ]
+      };
+    }
+  });
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== src/data-mercancia.js ===== */
+/* ============================================================
+   HOLOVIDA :: LA BODEGA
+   La lonja estaba escondida como una opción más dentro del menú de
+   Mercado, compitiendo con las chucherías y los médicos, y encima
+   dejaba comprar mercancía sin tener dónde meterla. Así que comprabas
+   la nave para comerciar y la nave no servía para nada.
+
+   Ahora la Bodega es su propia pestaña, sólo aparece si tienes nave,
+   y comprar es una decisión con dos salidas: colocarlo cerca hoy
+   mismo, o guardarlo y buscarle un mundo donde valga el triple.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+  SW.ACTIVIDADES = SW.ACTIVIDADES || [];
+
+  SW.ACTIVIDADES.push({
+    id: 'mercancia', n: 'Bodega', ico: '▣', min: 14,
+    desc: 'Comprar barato, colocarlo caro. Hace falta nave.',
+    req: function (s) { return !!s.nave; }
+  });
+
+  const CATALOGO = [
+    { n: 'grano y raciones', base: 4000, ilegal: false, d: 'Nadie lo mira. Nadie paga mucho.' },
+    { n: 'piezas de repuesto', base: 9000, ilegal: false, d: 'Se vende solo en mundos industriales.' },
+    { n: 'medicinas de bacta', base: 18000, ilegal: false, d: 'Vale una fortuna donde hay guerra.' },
+    { n: 'mineral en bruto', base: 15000, ilegal: false, d: 'Pesa. Ocupa. Se paga por volumen.' },
+    { n: 'licor de contrabando', base: 12000, ilegal: true, d: 'Ilegal en los mundos con ley y muy querido en los demás.' },
+    { n: 'especia sin refinar', base: 30000, ilegal: true, d: 'El margen es enorme. El problema también.' },
+    { n: 'armas sin registrar', base: 26000, ilegal: true, d: 'Siempre hay alguien empezando una guerra pequeña.' },
+    { n: 'reliquias sin procedencia', base: 40000, ilegal: true, d: 'Coleccionistas que no preguntan y aduanas que sí.' }
+  ];
+
+  /** Qué se paga por algo en un mundo, sin haberlo comprado todavía. */
+  const valorEn = function (s, art, coste, mundo) {
+    const m = SW.mundo(mundo), o = SW.mundo(s.mundo);
+    const saltos = SW.saltosEntre(s.mundo, mundo);
+    let f = 1 + saltos * 0.055 + (m.riq - o.riq) * 0.04;
+    if (art.ilegal) f += (9 - m.ley) * 0.035; else f -= Math.max(0, 5 - m.ley) * 0.02;
+    f += (s.stats.carisma - 50) / 420;
+    f += ((art.ilegal ? s.stats.notoriedad : s.stats.reputacion) - 40) / 600;
+    return Math.round(coste * U.clamp(f, 0.4, 2.1));
+  };
+
+  /** El mejor destino conocido para lo que llevas: la pista que hace
+      que el mapa signifique algo. */
+  SW.mejorMercadoPara = function (g) {
+    const s = g.s;
+    if (!s.carga) return null;
+    let mejor = null, mejorV = -1;
+    (SW.MUNDO_NOMBRES || []).forEach(function (n) {
+      if (n === s.mundo) return;
+      if (SW.mundoViable && !SW.mundoViable(n, s.era)) return;
+      if (SW.saltosEntre(s.mundo, n) > 4) return;
+      const v = g.valorCargaEn(n);
+      if (v > mejorV) { mejorV = v; mejor = n; }
+    });
+    return mejor ? { mundo: mejor, valor: mejorV } : null;
+  };
+
+  SW.menuBodega = function (g) {
+    const s = g.s, rng = g.rng;
+    const m = SW.mundo(s.mundo);
+    const c = [];
+
+    /* --- si ya llevas algo, lo primero es qué hacer con ello --- */
+    if (s.carga) {
+      const aqui = g.valorCargaEn(s.mundo);
+      const dif = aqui - s.carga.coste;
+      const mejor = SW.mejorMercadoPara(g);
+      c.push({ t: 'Vender aquí — ' + U.cr(aqui),
+        sub: (dif >= 0 ? 'ganas ' + U.cr(dif) : 'pierdes ' + U.cr(-dif)) +
+             ' sobre lo que pagaste' + (s.carga.ilegal ? ' · ilegal aquí si hay ley' : ''),
+        venderCarga: true });
+      if (mejor) {
+        c.push({ t: 'Llevarlo a ' + mejor.mundo + ' — pagan ' + U.cr(mejor.valor),
+          sub: SW.saltosEntre(s.mundo, mejor.mundo) + ' saltos. Se abre la carta estelar.',
+          viajarA: mejor.mundo });
+      }
+      c.push({ t: 'Tirar la carga por la esclusa',
+        sub: 'Pierdes lo pagado y dejas de llevar encima algo que te puede costar la nave.',
+        tirarCarga: true });
+      c.push({ t: '◂ Dejarlo en bodega y salir', volver: true });
+      return {
+        id: 'bodega_llena', gen: true, esMenu: true,
+        t: '<span class="scene-tag">BODEGA · ' + U.esc(s.nave.n.toUpperCase()) + '</span>' +
+          '<p>Llevas <b>' + U.esc(s.carga.n) + '</b>, cargado en ' + U.esc(s.carga.origen) +
+          ' por ' + U.cr(s.carga.coste) + '.</p>' +
+          '<p class="dim">' + U.esc(s.mundo) + ': riqueza ' + m.riq + '/10 · ley ' + m.ley + '/10' +
+          (s.carga.ilegal ? ' — y esto no se puede enseñar en la aduana.' : '') + '</p>',
+        c: c
+      };
+    }
+
+    /* --- bodega vacía: se compra --- */
+    const oferta = rng.pickN(CATALOGO, 4);
+    oferta.forEach(function (x) {
+      const coste = Math.round(x.base * (0.7 + rng.next() * 0.5) * (1 - (m.riq - 5) * 0.03));
+      const puede = s.stats.creditos >= coste;
+      // dónde se paga mejor, para que la compra sea una decisión y no un dado
+      let destino = null, mejorV = -1;
+      (SW.MUNDO_NOMBRES || []).forEach(function (n) {
+        if (n === s.mundo) return;
+        if (SW.mundoViable && !SW.mundoViable(n, s.era)) return;
+        if (SW.saltosEntre(s.mundo, n) > 3) return;
+        const v = valorEn(s, x, coste, n);
+        if (v > mejorV) { mejorV = v; destino = n; }
+      });
+      c.push({
+        t: (puede ? 'Cargar ' : '✕ ') + x.n + ' — ' + U.cr(coste),
+        sub: x.d + (destino ? ' · en ' + destino + ' pagarían ~' + U.cr(mejorV) : '') +
+             (puede ? '' : ' · no te llega'),
+        bloqueada: !puede,
+        cargar: puede ? { n: x.n, coste: coste, ilegal: x.ilegal } : null
+      });
+    });
+    c.push({ t: '◂ Salir sin cargar nada', volver: true });
+    return {
+      id: 'bodega_vacia', gen: true, esMenu: true,
+      t: '<span class="scene-tag">LONJA DE ' + U.esc(s.mundo.toUpperCase()) + '</span>' +
+        '<p>Bodega libre: ' + (s.nave.carga || 1) + ' de capacidad. Se compra barato donde sobra ' +
+        'y se coloca caro donde falta.</p>' +
+        '<p class="dim">Riqueza ' + m.riq + '/10 · ley ' + m.ley + '/10 · tu carisma ' +
+        s.stats.carisma + ' cuenta al cerrar el trato.</p>',
+      c: c
+    };
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== src/engine.js ===== */
 /* ============================================================
    HOLOVIDA :: motor
@@ -24948,6 +25435,19 @@ body.sin-crt::after { display: none; }
       if (paso) this.cola.push(this.prepararGen(paso));
     }
 
+    /* Si vives del Gremio, el Gremio te busca. Antes los contratos solo
+       aparecían si el sorteo general escupía la escena del tablón, que
+       compite con otras mil: se podía llegar a Leyenda del Gremio sin
+       que te ofrecieran uno. Ahora, si eres del oficio y estás libre,
+       el trabajo viene a ti. */
+    if (!s.contrato && !s.muerto && SW.GEN.contratoCaza && s.edadBio >= 16 &&
+        (s.flags.en_el_gremio || s.trabajo === 'cazarrecompensas') && !s.flags.gremio_desconfia) {
+      const suyo = s.trabajo === 'cazarrecompensas';
+      if (this.rng.chance(suyo ? 0.78 : 0.35)) {
+        this.cola.push(this.prepararGen(SW.GEN.contratoCaza(this.rng, s)));
+      }
+    }
+
     // encuentro con alguien conocido: muy raro, y más si eres un don nadie
     if (s.edadBio > 12 && SW.GEN.canon) {
       const fama = (s.stats.reputacion + s.stats.notoriedad) / 200;
@@ -25436,7 +25936,17 @@ body.sin-crt::after { display: none; }
     if (d.despido) this.perderTrabajo();
     if (d.ascenso != null && rng.chance(d.ascenso)) { s.rendimiento += 20; this.chequearAscenso(); }
     if (d.carcel) { s.carcelAños = d.carcel; this.log('Condena: ' + d.carcel + ' año(s).', 'mal'); this.hito('Entra en prisión (' + d.carcel + ' años)'); }
-    if (d.empleo) this.tomarEmpleo(d.empleo.id, d.empleo.sueldo);
+    /* Un oficio a la vez, y avisando. Antes tomarEmpleo pisaba el
+       anterior en silencio: te metías en el Gremio y seguías «siendo»
+       mecánico, con las dos pestañas abiertas y ninguna coherente. */
+    if (d.empleo) {
+      if (SW.chocaConTrabajo && SW.chocaConTrabajo(s, d.empleo.id)) {
+        this.cola.unshift(this.prepararGen(SW.menuDejarTrabajo(this, d.empleo)));
+        this.fase = 'evento';
+      } else {
+        this.tomarEmpleo(d.empleo.id, d.empleo.sueldo);
+      }
+    }
     if (d.buscarEmpleo) this.cola.unshift(this.prepararGen(SW.GEN.empleo(rng, s, d.buscarEmpleo)));
     if (d.generar && SW.GEN[d.generar]) this.cola.unshift(this.prepararGen(SW.GEN[d.generar](rng, s)));
 
@@ -25447,6 +25957,12 @@ body.sin-crt::after { display: none; }
     if (d.mercancia) this.cola.unshift(this.prepararGen(this.menuMercancia()));
     if (d.venderCarga) this.venderCarga();
     if (d.cargar) this.comprarCarga(d.cargar);
+    if (d.venderCarga) this.venderCarga();
+    if (d.tirarCarga && s.carga) {
+      this.log('Sueltas ' + s.carga.n + ' por la esclusa. Adiós a ' + U.cr(s.carga.coste) + '.', 'mal');
+      s.carga = null;
+    }
+    if (d.viajarA) { this.abrirMapaViaje = true; s.destinoSugerido = d.viajarA; }
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
     if (d.taller && SW.menuTaller && s.nave) this.cola.unshift(this.prepararGen(SW.menuTaller(this)));
     if (d.carrera && SW.iniciarCarrera) SW.iniciarCarrera(this, d.circuito);
@@ -25624,6 +26140,12 @@ body.sin-crt::after { display: none; }
       s.flags.en_el_frente = true;
       s.puestoGuerra = d.puesto || s.puestoGuerra || 'infanteria';
       s.añosDeFrenteRestantes = d.campaña || rng.int(2, 5);
+      /* Sin bando no hay unidad, y sin unidad la pestaña de Escuadrón
+         no aparece: te alistabas y no te llegaba una sola misión en toda
+         la guerra. Si la escena no dice de qué lado vas, se toma el
+         ejército regular de tu época. */
+      if (!s.bando) this.fijarBando(d.bandoGuerra || (SW.bandoRegular ? SW.bandoRegular(s) : 'republica'), slots);
+      s.campaña = { mision: 0, medallas: 0, puesto: s.puestoGuerra };
       this.hito('Va a la guerra');
       this.log('Estás en el frente. A partir de ahora, cada año cuenta.', 'mal');
     }
@@ -25647,7 +26169,11 @@ body.sin-crt::after { display: none; }
       const rc = s.relaciones.filter(function (r) { return r.nombre === d.relCambio.nombre; })[0];
       if (rc) rc.afecto = U.clamp(rc.afecto + (d.relCambio.afecto || 0), -100, 100);
     }
+    if (d.cambiarEmpleo) { this.perderTrabajo(); this.tomarEmpleo(d.cambiarEmpleo.id, d.cambiarEmpleo.sueldo); }
     if (d.pruebaOk && SW.contarPrueba) SW.contarPrueba(this, d);
+    if (d.medalla && SW.darMedalla) SW.darMedalla(this);
+    // «medallaSi»: te la dan si sales vivo del combate que abre la opción
+    if (d.medallaSi) s.pendienteMedalla = true;
     if (d.hazteInquisidor && SW.hazteInquisidor) SW.hazteInquisidor(this);
     if (d.cazaJedi && SW.marcarJediCazado) SW.marcarJediCazado(this, d.cazaJedi);
     if (d.aceptaCaza) {
@@ -25957,6 +26483,15 @@ body.sin-crt::after { display: none; }
     const c = SW.carrera(id);
     if (!c) return;
     s.trabajo = id;
+    /* Si tu oficio ES el Gremio, tienes la placa. Parece obvio y no lo
+       era: los rangos de la carrera se llaman «Novato del Gremio» y
+       «Leyenda del Gremio», pero la pestaña de contratos pedía el flag
+       `en_el_gremio`, que solo ponía un evento suelto de bar. Se podía
+       llegar a Leyenda del Gremio sin recibir un solo contrato. */
+    if (id === 'cazarrecompensas' && !s.flags.en_el_gremio) {
+      s.flags.en_el_gremio = true;
+      this.log('Con el oficio viene la placa: ya estás en el Gremio de Cazarrecompensas.', 'bien');
+    }
     s.rango = c.rangos[0];
     s.sueldo = sueldo || c.sueldoBase;
     s.añosEnTrabajo = 0;
@@ -26146,7 +26681,11 @@ body.sin-crt::after { display: none; }
     let factor = 1 + saltos * 0.055 + (m.riq - origen.riq) * 0.04;
     if (s.carga.ilegal) factor += (9 - m.ley) * 0.035;
     else factor -= Math.max(0, (5 - m.ley)) * 0.02;
-    return Math.round(s.carga.coste * U.clamp(factor, 0.4, 1.9));
+    /* Vender es negociar: quien cae bien y tiene nombre saca más por lo
+       mismo. Con lo ilegal manda la notoriedad, que ahí es currículum. */
+    factor += (s.stats.carisma - 50) / 420;
+    factor += ((s.carga.ilegal ? s.stats.notoriedad : s.stats.reputacion) - 40) / 600;
+    return Math.round(s.carga.coste * U.clamp(factor, 0.4, 2.1));
   };
 
   Game.prototype.comprarCarga = function (tipo) {
@@ -26667,6 +27206,8 @@ body.sin-crt::after { display: none; }
       else this.log('Victoria.', 'bien');
       this.aplicarFx({ destreza: 3, fisico: 2, reputacion: 4, notoriedad: e.cfg.contrato ? 6 : 3 }, {});
       if (e.cfg.contrato) s.contadores.cazas = (s.contadores.cazas || 0) + 1;
+      if (e.cfg.frente && s.pendienteMedalla && SW.darMedalla) SW.darMedalla(this);
+      s.pendienteMedalla = false;
       if (e.cfg.duelo) { s.contadores.duelos = (s.contadores.duelos || 0) + 1; this.hito('Gana un duelo'); }
     } else {
       const hp = e.hpEnemigo;
@@ -26805,7 +27346,13 @@ body.sin-crt::after { display: none; }
       };
     });
     c.push({ t: 'Ir a la armería', sub: 'armas y protección', armeria: true });
-    c.push({ t: 'Mercancía a granel', sub: 'comprar barato aquí para vender lejos', mercancia: true });
+    /* La lonja ya no vive aquí escondida entre las chucherías: tiene
+       pestaña propia y exige bodega. Comprar mercancía sin nave era
+       comprar algo que no te podías llevar. */
+    if (!s.nave) {
+      c.push({ t: '✕ Mercancía a granel', bloqueada: true,
+        sub: 'hace falta una nave con bodega: se compra en el Hangar' });
+    }
     if (s.carga) {
       const v = this.valorCargaEn(s.mundo);
       c.push({ t: 'Vender tu carga: ' + s.carga.n + ' — ' + U.cr(v),
@@ -26874,9 +27421,21 @@ body.sin-crt::after { display: none; }
   Game.prototype.menuAlistarse = function () {
     const s = this.s;
     const bando = SW.bandosDeEra ? SW.bandosDeEra(s.era) : null;
-    const c = (SW.PUESTOS_GUERRA || []).filter(function (p) {
-      return !p.req || p.req(s);
-    }).map(function (p) {
+    /* No todo el mundo puede ir a todas las guerras. En las Guerras
+       Clon el Gran Ejército es de clones: a un civil le queda la
+       milicia de su mundo y a un cazarrecompensas con nombre le
+       contratan, que es otra cosa y sale en otra escena. */
+    const puertas = SW.puestosDeGuerra ? SW.puestosDeGuerra(s)
+                                       : { lista: (SW.PUESTOS_GUERRA || []), nota: null };
+    if (!puertas.lista.length) {
+      return {
+        id: 'menu_alistarse', gen: true, esMenu: true,
+        t: 'ALISTAMIENTO' + (bando ? ' — ' + bando : '') + '<br>' +
+           '<span class="dim">' + (puertas.nota || 'Aquí no hay sitio para ti.') + '</span>',
+        c: [{ t: '◂ Dejarlo estar', volver: true }]
+      };
+    }
+    const c = puertas.lista.map(function (p) {
       const riesgo = Math.round((SW.RIESGO_GUERRA[p.id] || 0.15) * 100);
       return Object.assign({
         t: p.n, sub: p.sub + ' · ' + p.aviso + ' (~' + riesgo + '% al año)',
@@ -26886,8 +27445,9 @@ body.sin-crt::after { display: none; }
     c.push({ t: '◂ Pensarlo mejor', volver: true });
     return {
       id: 'menu_alistarse', gen: true, esMenu: true,
-      t: 'ALISTAMIENTO' + (bando ? ' — ' + bando : '') +
-         '<br><span class="dim">Cada puesto tiene su probabilidad de no volver. Elige sabiendo.</span>',
+      t: 'ALISTAMIENTO' + (puertas.milicia ? ' — MILICIA PLANETARIA' : (bando ? ' — ' + bando : '')) +
+         '<br><span class="dim">' + (puertas.nota ? puertas.nota + ' ' : '') +
+         'Cada puesto tiene su probabilidad de no volver. Elige sabiendo.</span>',
       c: c
     };
   };
@@ -27132,6 +27692,10 @@ body.sin-crt::after { display: none; }
     if (id === 'orden' && SW.menuOrden) {
       const m = SW.menuOrden(this);
       if (m) { this.cola.push(this.prepararGen(m)); this.fase = 'evento'; return; }
+    }
+    if (id === 'mercancia') {
+      this.cola.push(this.prepararGen(SW.menuBodega ? SW.menuBodega(this) : this.menuMercancia()));
+      this.actividadUsada = s.acciones <= 0; this.fase = 'evento'; return;
     }
     if (id === 'inquisicion' && SW.menuInquisicion) {
       const m = SW.menuInquisicion(this);
@@ -28919,8 +29483,10 @@ body.sin-crt::after { display: none; }
     }
     if (ref.minijuego === 'desenfundar') {
       return '<div class="mini mini-draw" id="mini">' +
-        '<button class="draw-zona" id="draw-zona"><span id="draw-txt">ESPERA…</span></button>' +
-        '<p class="mini-pie">Pulsa en cuanto el recuadro cambie. Si te adelantas, pierdes.</p></div>';
+        '<button class="draw-zona" id="draw-zona"><span id="draw-txt">QUIETO…</span></button>' +
+        '<div class="draw-marcas" id="draw-marcas"></div>' +
+        '<p class="mini-pie" id="draw-pie">Va a amagar antes de ir de verdad. ' +
+        'Si desenfundas con un amago, te ha ganado. Espera al <b>rojo</b>.</p></div>';
     }
     if (ref.minijuego === 'fuerza') {
       let g = '<div class="mini mini-fuerza" id="mini"><div class="fz-rejilla" id="fz-rejilla">';
@@ -29081,37 +29647,88 @@ body.sin-crt::after { display: none; }
       return;
     }
 
+    /* ---------- desenfundar ----------
+       Antes esto era una prueba de tiempo de reacción pura, y estaba
+       mal calibrada hasta lo imposible: con dificultad 50 la ventana
+       era de 228 ms y el «perfecto» pedía bajar de 102 ms. Un humano
+       reacciona en 200-300 ms, así que no se podía ganar por diseño.
+
+       Ahora la gracia no es ser más rápido que la biología: es aguantar
+       los amagos. El rival finge dos o tres veces (ámbar) antes de ir
+       de verdad (rojo). Picar un amago te cuesta el duelo; la ventana
+       real es amplia y lo que se mide encima es lo ajustado que vas. */
     if (ref.minijuego === 'desenfundar') {
-      const zona = $('#draw-zona'), txt = $('#draw-txt');
-      const espera = 700 + Math.random() * 1800;
-      const st = { listo: false, t0: 0, timer: 0, terminado: false };
+      const zona = $('#draw-zona'), txt = $('#draw-txt'), pie = $('#draw-pie'), marcas = $('#draw-marcas');
+      const pericia = U.clamp(ref.pericia || 30, 0, 120);
+      // cuanto peor es el rival, más se le ve venir; la pericia te da aire
+      const amagos = U.clamp(Math.round(1 + dif / 30 - pericia / 90), 1, 4);
+      // ventana real: de sobra para un humano, estrecha contra una leyenda
+      let ventana = 900 - dif * 3.4 + pericia * 1.6;
+      if (ref.rival === 'leyenda') ventana *= 0.62;
+      ventana = Math.round(U.clamp(ventana, 330, 1200));
+
+      const st = { fase: 0, listo: false, t0: 0, timers: [], terminado: false, picados: 0 };
       UI.mini = st;
-      st.timer = setTimeout(function () {
+      const espera = function (ms, fn) { st.timers.push(setTimeout(fn, ms)); };
+      let hechos = 0;
+      const pintar = function () {
+        let h = '';
+        for (let i = 0; i < amagos; i++) h += '<i class="' + (i < hechos ? 'ok' : '') + '"></i>';
+        h += '<b class="' + (st.listo ? 'on' : '') + '"></b>';
+        marcas.innerHTML = h;
+      };
+      pintar();
+
+      let t = 600 + Math.random() * 700;
+      for (let i = 0; i < amagos; i++) {
+        (function (n) {
+          espera(t, function () {
+            if (st.terminado) return;
+            zona.classList.add('amago');
+            txt.textContent = 'AMAGO';
+          });
+          espera(t + 170, function () {
+            if (st.terminado) return;
+            zona.classList.remove('amago');
+            txt.textContent = 'QUIETO…';
+            hechos = n + 1; pintar();
+          });
+        })(i);
+        t += 700 + Math.random() * 900;
+      }
+      espera(t, function () {
         if (st.terminado) return;
-        st.listo = true; st.t0 = Date.now();
+        st.listo = true; st.t0 = performance.now();
         zona.classList.add('ya');
         txt.textContent = '¡AHORA!';
-      }, espera);
+        pintar();
+        // si no reaccionas, te dispara él
+        espera(ventana + 260, function () {
+          if (st.terminado) return;
+          st.terminado = true;
+          UI.finMinijuego(-1, 'No llegas a sacar. Él sí.');
+        });
+      });
+
       zona.onclick = function () {
         if (st.terminado) return;
+        if (!st.listo) {
+          // picar un amago no siempre es mortal: es ir por detrás
+          st.picados++;
+          st.terminado = true;
+          UI.finMinijuego(st.picados > 0 && Math.random() < 0.4 ? 0 : -1,
+            'Picas el amago. Sacas a destiempo y te lo come él.');
+          return;
+        }
         st.terminado = true;
-        clearTimeout(st.timer);
-        if (!st.listo) { UI.finMinijuego(-1, 'Disparas antes de tiempo.'); return; }
-        const ms = Date.now() - st.t0;
-        // ventana base 480 ms, que se estrecha con la dificultad del rival
-        // y se ensancha con tu pericia. Contra una leyenda es casi imposible.
-        // Un humano reacciona en ~250 ms. La ventana base ronda eso, así
-        // que acertar exige ir de verdad: antes daba 400 ms de margen.
-        const pericia = (ref.pericia || 30) / 100;
-        let ventana = 300 * (1.25 - dif / 105) * (0.78 + pericia * 0.5);
-        if (ref.rival === 'leyenda') ventana *= 0.5;
-        ventana = Math.max(70, ventana);
+        const ms = Math.round(performance.now() - st.t0);
         let grado;
-        if (ms < ventana * 0.45) grado = 2;
-        else if (ms < ventana) grado = 1;
-        else if (ms < ventana * 1.35) grado = 0;
+        if (ms < ventana * 0.42) grado = 2;
+        else if (ms < ventana * 0.78) grado = 1;
+        else if (ms < ventana) grado = 0;
         else grado = -1;
-        UI.finMinijuego(grado, 'Reacción: ' + ms + ' ms · ventana ' + Math.round(ventana) + ' ms.');
+        UI.finMinijuego(grado, 'Aguantas ' + amagos + ' amago' + (amagos > 1 ? 's' : '') +
+          ' y sacas en ' + ms + ' ms (margen ' + ventana + ' ms).');
       };
       return;
     }

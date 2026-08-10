@@ -190,7 +190,7 @@
     { id: 'taller', n: 'Taller', ico: '⚙', desc: 'Mejoras que cambian lo que tu nave te deja hacer.', min: 14,
       req: function (s) { return !!s.nave; } },
     { id: 'gremio', n: 'Gremio', ico: '✵', desc: 'Contratos de caza: buscar, seguir, capturar y entregar.', min: 16,
-      req: function (s) { return !!s.flags.en_el_gremio; } },
+      req: function (s) { return !!s.flags.en_el_gremio || s.trabajo === 'cazarrecompensas'; } },
     { id: 'viaje', n: 'Viajar', ico: '✈', desc: 'Saltar a otro mundo. Todo cambia.', min: 10 },
     { id: 'fuerza', n: 'La Fuerza', ico: '✦', desc: 'Poderes, sables, holocrones, visiones.', min: 6, req: function (s) { return s.stats.fuerza > 5; } },
     { id: 'mercado', n: 'Mercado', ico: '⌂', desc: 'Objetos, médicos, cirugía, apuestas.', min: 10 },

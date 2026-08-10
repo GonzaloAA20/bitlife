@@ -88,7 +88,7 @@
       if (s.flags.orden66_pasada || s.flags.superviviente_purga) return false;
       return true;
     }
-    if (id === 'gremio') return !!s.flags.en_el_gremio;
+    if (id === 'gremio') return !!s.flags.en_el_gremio || s.trabajo === 'cazarrecompensas';
     if (id === 'senado') return !!s.flags.en_el_senado;
     if (id === 'fuerza') return s.sensible || s.stats.fuerza > 5;
     return true;

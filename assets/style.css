@@ -1296,3 +1296,14 @@ body.sin-crt::after { display: none; }
 .reliquias-inicio em {
   font-style: normal; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--txt-dim);
 }
+
+/* el desenfundar: amagos en ámbar, el bueno en rojo */
+.draw-zona.amago { background: #2a1c06; border-color: var(--ambar); color: var(--ambar); }
+.draw-marcas { display: flex; gap: 6px; justify-content: center; margin-top: 8px; align-items: center; }
+.draw-marcas i, .draw-marcas b {
+  width: 10px; height: 10px; border: 1px solid #2b3138; background: #0d1116;
+  transform: rotate(45deg); display: block;
+}
+.draw-marcas i.ok { background: var(--ambar); border-color: var(--ambar); }
+.draw-marcas b { width: 13px; height: 13px; border-color: #5a2028; }
+.draw-marcas b.on { background: var(--rojo); border-color: var(--rojo); box-shadow: 0 0 12px rgba(255,77,94,.6); }
