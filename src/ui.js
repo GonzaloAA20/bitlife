@@ -74,7 +74,7 @@
     UI.herencia = null;
     document.body.classList.remove('en-juego');
     const m = SW.metricas();
-    const guardada = localStorage.getItem('holovida_save');
+    const guardada = UI.CLAVES.some(function (k) { return !!localStorage.getItem(k); });
     UI.app.innerHTML =
       '<div class="pantalla inicio"><div class="crt-frame">' +
       '<div class="logo">' +
@@ -85,7 +85,7 @@
       '</div>' +
       '<div class="menu-inicio">' +
       '<button class="btn grande" data-a="crear">▸ NUEVA VIDA</button>' +
-      (guardada ? '<button class="btn" data-a="continuar">▸ CONTINUAR PARTIDA</button>' : '') +
+      (guardada ? '<button class="btn" data-a="ranuras">▸ CONTINUAR PARTIDA</button>' : '') +
       '<button class="btn" data-a="rapida">▸ VIDA ALEATORIA (rápida)</button>' +
       ((SW.leerSalon && SW.leerSalon().length)
         ? '<button class="btn" data-a="salon">▸ VIDAS ANTERIORES (' + SW.leerSalon().length + ')</button>' : '') +
@@ -113,11 +113,37 @@
       if (!b) return;
       const a = b.getAttribute('data-a');
       if (a === 'salon') { UI.salonFama(); return; }
+      if (a === 'ranuras') { UI.menuRanuras(); return; }
       if (a === 'crear') UI.pantallaCrear();
       else if (a === 'rapida') UI.vidaRapida();
       else if (a === 'continuar') UI.cargarPartida();
       else if (a === 'info') UI.modalInfo();
     };
+  };
+
+  /** Elegir con qué vida a medias sigues. */
+  UI.menuRanuras = function () {
+    let h = '<div class="ranuras">';
+    UI.CLAVES.forEach(function (k, i) {
+      const d = UI.leerRanura(i);
+      h += '<button class="btn ranura' + (d ? '' : ' fantasma') + '" data-ran="' + i + '"' +
+        (d ? '' : ' disabled') + '>' +
+        '<b>Ranura ' + (i + 1) + '</b>' +
+        (d ? '<span>' + U.esc(d.nombre) + ' · ' + d.edad + ' años · ' + U.esc(d.mundo) +
+             '<br>' + U.esc(String(d.era)) + '</span>'
+           : '<span>vacía</span>') + '</button>';
+    });
+    h += '</div><p class="nota dim">Al empezar una vida nueva se te preguntará en qué ranura la guardas, ' +
+      'así que ya no se pisa nada sin querer.</p>';
+    UI.modal('CONTINUAR', h, null, function (root) {
+      root.onclick = function (e) {
+        const b = e.target.closest('[data-ran]');
+        if (!b || b.disabled) return;
+        UI.ranura = parseInt(b.dataset.ran, 10);
+        UI.cerrarModal();
+        UI.cargarPartida();
+      };
+    });
   };
 
   /* Las vidas anteriores, para poder compararte contigo mismo. */
@@ -429,6 +455,11 @@
 
   UI.empezar = function () {
     const c = UI.creador;
+    /* Se busca ranura libre antes de nada: empezar una vida ya no
+       borra la que tenías a medias. Si están las tres llenas, se usa
+       la que estés mirando. */
+    const libre = UI.CLAVES.findIndex(function (k) { return !localStorage.getItem(k); });
+    if (libre >= 0) UI.ranura = libre;
     const esp = SW.ESPECIES.filter(function (e) { return e.id === c.especie; })[0];
     const era = SW.ERAS.filter(function (e) { return e.id === c.era; })[0];
     const rasgo = SW.RASGOS.filter(function (r) { return r.id === c.rasgo; })[0];
@@ -546,6 +577,9 @@
     if (r) h += '<div class="tb-aviso racha ' + r.c + '"><b>' + (r.c === 'buena' ? '▲' : '▼') + ' ' + r.t + '</b><span>racha</span></div>';
     if (s.mision) h += '<div class="tb-aviso mision" title="misión de la Orden en ' + U.esc(s.mision.mundo) + '"><b>✷ misión</b><span>' + U.esc(s.mision.mundo) + '</span></div>';
     if (s.caza) h += '<div class="tb-aviso caza" title="expediente abierto en ' + U.esc(s.caza.mundo) + '"><b>⌖ caza</b><span>' + U.esc(s.caza.mundo) + '</span></div>';
+    if (s.contrato) h += '<div class="tb-aviso contrato" title="contrato del Gremio: ' + U.esc(s.contrato.nombre) + '"><b>✵ contrato</b><span>' + U.esc(s.contrato.destino) + '</span></div>';
+    if (s.leyenda) h += '<div class="tb-aviso leyenda" title="encargo de leyenda: ' + U.esc(s.leyenda.n) + '"><b>✦ encargo</b><span>de leyenda</span></div>';
+    if (s.carga) h += '<div class="tb-aviso carga' + (s.carga.ilegal ? ' ilegal' : '') + '" title="en bodega: ' + U.esc(s.carga.n) + '"><b>▣ bodega</b><span>' + (s.carga.ilegal ? 'ilegal' : 'carga') + '</span></div>';
     /* La atención de Vader: cada jedi que cierras llena un poco más la
        barra. Cuando se llena, baja él. */
     if (SW.esInquisidor && SW.esInquisidor(s)) {
@@ -582,6 +616,8 @@
     // la cara envejece con el personaje
     const ap = Object.assign({}, s.apariencia || {}, { edad: s.edadBio });
     let h = '<div class="holo-mini">' + SW.retrato(ap, 116, s.especie) + '</div>';
+    // lo primero de la ficha: lo que tienes abierto ahora mismo
+    if (SW.htmlAsuntos) h += SW.htmlAsuntos(s);
 
     /* Para qué sirve cada número. Estaban ahí sin explicar y había que
        adivinar si conviene subir carisma o intelecto. */
@@ -982,13 +1018,22 @@
     const g = UI.juego;
     const inst = g.cola[0];
     if (!inst) return;
-    const mini = inst.ref && inst.ref.minijuego;
+    let mini = inst.ref && inst.ref.minijuego;
+    /* Hay gente que no puede con los juegos de reflejos, y en el móvil
+       con una mano tampoco es cómodo. Con el modo sin cronómetro el
+       minijuego se resuelve con lo que sabes hacer: misma escala de
+       notas, sin pedirte milisegundos. */
+    const sinTiempo = localStorage.getItem('holovida_sintiempo') === 'si';
+    if (mini && sinTiempo) mini = null;
 
     const esTrama = !!(inst.ref && inst.ref.esTrama);
     let h = '<div class="evento-overlay"><div class="evento' + (esTrama ? ' de-trama' : '') + '">';
     h += '<div class="ev-texto">' + inst.texto + '</div>';
     if (mini) {
       h += UI.htmlMinijuego(inst.ref);
+    } else if (inst.ref && inst.ref.minijuego) {
+      h += '<div class="mini mini-auto"><p class="mini-pie">Modo sin cronómetro: se resuelve con tu pericia.</p>' +
+        '<button class="btn grande bloque" data-auto>▸ RESOLVERLO</button></div>';
     }
     h += '<div class="ev-ops">';
     /* Durante un duelo el teclado numérico es del duelo: enseñar «1» en
@@ -1008,6 +1053,8 @@
     UI.app.querySelector('.hud').appendChild(div.firstChild);
     if (mini) UI.arrancarMinijuego(inst.ref);
     else UI.escribirTexto();
+    const bAuto = document.querySelector('[data-auto]');
+    if (bAuto) bAuto.onclick = function () { UI.resolverSinTiempo(inst.ref); };
   };
 
   /* ------------------------------------------------------------
@@ -1559,6 +1606,37 @@
     };
   };
 
+  /** Resuelve un minijuego con las estadísticas, sin pedir reflejos. */
+  UI.resolverSinTiempo = function (ref) {
+    const g = UI.juego;
+    const per = U.clamp(ref.pericia || 30, 0, 130);
+    const dif = U.clamp(ref.dificultad || 50, 10, 100);
+    // la misma cuenta que haría un jugador competente: pericia contra dificultad
+    const v = U.clamp(0.5 + (per - dif) / 110, 0.05, 0.95);
+    const r = Math.random();
+    let grado;
+    if (r < v * 0.42) grado = 2;
+    else if (r < v * 0.92) grado = 1;
+    else if (r < v * 0.92 + (1 - v) * 0.5) grado = 0;
+    else grado = -1;
+    if (ref.minijuego === 'sable' && SW.paramsDuelo) {
+      // el duelo necesita su desglose para que la forma siga contando
+      const P = SW.paramsDuelo(ref);
+      const res = { asaltos: P.asaltos, puntos: 0, perfectas: 0, buenas: 0, pronto: 0, fallos: 0,
+                    forma: ref.forma, fase: ref.fase || 0 };
+      for (let i = 0; i < P.asaltos; i++) {
+        const x = Math.random();
+        if (x < v * 0.55) { res.perfectas++; res.puntos += 2; }
+        else if (x < v * 0.55 + 0.3) { res.buenas++; res.puntos += 1; }
+        else if (x < 0.85) { res.pronto++; }
+        else { res.fallos++; res.puntos -= 1; }
+      }
+      g.duelo = res;
+      grado = SW.notaDuelo(res);
+    }
+    UI.finMinijuego(grado, 'Resuelto con tu pericia (' + per + ' contra dificultad ' + dif + ').');
+  };
+
   UI.pararMinijuego = function () {
     if (!UI.mini) return;
     UI.mini.terminado = true;
@@ -1594,6 +1672,7 @@
       '<button class="btn" data-m="resumen">▸ Ver ficha completa</button>' +
       '<button class="btn" data-m="guardar">▸ Guardar partida</button>' +
       '<button class="btn" data-m="crt">▸ Filtro de pantalla: ' + (localStorage.getItem('holovida_crt') === 'no' ? 'apagado' : 'encendido') + '</button>' +
+      '<button class="btn" data-m="sintiempo">▸ Minijuegos con cronómetro: ' + (localStorage.getItem('holovida_sintiempo') === 'si' ? 'no' : 'sí') + '</button>' +
       '<button class="btn" data-m="anim">▸ Animaciones: ' + (UI.sinAnimacion ? 'apagadas' : 'encendidas') + '</button>' +
       '<button class="btn peligro" data-m="nueva">▸ Abandonar y empezar de cero</button>' +
       '</div>', null,
@@ -1605,11 +1684,16 @@
           UI.cerrarModal();
           if (m === 'resumen') UI.modal('FICHA', SW.tarjetaResumen(SW.construirResumen(UI.juego.s)), function () { UI.renderJuego(); });
           else if (m === 'guardar') { UI.guardarPartida(); UI.flash('Partida guardada.'); UI.renderJuego(); }
-          else if (m === 'nueva') { localStorage.removeItem('holovida_save'); UI.pantallaInicio(); }
+          else if (m === 'nueva') { localStorage.removeItem(UI.CLAVES[UI.ranura] || UI.CLAVES[0]); UI.pantallaInicio(); }
           else if (m === 'crt') {
             const apagado = localStorage.getItem('holovida_crt') === 'no';
             localStorage.setItem('holovida_crt', apagado ? 'si' : 'no');
             UI.aplicarPreferencias(); UI.renderJuego();
+          }
+          else if (m === 'sintiempo') {
+            const on = localStorage.getItem('holovida_sintiempo') === 'si';
+            localStorage.setItem('holovida_sintiempo', on ? 'no' : 'si');
+            UI.cerrarModal(); UI.renderJuego(); UI.menuPausa();
           }
           else if (m === 'anim') {
             UI.sinAnimacion = !UI.sinAnimacion;
@@ -1771,10 +1855,26 @@
   };
   UI.cerrarModal = function () { if (UI._modal) { UI._modal.remove(); UI._modal = null; } };
 
+  /* Tres ranuras. Antes había una sola: empezar una vida nueva te
+     borraba la que tenías a medias sin avisar. La ranura 1 sigue
+     siendo la clave de siempre para no perder la partida de nadie. */
+  UI.CLAVES = ['holovida_save', 'holovida_save_2', 'holovida_save_3'];
+  UI.ranura = 0;
+
+  UI.leerRanura = function (i) {
+    try {
+      const raw = localStorage.getItem(UI.CLAVES[i]);
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      return { nombre: d.s.nombre, edad: d.s.edad, especie: d.s.especieN || d.s.especie,
+               mundo: d.s.mundo, era: d.s.eraN || d.s.era, muerto: !!d.s.muerto };
+    } catch (e) { return null; }
+  };
+
   UI.guardarPartida = function () {
     try {
       if (!UI.juego || UI.juego.s.muerto) return;
-      localStorage.setItem('holovida_save', JSON.stringify({
+      localStorage.setItem(UI.CLAVES[UI.ranura] || UI.CLAVES[0], JSON.stringify({
         s: UI.juego.s, semilla: UI.juego.rng.seedStr, calls: UI.juego.rng.calls
       }));
     } catch (e) {}
@@ -1782,7 +1882,7 @@
 
   UI.cargarPartida = function () {
     try {
-      const raw = localStorage.getItem('holovida_save');
+      const raw = localStorage.getItem(UI.CLAVES[UI.ranura] || UI.CLAVES[0]);
       if (!raw) return UI.pantallaInicio();
       const data = JSON.parse(raw);
       const esp = SW.ESPECIES.filter(function (e) { return e.id === data.s.especie; })[0] || SW.ESPECIES[0];

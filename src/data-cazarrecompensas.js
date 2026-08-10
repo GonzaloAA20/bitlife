@@ -175,7 +175,9 @@
         { t: 'Pagar información a ' + banda, cazaBusca: 'pagar', coste: 4000, sub: 'Rápido y caro' },
         { t: 'Rastrear por tu cuenta', cazaBusca: 'rastrear', sub: 'Depende de tu intelecto y destreza' },
         { t: 'Montar una trampa y esperar', cazaBusca: 'trampa', sub: 'Lento pero muy efectivo si sale' },
-        { t: 'Abandonar el contrato', cazaAbandona: true, sub: 'El Gremio toma nota' }
+        { t: 'Abandonar el contrato', cazaAbandona: true,
+          sub: 'El Gremio toma nota, y el aviso no es una forma de hablar: pierdes lo invertido ' +
+               'y te cuesta reputación' }
       ]
     };
   };

@@ -18,7 +18,10 @@
   /* Un número que resume lo que vuela tu nave, de 0 a 1. */
   SW.solturaNave = function (s) {
     if (!s.nave) return 0;
-    return U.clamp((s.nave.vel || 4) / 12 * 0.7 + (s.naveEstado || 60) / 100 * 0.3, 0.1, 1);
+    const base = (s.nave.vel || 4) / 12 * 0.7 + (s.naveEstado || 60) / 100 * 0.3;
+    // un piloto de verdad vuela mejor que tú, y para eso le pagas
+    const piloto = SW.aporteDe ? SW.aporteDe(s, 'piloto') : 0;
+    return U.clamp(base + piloto * 0.30, 0.1, 1);
   };
 
   SW.menuRuta = function (g, destino) {

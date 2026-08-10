@@ -477,6 +477,8 @@
     if (SW.cobrarPeligro) SW.cobrarPeligro(this);
     if (SW.olvidoAtencion) SW.olvidoAtencion(this);
     if (SW.pasoAnual) SW.pasoAnual(this);
+    if (SW.pasoTripulacion) SW.pasoTripulacion(this);
+    if (SW.pasoNegocios) SW.pasoNegocios(this);
     if (s.muerto) return;
     this.avanzarEstudio();
     if (SW.pasoAprendiz) SW.pasoAprendiz(this);
@@ -1068,6 +1070,81 @@
     if (d.viajarA) { this.abrirMapaViaje = true; s.destinoSugerido = d.viajarA; }
     if (d.abrirBodega && SW.menuBodega) { this.cola.unshift(this.prepararGen(SW.menuBodega(this))); this.fase = 'evento'; }
     if (d.rutaViaje && SW.resolverRuta) SW.resolverRuta(this, d.rutaViaje);
+
+    /* --- tripulación --- */
+    if (d.contratarTripulante) {
+      s.tripulacion = s.tripulacion || [];
+      s.tripulacion.push(d.contratarTripulante);
+      s.stats.creditos -= d.contratarTripulante.sueldo;
+      this.log('Contratas a <b>' + d.contratarTripulante.n + '</b> de ' +
+        SW.OFICIOS_TRIPULACION[d.contratarTripulante.of].n + '.', 'bien');
+    }
+    if (d.despedirTripulante != null && s.tripulacion) {
+      const q = s.tripulacion[d.despedirTripulante];
+      if (q) { s.tripulacion.splice(d.despedirTripulante, 1); this.log('Despides a ' + q.n + '.', 'mal'); }
+    }
+    if (d.subirSueldo != null && s.tripulacion && s.tripulacion[d.subirSueldo]) {
+      const q = s.tripulacion[d.subirSueldo];
+      q.sueldo = Math.round(q.sueldo * 1.4); q.lealtad = U.clamp(q.lealtad + 25, 0, 100);
+      this.log(q.n + ' cobra ahora ' + U.cr(q.sueldo) + '. Se le nota.', 'cr');
+    }
+    if (d.echarA && s.tripulacion) {
+      s.tripulacion = s.tripulacion.filter(function (t) { return t.n !== d.echarA; });
+    }
+    if (d.lealtadA && s.tripulacion) {
+      const q = s.tripulacion.filter(function (t) { return t.n === d.lealtadA.n; })[0];
+      if (q) q.lealtad = U.clamp(q.lealtad + d.lealtadA.d, -20, 100);
+    }
+    if (d.lealtadTodos && SW.moverLealtad) SW.moverLealtad(this, d.lealtadTodos);
+
+    /* --- negocios --- */
+    if (d.comprarNegocio) {
+      const T = (SW.NEGOCIOS || []).filter(function (x) { return x.id === d.comprarNegocio.tipo; })[0];
+      if (T) {
+        s.negocios = s.negocios || [];
+        s.stats.creditos -= d.comprarNegocio.precio;
+        s.negocios.push({ tipo: T.id, n: T.n + ' de ' + d.comprarNegocio.mundo,
+          mundo: d.comprarNegocio.mundo, precio: d.comprarNegocio.precio,
+          renta: T.renta, estado: 85, años: 0, encargado: null, robo: 0 });
+        this.log('Compras ' + T.n.toLowerCase() + ' en ' + d.comprarNegocio.mundo + '. Ya es tuyo y ya da problemas.', 'bien');
+        this.hito('Compra ' + T.n.toLowerCase() + ' en ' + d.comprarNegocio.mundo);
+      }
+    }
+    if (d.verNegocio != null && SW.menuNegocio) {
+      const mn = SW.menuNegocio(this, d.verNegocio);
+      if (mn) { this.cola.unshift(this.prepararGen(mn)); this.fase = 'evento'; }
+    }
+    if (d.negocioArregla != null && s.negocios && s.negocios[d.negocioArregla]) {
+      const n0 = s.negocios[d.negocioArregla];
+      n0.estado = U.clamp(n0.estado + 30, 0, 100);
+      this.log(n0.n + ': reformas. Estado ' + n0.estado + '%.', 'bien');
+    }
+    if (d.negocioArreglaN) { d.negocioArreglaN[0].estado = U.clamp(d.negocioArreglaN[0].estado + d.negocioArreglaN[1], 0, 100); }
+    if (d.negocioDaño) { d.negocioDaño[0].estado = U.clamp(d.negocioDaño[0].estado - d.negocioDaño[1], 0, 100); }
+    if (d.negocioPresion) { d.negocioPresion[0].presion = d.negocioPresion[1]; }
+    if (d.negocioSinEncargado) { d.negocioSinEncargado.encargado = null; }
+    if (d.negocioLimpiaRobo) { d.negocioLimpiaRobo.robo = 0; }
+    if (d.negocioPierde && s.negocios) {
+      s.negocios = s.negocios.filter(function (x) { return x !== d.negocioPierde; });
+    }
+    if (d.negocioEncargado != null && s.negocios && s.negocios[d.negocioEncargado]) {
+      const n1 = s.negocios[d.negocioEncargado];
+      n1.encargado = SW.genNombreCompleto(rng, rng.pick(['humano', 'rodiano', 'twilek', 'duros']));
+      n1.robo = 0;
+      this.log(n1.n + ': ahora lo lleva ' + n1.encargado + '.', 'res');
+    }
+    if (d.negocioAtiende != null && s.negocios && s.negocios[d.negocioAtiende]) {
+      const n2 = s.negocios[d.negocioAtiende];
+      n2.estado = U.clamp(n2.estado + 12, 0, 100);
+      this.log('Te pasas por ' + n2.n + '. Se nota cuando el dueño aparece.', 'res');
+    }
+    if (d.negocioVende != null && s.negocios && s.negocios[d.negocioVende]) {
+      const n3 = s.negocios[d.negocioVende];
+      const v = Math.round(n3.precio * 0.7 * (n3.estado / 100));
+      s.stats.creditos += v;
+      s.negocios.splice(d.negocioVende, 1);
+      this.log('Vendes ' + n3.n + ' por ' + U.cr(v) + '.', 'cr');
+    }
     /* --- encargos de leyenda del Gremio --- */
     if (s.leyenda) {
       const L = s.leyenda;
@@ -1235,6 +1312,7 @@
     if (d.apuesta === 'gana') { const g = Math.round(Math.max(1000, s.stats.creditos * 0.5)); s.stats.creditos += g; this.log('Ganas ' + U.cr(g) + '.', 'cr'); }
     if (d.apuesta === 'pierde') { const g = Math.round(Math.max(0, s.stats.creditos) * 0.5); s.stats.creditos -= g; this.log('Pierdes ' + U.cr(g) + '.', 'mal'); }
     if (d.legado) { s.legado = d.legado; this.hito('Deja un legado: ' + d.legado); }
+    if (d.gastarTodo) { s.stats.creditos = 0; s.negocios = []; }
     if (d.chequeo) this.chequeoMedico();
     if (d.mover) this.mover(d.mover === 'casa' ? (s.mundoSecuestro || s.mundoNatal) : (d.mover === 'cerca' ? this.mundoCercano() : null), d.motivo);
     if (d.mueveA) this.mover(U.fill(d.mueveA, slots), d.motivo);
@@ -1807,6 +1885,8 @@
        mismo. Con lo ilegal manda la notoriedad, que ahí es currículum. */
     factor += (s.stats.carisma - 50) / 420;
     factor += ((s.carga.ilegal ? s.stats.notoriedad : s.stats.reputacion) - 40) / 600;
+    // el tasador sabe lo que vale todo en cuatro sectores
+    if (SW.aporteDe) factor += SW.aporteDe(s, 'tasador') * 0.22;
     return Math.round(s.carga.coste * U.clamp(factor, 0.4, 2.1));
   };
 
@@ -1930,6 +2010,30 @@
     return p;
   };
 
+  /* ------------------------------------------------------------
+     LA VENTAJA DEL SABLE
+     Medido antes de esto: el mismo personaje ganaba el 53% de las
+     peleas con las manos vacías y el 56% con un sable de luz. Tres
+     puntos. El arma entraba sólo en la probabilidad de acertar
+     —(poder - dificultad) / 170— y el daño estaba en rangos fijos
+     iguales para todos, así que daba igual con qué pegaras.
+
+     Un sable contra alguien que no lo tiene no es un arma mejor: es
+     otra categoría de pelea. Corta la guardia, corta el arma y desvía
+     lo que le disparen. Pero contra un nombre grande —un mandaloriano
+     con beskar, un cazador de leyenda, cualquiera que haya visto
+     antes uno— la ventaja se cae: esa gente sabe exactamente a qué se
+     enfrenta. Y contra otro sable no hay ventaja ninguna: eso es un
+     duelo y tiene su propio minijuego.
+     ------------------------------------------------------------ */
+  SW.ventajaSable = function (s, cfg) {
+    if (!s.sable) return 0;
+    cfg = cfg || {};
+    if (cfg.sable || cfg.canon || cfg.rival === 'leyenda') return 0;
+    const dif = cfg.dif == null ? 50 : cfg.dif;
+    return U.clamp((85 - dif) / 40, 0, 1);
+  };
+
   /** Reducción de daño por armadura y prótesis */
   Game.prototype.defensa = function () {
     const eq = SW.bonosEquipo(this.s);
@@ -1978,6 +2082,7 @@
       aguante: 100,
       poder: this.poderCombate(),
       dif: (cfg && cfg.dif) || 50,
+      ventajaSable: SW.ventajaSable(this.s, cfg),
       postura: this.rng.pick(['embestida', 'guardia', 'finta'])
     };
     this.cola.unshift(this.escenaCombateEvento());
@@ -2099,6 +2204,18 @@
       recib = (ok ? rng.int(0, 4) : rng.int(9, 18)) * expuesto;
       txt = ok ? 'La Fuerza fluye y el resultado no admite discusión.' : 'La conexión se rompe en el peor momento.';
       if (ok && s.stats.alineamiento < -30) s.stats.cordura -= 2;
+    }
+
+    /* El sable contra quien no lo tiene: corta lo que le pongan
+       delante y desvía lo que le tiren. */
+    const vs = e.ventajaSable || 0;
+    if (vs > 0) {
+      dmg *= 1 + 0.85 * vs;
+      recib *= 1 - 0.40 * vs;
+      if (dmg > 0 && this.rng.chance(0.22 * vs)) {
+        txt += ' <span class="dim">Le partes el arma por la mitad.</span>';
+        e.dif = Math.max(15, e.dif - 6);
+      }
     }
 
     if (vader2) {
@@ -2290,6 +2407,9 @@
       if (rng.chance(0.28)) { this.herir('tajo de la jugada fallida', rng.int(12, 24), false); }
     }
 
+    const vsm = e.ventajaSable || 0;
+    if (vsm > 0) { dmg *= 1 + 0.85 * vsm; recib *= 1 - 0.40 * vsm; }
+
     e.aguante = U.clamp(e.aguante - 18, 0, 100);
     e.hpEnemigo -= dmg;
     if (recib > 0) this.aplicarFx({ salud: -recib }, {});
@@ -2354,7 +2474,9 @@
       dif: (cfg && cfg.dif) || 50,
       postura: this.rng.pick(['embestida', 'guardia', 'finta']),
       poder: s.stats.destreza * 0.5 + s.nave.vel * 4 + s.nave.arm * 4 +
-        (s.habilidades.indexOf('piloto') >= 0 ? 12 : 0) + (s.naveEstado - 60) / 3
+        (s.habilidades.indexOf('piloto') >= 0 ? 12 : 0) + (s.naveEstado - 60) / 3 +
+        // torretas tripuladas: alguien disparando mientras tú vuelas
+        (SW.aporteDe ? SW.aporteDe(s, 'artillero') * 22 + SW.aporteDe(s, 'piloto') * 14 : 0)
     };
     this.cola.unshift(this.escenaDogfightEvento());
   };
@@ -2815,6 +2937,14 @@
     if (id === 'orden' && SW.menuOrden) {
       const m = SW.menuOrden(this);
       if (m) { this.cola.push(this.prepararGen(m)); this.fase = 'evento'; return; }
+    }
+    if (id === 'tripulacion' && SW.menuTripulacion) {
+      this.cola.push(this.prepararGen(SW.menuTripulacion(this)));
+      this.actividadUsada = s.acciones <= 0; this.fase = 'evento'; return;
+    }
+    if (id === 'negocios' && SW.menuNegocios) {
+      this.cola.push(this.prepararGen(SW.menuNegocios(this)));
+      this.actividadUsada = s.acciones <= 0; this.fase = 'evento'; return;
     }
     if (id === 'mercancia') {
       this.cola.push(this.prepararGen(SW.menuBodega ? SW.menuBodega(this) : this.menuMercancia()));

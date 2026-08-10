@@ -1317,6 +1317,30 @@ body.sin-crt::after { display: none; }
 .draw-marcas b { width: 13px; height: 13px; border-color: #5a2028; }
 .draw-marcas b.on { background: var(--rojo); border-color: var(--rojo); box-shadow: 0 0 12px rgba(255,77,94,.6); }
 
+/* lo que tienes entre manos, en la ficha */
+.ficha.asuntos .asunto {
+  display: grid; grid-template-columns: 18px 1fr; gap: 7px; align-items: start;
+  padding: 5px 0; border-bottom: 1px solid #0d1a26;
+}
+.ficha.asuntos .asunto i { font-style: normal; font-size: 13px; color: var(--acento); text-align: center; }
+.ficha.asuntos .asunto b { display: block; font-size: 11.5px; color: var(--txt); }
+.asunto-q { display: block; font-size: 10.5px; color: var(--ambar); }
+.asunto-pie { display: block; font-size: 9.5px; color: var(--txt-dim); letter-spacing: .04em; }
+.ficha.asuntos .asunto.leyenda i { color: var(--oro); }
+.ficha.asuntos .asunto.caza i, .ficha.asuntos .asunto.frente i { color: var(--rojo); }
+.ficha.asuntos .asunto.carga i { color: var(--verde); }
+.tb-aviso.contrato b { color: var(--verde); }
+.tb-aviso.leyenda b { color: var(--oro); }
+.tb-aviso.carga b { color: var(--txt); }
+.tb-aviso.carga.ilegal b { color: var(--ambar); }
+
+/* selector de partidas guardadas */
+.ranuras { display: grid; gap: 8px; margin-bottom: 12px; }
+.btn.ranura { text-align: left; display: block; }
+.btn.ranura b { display: block; font-size: 13px; }
+.btn.ranura span { display: block; font-size: 11px; color: var(--txt-dim); text-transform: none; letter-spacing: 0; margin-top: 3px; }
+.mini-auto { text-align: center; }
+
 </style>
 </head>
 <body>
@@ -16237,7 +16261,9 @@ body.sin-crt::after { display: none; }
         { t: 'Pagar información a ' + banda, cazaBusca: 'pagar', coste: 4000, sub: 'Rápido y caro' },
         { t: 'Rastrear por tu cuenta', cazaBusca: 'rastrear', sub: 'Depende de tu intelecto y destreza' },
         { t: 'Montar una trampa y esperar', cazaBusca: 'trampa', sub: 'Lento pero muy efectivo si sale' },
-        { t: 'Abandonar el contrato', cazaAbandona: true, sub: 'El Gremio toma nota' }
+        { t: 'Abandonar el contrato', cazaAbandona: true,
+          sub: 'El Gremio toma nota, y el aviso no es una forma de hablar: pierdes lo invertido ' +
+               'y te cuesta reputación' }
       ]
     };
   };
@@ -24918,7 +24944,10 @@ body.sin-crt::after { display: none; }
   /* Un número que resume lo que vuela tu nave, de 0 a 1. */
   SW.solturaNave = function (s) {
     if (!s.nave) return 0;
-    return U.clamp((s.nave.vel || 4) / 12 * 0.7 + (s.naveEstado || 60) / 100 * 0.3, 0.1, 1);
+    const base = (s.nave.vel || 4) / 12 * 0.7 + (s.naveEstado || 60) / 100 * 0.3;
+    // un piloto de verdad vuela mejor que tú, y para eso le pagas
+    const piloto = SW.aporteDe ? SW.aporteDe(s, 'piloto') : 0;
+    return U.clamp(base + piloto * 0.30, 0.1, 1);
   };
 
   SW.menuRuta = function (g, destino) {
@@ -25603,6 +25632,778 @@ body.sin-crt::after { display: none; }
 
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* ===== src/data-asuntos.js ===== */
+/* ============================================================
+   HOLOVIDA :: LO QUE TIENES ENTRE MANOS
+   Se puede llegar a tener seis cosas abiertas a la vez —contrato del
+   Gremio, encargo de leyenda, misión de la Orden, expediente de la
+   Inquisición, carga en bodega y una campaña de guerra— y la barra
+   de arriba sólo enseñaba tres. El resto existía en el estado pero
+   no en la pantalla: te saltaba solo cuando el juego se acordaba.
+
+   Esto reúne todo lo que está en marcha en un sitio.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+
+  /** Todo lo que tienes abierto, en orden de a qué deberías atender. */
+  SW.asuntosAbiertos = function (s) {
+    const a = [];
+    if (s.leyenda) {
+      a.push({ ic: '✦', n: 'Encargo de leyenda', d: s.leyenda.n,
+        pie: U.cr(s.leyenda.pago) + ' al cierre', c: 'leyenda', urg: 1 });
+    }
+    if (s.contrato) {
+      const fases = { viaje: 'de camino', buscar: 'buscándole', captura: 'a punto', entrega: 'para entregar' };
+      a.push({ ic: '✵', n: 'Contrato del Gremio', d: s.contrato.nombre,
+        pie: (fases[s.contrato.fase] || '') + ' · ' + s.contrato.destino, c: 'contrato', urg: 2 });
+    }
+    if (s.caza) {
+      a.push({ ic: '⌖', n: 'Expediente de la Inquisición', d: s.caza.perfil ? s.caza.perfil.n : 'un objetivo',
+        pie: s.caza.mundo, c: 'caza', urg: 2 });
+    }
+    if (s.mision) {
+      a.push({ ic: '✷', n: 'Misión de la Orden', d: s.mision.n || 'del Consejo',
+        pie: s.mision.mundo, c: 'mision', urg: 3 });
+    }
+    if (s.flags && s.flags.en_el_frente) {
+      const cmp = s.campaña || {};
+      a.push({ ic: '⛨', n: 'En el frente', d: (s.puestoGuerra || 'infantería'),
+        pie: (s.añosDeFrenteRestantes || 0) + ' años de campaña · ' + (cmp.medallas || 0) + ' condecoraciones',
+        c: 'frente', urg: 3 });
+    }
+    if (s.carga) {
+      a.push({ ic: '▣', n: 'Carga en bodega', d: s.carga.n,
+        pie: 'comprada en ' + s.carga.origen + ' por ' + U.cr(s.carga.coste) +
+             (s.carga.ilegal ? ' · ilegal' : ''), c: 'carga', urg: 4 });
+    }
+    if (s.pendientes && s.pendientes.length) {
+      s.pendientes.slice(0, 2).forEach(function (p) {
+        a.push({ ic: '⚑', n: 'Pendiente en ' + p.mundo, d: p.txt, pie: 'desde los ' + p.edad,
+          c: 'pendiente', urg: 5 });
+      });
+    }
+    return a.sort(function (x, y) { return x.urg - y.urg; });
+  };
+
+  /** El bloque de la ficha. */
+  SW.htmlAsuntos = function (s) {
+    const a = SW.asuntosAbiertos(s);
+    if (!a.length) return '';
+    let h = '<div class="ficha asuntos"><h4>Entre manos</h4>';
+    a.forEach(function (x) {
+      h += '<div class="asunto ' + x.c + '"><i>' + x.ic + '</i>' +
+        '<div><b>' + U.esc(x.n) + '</b>' +
+        (x.d ? '<span class="asunto-q">' + U.esc(String(x.d)) + '</span>' : '') +
+        (x.pie ? '<span class="asunto-pie">' + U.esc(x.pie) + '</span>' : '') +
+        '</div></div>';
+    });
+    return h + '</div>';
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== src/data-tripulacion.js ===== */
+/* ============================================================
+   HOLOVIDA :: TRIPULACIÓN
+   Tenías nave, bodega y rutas, y volabas solo. La «tripulación» era
+   un evento suelto que te añadía un conocido y no hacía nada más.
+
+   Ahora se contrata gente con oficio y lealtad, y cada uno muerde
+   donde le toca: el piloto en las huidas, el mecánico en el casco,
+   el artillero en el combate espacial y el tasador en lo que te
+   pagan por la carga. Cobran todos los años. Y si les pagas mal o
+   les haces cosas feas, se van — o algo peor.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+  SW.ACTIVIDADES = SW.ACTIVIDADES || [];
+  SW.GUION = SW.GUION || [];
+
+  const OFICIOS = {
+    piloto:    { n: 'piloto', ic: '⤢', d: 'Vuela mejor que tú. Lo dice a menudo.',
+                 efecto: 'huir de lo que te encuentres por el camino' },
+    mecanico:  { n: 'mecánico', ic: '⚙', d: 'El casco aguanta lo que ella diga que aguanta.',
+                 efecto: 'reparar el casco cada año y encajar mejor los impactos' },
+    artillero: { n: 'artillero', ic: '⌖', d: 'Habla poco y apunta mucho.',
+                 efecto: 'el combate espacial' },
+    tasador:   { n: 'tasador', ic: '▣', d: 'Sabe lo que vale todo en cuatro sectores.',
+                 efecto: 'lo que te pagan por la carga' }
+  };
+  SW.OFICIOS_TRIPULACION = OFICIOS;
+
+  SW.tripulacion = function (s) { return s.tripulacion || []; };
+  SW.tripulanteDe = function (s, of) {
+    return (s.tripulacion || []).filter(function (t) { return t.of === of; })[0] || null;
+  };
+
+  /** Cuánto aporta alguien: su oficio por su lealtad. */
+  SW.aporteTripulante = function (t) {
+    if (!t) return 0;
+    return U.clamp((t.pericia / 100) * (0.45 + U.clamp(t.lealtad, 0, 100) / 180), 0, 1);
+  };
+  SW.aporteDe = function (s, of) { return SW.aporteTripulante(SW.tripulanteDe(s, of)); };
+
+  /* ------------------------------------------------------------
+     La pestaña
+     ------------------------------------------------------------ */
+  SW.ACTIVIDADES.push({
+    id: 'tripulacion', n: 'Tripulación', ico: '☷', min: 16,
+    desc: 'Contratar gente para tu nave, pagarla y aguantarla.',
+    req: function (s) { return !!s.nave; }
+  });
+
+  const generar = function (g, of) {
+    const rng = g.rng;
+    const pericia = rng.int(28, 88);
+    return {
+      of: of, n: SW.genNombreCompleto(rng, rng.pick(['humano', 'twilek', 'rodiano', 'duros', 'zabrak', 'togruta'])),
+      pericia: pericia, lealtad: rng.int(30, 60),
+      sueldo: Math.round(2500 + pericia * 240), años: 0
+    };
+  };
+
+  SW.menuTripulacion = function (g) {
+    const s = g.s;
+    s.tripulacion = s.tripulacion || [];
+    const c = [];
+    const libres = Object.keys(OFICIOS).filter(function (o) { return !SW.tripulanteDe(s, o); });
+    const plazas = Math.max(1, Math.min(4, Math.round((s.nave.carga || 3) / 2) + 1));
+
+    (s.tripulacion || []).forEach(function (t, i) {
+      const O = OFICIOS[t.of];
+      c.push({ t: O.ic + ' Subirle el sueldo a ' + t.n + ' — ' + U.cr(Math.round(t.sueldo * 0.4)),
+        sub: O.n + ' · pericia ' + t.pericia + ' · lealtad ' + Math.round(t.lealtad) +
+             ' · lleva ' + t.años + ' años contigo',
+        subirSueldo: i, coste: Math.round(t.sueldo * 0.4) });
+      c.push({ t: '✕ Despedir a ' + t.n, sub: 'Se lo dices tú o se lo dice el silencio.',
+        despedirTripulante: i });
+    });
+
+    if (s.tripulacion.length < plazas) {
+      libres.slice(0, 3).forEach(function (o) {
+        const cand = generar(g, o);
+        const O = OFICIOS[o];
+        c.push({ t: O.ic + ' Contratar a ' + cand.n + ' — ' + U.cr(cand.sueldo) + '/año',
+          sub: O.n + ' · pericia ' + cand.pericia + ' · mejora ' + O.efecto,
+          bloqueada: s.stats.creditos < cand.sueldo,
+          contratarTripulante: cand });
+      });
+    } else {
+      c.push({ t: '✕ No caben más', bloqueada: true, sub: 'Tu ' + s.nave.n + ' da para ' + plazas + '.' });
+    }
+    c.push({ t: '◂ Volver al hangar', volver: true });
+
+    const nom = s.tripulacion.length
+      ? s.tripulacion.map(function (t) { return t.n + ' (' + OFICIOS[t.of].n + ')'; }).join(', ')
+      : 'nadie: vuelas solo';
+    return {
+      id: 'menu_tripulacion', gen: true, esMenu: true,
+      t: '<span class="scene-tag">TRIPULACIÓN · ' + U.esc(s.nave.n.toUpperCase()) + '</span>' +
+        '<p>A bordo: ' + U.esc(nom) + '.</p>' +
+        '<p class="dim">' + s.tripulacion.length + ' de ' + plazas + ' plazas. ' +
+        'Cobran todos los años, y quien cobra poco acaba escuchando otras ofertas.</p>',
+      c: c
+    };
+  };
+
+  /* ------------------------------------------------------------
+     El año de la tripulación: cobran, mejoran y a veces se van
+     ------------------------------------------------------------ */
+  SW.pasoTripulacion = function (g) {
+    const s = g.s, rng = g.rng;
+    if (!s.tripulacion || !s.tripulacion.length) return;
+    if (!s.nave) {
+      g.log('Sin nave no hay tripulación: se despiden en el puerto.', 'mal');
+      s.tripulacion = [];
+      return;
+    }
+    let nomina = 0;
+    const sefue = [];
+    s.tripulacion.forEach(function (t) {
+      t.años++;
+      nomina += t.sueldo;
+      if (t.pericia < 95 && rng.chance(0.35)) t.pericia = Math.min(95, t.pericia + rng.int(1, 3));
+      t.lealtad += rng.int(-3, 5);
+      if (t.of === 'mecanico') {
+        const rep = Math.round(6 + SW.aporteTripulante(t) * 16);
+        s.naveEstado = U.clamp((s.naveEstado || 60) + rep, 0, 100);
+      }
+      if (t.lealtad < 12 && rng.chance(0.45)) sefue.push(t);
+    });
+    if (nomina) {
+      s.stats.creditos -= nomina;
+      if (s.stats.creditos < -20000) {
+        g.log('No llegas a la nómina de la tripulación. Se enteran enseguida.', 'mal');
+        s.tripulacion.forEach(function (t) { t.lealtad -= 22; });
+      } else if (rng.chance(0.35)) {
+        g.log('Nóminas de la tripulación: ' + U.cr(nomina) + '.', 'cr');
+      }
+    }
+    sefue.forEach(function (t) {
+      s.tripulacion = s.tripulacion.filter(function (x) { return x !== t; });
+      g.log(t.n + ' recoge sus cosas y se baja en el siguiente puerto. No hay discusión.', 'mal');
+      g.aplicarFx({ cordura: -6 }, {});
+    });
+  };
+
+  /* Cuando pasa algo bueno o malo a bordo, la lealtad se mueve. */
+  SW.moverLealtad = function (g, d) {
+    const s = g.s;
+    if (!s.tripulacion || !s.tripulacion.length) return;
+    s.tripulacion.forEach(function (t) { t.lealtad = U.clamp(t.lealtad + d, -20, 100); });
+  };
+
+  /* ------------------------------------------------------------
+     Escenas de a bordo: la gente da problemas, que es lo bueno
+     ------------------------------------------------------------ */
+  SW.GUION.push({
+    id: 'tr_abordo', min: 16, max: 200, prio: 66, repetible: true, gen: true, c: [],
+    req: function (s) {
+      if (!s.nave || !s.tripulacion || !s.tripulacion.length) return false;
+      return !s.flags['abordo_' + s.edad];
+    },
+    hazlo: function (g) {
+      const s = g.s, rng = g.rng;
+      if (!rng.chance(0.30)) return null;
+      s.flags['abordo_' + s.edad] = true;
+      const t = rng.pick(s.tripulacion);
+      const O = SW.OFICIOS_TRIPULACION[t.of];
+      const leal = t.lealtad > 55;
+
+      if (!leal && rng.chance(0.45)) {
+        return {
+          id: 'tr_traicion', gen: true,
+          t: '<span class="scene-tag">A BORDO</span>' +
+            '<p><b>' + U.esc(t.n) + '</b>, tu ' + O.n + ', lleva semanas hablando por un canal que no es el de la nave.</p>' +
+            '<p>Le has pagado ' + U.cr(t.sueldo) + ' al año durante ' + t.años + ' años y alguien le ha ofrecido más.</p>',
+          c: [
+            { t: 'Igualar la oferta', sub: 'Cuesta, y funciona.',
+              coste: Math.round(t.sueldo * 1.5), lealtadA: { n: t.n, d: 30 },
+              out: 'Se queda. Y a partir de ahora sabe exactamente cuánto vale.' },
+            { t: 'Echarle ahora mismo', fx: { cordura: -6 }, echarA: t.n,
+              out: 'Le dejas en el puerto con sus cosas. Se lleva lo que sabe de ti.' },
+            { t: 'Hablarlo de verdad', sub: 'Depende de tu carisma.',
+              r: [
+                { p: U.clamp(0.25 + s.stats.carisma / 190, 0.2, 0.78),
+                  t: 'Habláis cuatro horas en la bodega. Se queda por razones que no son dinero.',
+                  fx: { carisma: 8, cordura: 6 }, lealtadA: { n: t.n, d: 40 } },
+                { p: 0.55, t: 'No hay nada que hablar: ya había firmado.',
+                  fx: { cordura: -10 }, echarA: t.n }
+              ] },
+            { t: 'Dejar que se vaya y no reemplazarle',
+              fx: { cordura: -4, creditos: 0 }, echarA: t.n,
+              out: 'Vuelves a volar solo. Se nota en todo.' }
+          ]
+        };
+      }
+
+      return {
+        id: 'tr_abordo', gen: true,
+        t: '<span class="scene-tag">A BORDO</span>' +
+          '<p><b>' + U.esc(t.n) + '</b> (' + O.n + ') te pide cinco minutos en la cabina. ' +
+          (leal ? 'No suele pedir nada, así que será algo.' : 'Trae la cara de quien ha ensayado la frase.') + '</p>' +
+          '<p>' + U.esc(rng.pick([
+            'Quiere desviar la ruta dos días para ver a alguien.',
+            'Ha encontrado una pieza que arreglaría lo que lleváis un año arrastrando, y cuesta.',
+            'Le han ofrecido un trabajo mejor y ha dicho que no. Quería que lo supieras.',
+            'Cree que la última carga que subisteis no era lo que decía el manifiesto.'
+          ])) + '</p>',
+        c: [
+          { t: 'Decir que sí sin pensarlo', fx: { cordura: 6, creditos: -6000 },
+            lealtadA: { n: t.n, d: 22 }, out: 'No lo dice, pero no se le olvida.' },
+          { t: 'Escuchar y decidir después', fx: { intelecto: 6 }, lealtadA: { n: t.n, d: 8 },
+            out: 'Le das largas con educación. Es lo que esperaba.' },
+          { t: 'Recordarle quién manda aquí', fx: { reputacion: 4 },
+            lealtadA: { n: t.n, d: -25 }, out: 'Dice «sí, capitán» y se va. Eso no se arregla con un aumento.' },
+          { t: 'Invitar a toda la tripulación a cenar en tierra',
+            coste: 4000, fx: { cordura: 12, carisma: 6 }, lealtadTodos: 16,
+            out: 'Cuatro horas en una taberna con suelo pegajoso. Vuelven siendo otra cosa.' }
+        ]
+      };
+    }
+  });
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== src/data-negocios.js ===== */
+/* ============================================================
+   HOLOVIDA :: NEGOCIOS
+   Por encima de 200.000 créditos lo único que pasaba era que te
+   cobraban mantenimiento: el dinero dejaba de ser una decisión y
+   pasaba a ser un número que sube. Se podía ser magnate galáctico
+   sin que la galaxia se enterase.
+
+   Un negocio no es sólo renta: es exposición. Alguien te extorsiona,
+   un rival te lo quema, el Imperio te lo nacionaliza, tu encargado
+   te roba durante seis años. Eso convierte los créditos en algo que
+   hay que defender.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+  SW.ACTIVIDADES = SW.ACTIVIDADES || [];
+  SW.GUION = SW.GUION || [];
+
+  const TIPOS = [
+    { id: 'cantina', n: 'Cantina', ic: '⌾', precio: 60000, renta: 0.16, riesgo: 0.22,
+      d: 'Ruido, mesas pegajosas y todo el mundo hablando de más. Se entera de cosas antes que nadie.',
+      extra: 'rumores' },
+    { id: 'hangar', n: 'Hangar de reparaciones', ic: '⚙', precio: 90000, renta: 0.14, riesgo: 0.14,
+      d: 'Naves rotas y gente con prisa. El sitio más aburrido y más rentable del puerto.',
+      extra: 'casco' },
+    { id: 'carga', n: 'Línea de carga', ic: '▤', precio: 140000, renta: 0.19, riesgo: 0.26,
+      d: 'Tres cargueros viejos y una ruta fija. Legal casi siempre.',
+      extra: 'mercancia' },
+    { id: 'chatarra', n: 'Desguace', ic: '⛁', precio: 45000, renta: 0.12, riesgo: 0.10,
+      d: 'Un descampado con montañas de metal. Aparecen cosas.',
+      extra: 'piezas' },
+    { id: 'apuestas', n: 'Casa de apuestas', ic: '◈', precio: 110000, renta: 0.26, riesgo: 0.38,
+      d: 'La que más da y la que más gente cabrea.', ilegal: true, extra: 'deudas' },
+    { id: 'clinica', n: 'Clínica de barrio', ic: '✚', precio: 75000, renta: 0.10, riesgo: 0.08,
+      d: 'No es negocio, es otra cosa. La gente se acuerda.', extra: 'salud' }
+  ];
+  SW.NEGOCIOS = TIPOS;
+
+  SW.negocios = function (s) { return s.negocios || []; };
+  SW.rentaAnual = function (s) {
+    return (s.negocios || []).reduce(function (a, n) {
+      return a + Math.round(n.precio * n.renta * (n.estado / 100));
+    }, 0);
+  };
+
+  SW.ACTIVIDADES.push({
+    id: 'negocios', n: 'Negocios', ico: '⌸', min: 18,
+    desc: 'Comprar locales, cuidarlos y defenderlos de quien venga.',
+    req: function (s) { return s.stats.creditos >= 40000 || (s.negocios && s.negocios.length); }
+  });
+
+  SW.menuNegocios = function (g) {
+    const s = g.s, rng = g.rng;
+    s.negocios = s.negocios || [];
+    const c = [];
+    const m = SW.mundo(s.mundo);
+
+    s.negocios.forEach(function (n, i) {
+      const T = TIPOS.filter(function (t) { return t.id === n.tipo; })[0] || {};
+      const renta = Math.round(n.precio * n.renta * (n.estado / 100));
+      c.push({ t: T.ic + ' ' + n.n + ' (' + n.mundo + ') — ' + U.cr(renta) + '/año',
+        sub: 'estado ' + n.estado + '% · ' + (n.encargado ? 'lleva ' + n.encargado : 'sin encargado, lo llevas tú') +
+             (n.presion ? ' · alguien le está apretando' : ''),
+        verNegocio: i });
+    });
+
+    if (s.negocios.length < 5) {
+      const yaAqui = s.negocios.filter(function (n) { return n.mundo === s.mundo; }).length;
+      rng.pickN(TIPOS, 3).forEach(function (T) {
+        const precio = Math.round(T.precio * (0.8 + rng.next() * 0.5) * (1 + (m.riq - 5) * 0.05) * (1 + yaAqui * 0.15));
+        const puede = s.stats.creditos >= precio;
+        c.push({ t: (puede ? 'Comprar ' : '✕ ') + T.n + ' en ' + s.mundo + ' — ' + U.cr(precio),
+          sub: T.d + ' · renta ~' + Math.round(T.renta * 100) + '% al año' +
+               (T.ilegal ? ' · ilegal donde hay ley' : '') + (puede ? '' : ' · no te llega'),
+          bloqueada: !puede,
+          comprarNegocio: puede ? { tipo: T.id, precio: precio, mundo: s.mundo } : null });
+      });
+    }
+    c.push({ t: '◂ Salir', volver: true });
+
+    const total = SW.rentaAnual(s);
+    return {
+      id: 'menu_negocios', gen: true, esMenu: true,
+      t: '<span class="scene-tag">LO QUE ES TUYO</span>' +
+        (s.negocios.length
+          ? '<p>' + s.negocios.length + ' negocio' + (s.negocios.length > 1 ? 's' : '') +
+            ' que te dan <b>' + U.cr(total) + '</b> al año sin que hagas nada. Que no es lo mismo que ' +
+            'sin que te cueste nada.</p>'
+          : '<p>Tienes ' + U.cr(s.stats.creditos) + ' parados. El dinero quieto se lo come el mantenimiento; ' +
+            'el dinero puesto en algo da problemas, que es una forma de que pase algo.</p>') +
+        '<p class="dim">' + U.esc(s.mundo) + ': riqueza ' + m.riq + '/10 · ley ' + m.ley + '/10</p>',
+      c: c
+    };
+  };
+
+  /* --- la ficha de un local: aquí se cuida o se descuida --- */
+  SW.menuNegocio = function (g, i) {
+    const s = g.s, n = (s.negocios || [])[i];
+    if (!n) return null;
+    const T = TIPOS.filter(function (t) { return t.id === n.tipo; })[0] || {};
+    const renta = Math.round(n.precio * n.renta * (n.estado / 100));
+    const c = [
+      { t: 'Meterle dinero', sub: 'Sube el estado y con él la renta.',
+        coste: Math.round(n.precio * 0.15), negocioArregla: i, fx: { } },
+      { t: n.encargado ? 'Cambiar de encargado' : 'Poner un encargado',
+        sub: n.encargado ? 'El de ahora no te acaba de convencer.' : 'Cobra, pero te quita el problema de encima.',
+        negocioEncargado: i, coste: 5000 },
+      { t: 'Pasarte a menudo y que te vean', sub: 'Sin encargado esto es lo que lo sostiene.',
+        negocioAtiende: i, fx: { cordura: -4, carisma: 4 } },
+      { t: 'Venderlo — ' + U.cr(Math.round(n.precio * 0.7 * (n.estado / 100))),
+        sub: 'Se vende peor de lo que se compra. Siempre.', negocioVende: i },
+      { t: '◂ Volver', volver: true }
+    ];
+    return {
+      id: 'ficha_negocio', gen: true, esMenu: true,
+      t: '<span class="scene-tag">' + U.esc(n.n.toUpperCase()) + '</span>' +
+        '<p>' + U.esc(T.d || '') + '</p>' +
+        '<p class="dim">En ' + U.esc(n.mundo) + ' · comprado por ' + U.cr(n.precio) +
+        ' · estado ' + n.estado + '% · renta ' + U.cr(renta) + '/año' +
+        (n.encargado ? ' · lo lleva ' + U.esc(n.encargado) : '') + '</p>',
+      c: c
+    };
+  };
+
+  /* ------------------------------------------------------------
+     El año de los negocios: renta, desgaste y problemas
+     ------------------------------------------------------------ */
+  SW.pasoNegocios = function (g) {
+    const s = g.s, rng = g.rng;
+    if (!s.negocios || !s.negocios.length) return;
+    let renta = 0;
+    s.negocios.forEach(function (n) {
+      n.años = (n.años || 0) + 1;
+      // se desgasta más rápido si no estás ni pones a nadie
+      const cuidado = n.encargado ? 4 : (n.mundo === s.mundo ? 6 : 12);
+      n.estado = U.clamp(n.estado - cuidado + rng.int(0, 3), 0, 100);
+      let r = Math.round(n.precio * n.renta * (n.estado / 100));
+      // el encargado se lleva lo suyo, y a veces algo más
+      if (n.encargado) {
+        r = Math.round(r * 0.75);
+        if (rng.chance(0.06)) {
+          n.robo = (n.robo || 0) + 1;
+          r = Math.round(r * 0.4);
+        }
+      }
+      renta += r;
+    });
+    if (renta) {
+      s.stats.creditos += renta;
+      if (rng.chance(0.5)) g.log('Rentas de lo tuyo: ' + U.cr(renta) + '.', 'cr');
+    }
+  };
+
+  /* ------------------------------------------------------------
+     Y los problemas, que es para lo que se compran
+     ------------------------------------------------------------ */
+  SW.GUION.push({
+    id: 'ng_problema', min: 18, max: 200, prio: 68, repetible: true, gen: true, c: [],
+    req: function (s) { return !!(s.negocios && s.negocios.length) && !s.flags['ng_' + s.edad]; },
+    hazlo: function (g) {
+      const s = g.s, rng = g.rng;
+      const n = rng.pick(s.negocios);
+      const T = TIPOS.filter(function (t) { return t.id === n.tipo; })[0] || {};
+      const p = 0.16 + (T.riesgo || 0.15) + (s.stats.notoriedad / 500);
+      if (!rng.chance(p)) return null;
+      s.flags['ng_' + s.edad] = true;
+
+      const cuales = ['extorsion', 'rival', 'robo', 'estado'];
+      let cual = rng.pick(cuales);
+      if (n.robo && rng.chance(0.6)) cual = 'robo';
+      if ((s.era === 'imperio_temprano' || s.era === 'rebelion') && rng.chance(0.3)) cual = 'estado';
+
+      if (cual === 'extorsion') {
+        const cuota = Math.round(n.precio * 0.12);
+        return {
+          id: 'ng_extorsion', gen: true,
+          t: '<span class="scene-tag">VISITA AL LOCAL</span>' +
+            '<p>Tres tipos entran en <b>' + U.esc(n.n) + '</b> a media tarde, se sientan y no piden nada.</p>' +
+            '<p>«Un sitio así, en un barrio así… hay que cuidarlo. Nosotros cuidamos sitios.» ' + U.cr(cuota) + ' al año.</p>',
+          c: [
+            { t: 'Pagar y que no vuelvan', fx: { creditos: -cuota, cordura: -6 }, negocioPresion: [n, true],
+              out: 'Vuelven todos los años. La cuota sube todos los años.' },
+            { t: 'Decirles quién eres', sub: 'Depende de tu notoriedad.',
+              r: [
+                { p: U.clamp(0.15 + s.stats.notoriedad / 150, 0.12, 0.8),
+                  t: 'Se miran entre ellos, se levantan y piden perdón. Uno se disculpa dos veces.',
+                  fx: { notoriedad: 8, carisma: 6 } },
+                { p: 0.5, t: 'No les suena tu nombre, y ahora tienen que dejar claro que no les impresionas.',
+                  fx: { salud: -18, creditos: -Math.round(cuota * 1.5) }, negocioDaño: [n, 25] }
+              ] },
+            { t: 'Sacarles tú mismo', combate: { dif: 58 }, fx: { notoriedad: 10 },
+              sub: 'Los tres a la vez.' },
+            { t: 'Cerrar el local una temporada', fx: { cordura: 4 }, negocioDaño: [n, 30],
+              out: 'Cuando abres, la mitad de la clientela se ha acostumbrado a ir a otro sitio.' }
+          ]
+        };
+      }
+
+      if (cual === 'rival') {
+        return {
+          id: 'ng_rival', gen: true,
+          t: '<span class="scene-tag">COMPETENCIA</span>' +
+            '<p>Ha abierto otro <b>' + U.esc(T.n.toLowerCase()) + '</b> a dos calles de ' + U.esc(n.n) +
+            ', más nuevo y más barato.</p><p>En dos meses te ha quitado un tercio de la gente.</p>',
+          c: [
+            { t: 'Bajar precios y aguantar', fx: { creditos: -Math.round(n.precio * 0.1) },
+              negocioArreglaN: [n, 10], out: 'Aguantas. Los dos perdéis dinero, pero tú tenías más.' },
+            { t: 'Mejorar lo tuyo hasta que no haya color',
+              coste: Math.round(n.precio * 0.25), negocioArreglaN: [n, 35], fx: { intelecto: 6 },
+              out: 'Reformas enteras. Vuelve la gente y vuelve con amigos.' },
+            { t: 'Comprarles el negocio', sub: 'Si tienes con qué.',
+              coste: Math.round(n.precio * 0.8), negocioArreglaN: [n, 20], fx: { reputacion: 6, notoriedad: 6 },
+              out: 'Aceptan a la primera, que es señal de que iban peor de lo que parecía.' },
+            { t: 'Que les pase algo', sub: 'No preguntas cómo.',
+              fx: { alineamiento: -25, notoriedad: 16, creditos: -12000 }, buscado: 20,
+              negocioArreglaN: [n, 25], flag: 'quemo_a_un_rival',
+              out: 'A las tres semanas hay un incendio. Nadie te lo va a preguntar a la cara.' }
+          ]
+        };
+      }
+
+      if (cual === 'robo') {
+        const cuanto = Math.round(n.precio * 0.2 * (n.robo || 1));
+        return {
+          id: 'ng_robo', gen: true,
+          t: '<span class="scene-tag">LAS CUENTAS</span>' +
+            '<p>Te sientas por fin con los libros de <b>' + U.esc(n.n) + '</b> y no cuadran. ' +
+            'No cuadran desde hace ' + (n.robo || 1) + ' año' + ((n.robo || 1) > 1 ? 's' : '') + '.</p>' +
+            '<p>' + (n.encargado ? U.esc(n.encargado) + ' lleva sacando ' + U.cr(cuanto) + '.'
+                                 : 'Alguien de dentro lleva sacando ' + U.cr(cuanto) + '.') + '</p>',
+          c: [
+            { t: 'Echarle y olvidarlo', fx: { creditos: -Math.round(cuanto * 0.3), cordura: -6 },
+              negocioSinEncargado: n, negocioLimpiaRobo: n,
+              out: 'Recuperas parte. Lo demás se ha ido en cosas que no vuelven.' },
+            { t: 'Hacérselo pagar', fx: { alineamiento: -18, notoriedad: 12, creditos: cuanto },
+              negocioSinEncargado: n, negocioLimpiaRobo: n,
+              out: 'Devuelve hasta el último crédito. Y no vuelve a trabajar en este sector.' },
+            { t: 'Preguntarle por qué', sub: 'A veces hay un por qué.',
+              r: [
+                { p: 0.5, t: 'Su hija lleva dos años en una clínica que cuesta exactamente eso.',
+                  fx: { alineamiento: 20, cordura: 10, creditos: -cuanto }, negocioLimpiaRobo: n,
+                  out: 'Le subes el sueldo y no volvéis a hablar del tema. No vuelve a faltar un crédito.' },
+                { p: 0.5, t: 'No hay por qué. Había una oportunidad y la cogió.',
+                  fx: { cordura: -8 }, negocioSinEncargado: n, negocioLimpiaRobo: n }
+              ] },
+            { t: 'Dejarlo estar: ya te enterarás del todo algún día',
+              fx: { cordura: -10 }, out: 'Sigue sacando. Cada año un poco más.' }
+          ]
+        };
+      }
+
+      // el estado se fija en lo tuyo
+      const multa = Math.round(n.precio * 0.3);
+      return {
+        id: 'ng_estado', gen: true,
+        t: '<span class="scene-tag">INSPECCIÓN</span>' +
+          '<p>Llega una notificación con sello oficial sobre <b>' + U.esc(n.n) + '</b>: licencias, ' +
+          'impuestos atrasados y «una revisión de la titularidad».</p>' +
+          '<p>' + (T.ilegal ? 'Y lo tuyo, además, no es del todo legal.' :
+            'Todo está en regla. Eso no siempre importa.') + '</p>',
+        c: [
+          { t: 'Pagar lo que pidan', fx: { creditos: -multa, cordura: -4 },
+            out: 'Se va todo en papeleo. El local sigue siendo tuyo.' },
+          { t: 'Sobornar al inspector',
+            r: [
+              { p: U.clamp(0.35 + s.stats.carisma / 220, 0.3, 0.82),
+                t: 'Acepta con una naturalidad que da un poco de miedo.',
+                fx: { creditos: -Math.round(multa * 0.4), alineamiento: -10 } },
+              { p: 0.4, t: 'No acepta, y ahora hay dos expedientes.',
+                fx: { creditos: -Math.round(multa * 1.8), notoriedad: 10 }, buscado: 15 }
+            ] },
+          { t: 'Pelearlo con abogados', req: function (st) { return st.stats.intelecto > 50; },
+            fx: { creditos: -Math.round(multa * 0.3), intelecto: 8, reputacion: 6 },
+            out: 'Catorce meses de recursos. Ganas tú, que es lo raro.' },
+          { t: 'Perderlo', fx: { cordura: -14 }, negocioPierde: n,
+            out: 'Un funcionario firma un papel y deja de ser tuyo. Así de rápido.' }
+        ]
+      };
+    }
+  });
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== src/data-vejez.js ===== */
+/* ============================================================
+   HOLOVIDA :: LA ÚLTIMA DÉCADA
+   Las vidas se acababan sin acabarse: llegabas a viejo y el juego
+   seguía ofreciéndote lo mismo que a los treinta hasta que un día
+   te morías en una línea de log. Faltaba el tramo en el que ya no
+   se construye nada y sólo se decide qué queda.
+
+   Se dispara cuando el cuerpo avisa, no a una edad fija: depende de
+   tu especie y de lo machacado que estés.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+  SW.GUION = SW.GUION || [];
+
+  /** Los años que probablemente te quedan, en bruto. */
+  SW.tramoFinal = function (s) {
+    const esp = (SW.ESPECIES || []).filter(function (e) { return e.id === s.especie; })[0];
+    const tope = (esp && esp.vida) ? esp.vida : 85;
+    return s.edadBio >= tope * 0.78;
+  };
+
+  /* --- 1. EL AVISO: el cuerpo dice que queda menos --- */
+  SW.GUION.push({
+    id: 'vj_aviso', min: 30, max: 200, prio: 64, unaVez: true, gen: true, c: [],
+    req: function (s) { return SW.tramoFinal(s) && !s.flags.ultima_decada; },
+    hazlo: function (g) {
+      const s = g.s;
+      s.flags.ultima_decada = true;
+      const hijos = s.relaciones.filter(function (r) { return /hij/.test(r.tipo); });
+      const c = [
+        { t: 'Ponerte a ordenar lo tuyo', sub: 'Papeles, cuentas, quién se queda con qué.',
+          fx: { intelecto: 6, cordura: 10 }, flag: 'testamento_hecho',
+          out: 'Tardas tres tardes. Al acabar te sientas y no sabes muy bien qué hacer con la cuarta.' },
+        { t: 'Seguir como si no pasara nada', fx: { cordura: -6, fisico: 4 },
+          out: 'Funciona bastante bien, hasta que deja de funcionar.' },
+        { t: 'Escribir todo lo que has visto', sub: 'Que quede en alguna parte.',
+          fx: { intelecto: 10, cordura: 12 }, flag: 'memorias',
+          out: 'Nadie te lo ha pedido. Lo escribes igual, y sale más largo de lo que creías.' }
+      ];
+      if (hijos.length) {
+        c.push({ t: 'Hablar con ' + U.esc(hijos[0].nombre) + ' de lo que nunca hablasteis',
+          fx: { cordura: 20, alineamiento: 8 }, afectoNombre: { nombre: hijos[0].nombre, delta: 30 },
+          flag: 'hablo_con_los_suyos',
+          out: 'Cuarenta minutos incomodísimos y luego ya no. Deberías haberlo hecho hace veinte años.' });
+      }
+      return {
+        id: 'vj_aviso', gen: true,
+        t: '<span class="momento-tag">SE NOTA</span>' +
+          '<p>No es una enfermedad ni un golpe: es que subir tres tramos de escalera ha pasado a ser ' +
+          'una cosa que se planea.</p>' +
+          '<p>Tienes ' + s.edad + ' años y por primera vez el número significa algo.</p>',
+        c: c
+      };
+    }
+  });
+
+  /* --- 2. QUÉ HACES CON LO QUE TIENES --- */
+  SW.GUION.push({
+    id: 'vj_legado', min: 30, max: 200, prio: 62, unaVez: true, gen: true, c: [],
+    req: function (s) {
+      return s.flags.ultima_decada && !s.flags.legado_decidido &&
+        (s.stats.creditos > 60000 || (s.negocios && s.negocios.length) || s.nave);
+    },
+    hazlo: function (g) {
+      const s = g.s;
+      s.flags.legado_decidido = true;
+      const hijos = s.relaciones.filter(function (r) { return /hij|aprendiz|padawan/.test(r.tipo); });
+      const c = [
+        { t: 'Repartirlo entre los tuyos', req: function (st) { return hijos.length > 0; },
+          fx: { cordura: 16, alineamiento: 10 }, legado: 'reparto',
+          out: 'Lo dejas todo firmado y por partes iguales, que es la única forma de que no se peleen. ' +
+               'Se pelearán igual.' },
+        { t: 'Dárselo todo a un sitio que lo necesite',
+          fx: { cordura: 20, alineamiento: 25, reputacion: 20 }, legado: 'donado',
+          out: 'Una clínica, una escuela o un puerto que se caía. Le ponen tu nombre y lo escriben mal.' },
+        { t: 'Gastártelo entero antes de irte',
+          fx: { cordura: 24, salud: -8, notoriedad: 12 }, legado: 'gastado', gastarTodo: true,
+          out: 'Nueve meses que no se pueden contar en un resumen de vida. Llegas al final sin un crédito ' +
+               'y sin una sola queja.' },
+        { t: 'Esconderlo y dejar un mapa malo',
+          fx: { intelecto: 10, cordura: 8, notoriedad: 16 }, legado: 'escondido', flag: 'tesoro_escondido',
+          out: 'Alguien lo buscará durante décadas. Puede que lo encuentre. Puede que no estuviera.' },
+        { t: 'No decidir nada', fx: { cordura: -8 }, legado: 'nada',
+          out: 'Que se lo repartan los abogados y el Estado. Mayormente el Estado.' }
+      ];
+      return {
+        id: 'vj_legado', gen: true,
+        t: '<span class="momento-tag">LO QUE DEJAS</span>' +
+          '<p>Tienes ' + U.cr(s.stats.creditos) +
+          (s.negocios && s.negocios.length ? ', ' + s.negocios.length + ' negocios' : '') +
+          (s.nave ? ' y una nave que ya casi no vuelas' : '') + '.</p>' +
+          '<p>Nada de eso se va contigo. Alguien va a decidir qué pasa con ello: puedes ser tú.</p>',
+        c: c
+      };
+    }
+  });
+
+  /* --- 3. LO QUE TE QUEDÓ SIN HACER --- */
+  SW.GUION.push({
+    id: 'vj_pendiente', min: 30, max: 200, prio: 60, unaVez: true, gen: true, c: [],
+    req: function (s) { return s.flags.ultima_decada && !s.flags.cuenta_saldada; },
+    hazlo: function (g) {
+      const s = g.s;
+      if (!g.rng.chance(0.7)) return null;
+      s.flags.cuenta_saldada = true;
+      const enemigo = s.relaciones.filter(function (r) { return r.afecto < -30; })[0];
+      const perdido = s.relacionesPasadas && s.relacionesPasadas.length
+        ? s.relacionesPasadas[s.relacionesPasadas.length - 1] : null;
+      const c = [
+        { t: 'Volver al mundo donde naciste', sub: U.esc(s.mundoNatal),
+          fx: { cordura: 22, salud: -4 }, mueveA: s.mundoNatal, motivo: 'a cerrar el círculo',
+          flag: 'volvio_a_casa',
+          out: 'Está más pequeño y más sucio de lo que recordabas, y aun así te quedas dos horas parado.' }
+      ];
+      if (enemigo) {
+        c.push({ t: 'Arreglar lo de ' + U.esc(enemigo.nombre),
+          sub: 'Lleváis media vida sin hablaros.',
+          r: [
+            { p: 0.55, t: 'Os dais la mano en una puerta y ninguno de los dos dice nada más. Basta.',
+              fx: { cordura: 26, alineamiento: 12 }, afectoNombre: { nombre: enemigo.nombre, delta: 60 } },
+            { p: 0.45, t: 'No quiere verte. Tenía sus razones y siguen siendo buenas.',
+              fx: { cordura: -12, alineamiento: 6 } }
+          ] });
+      }
+      if (perdido) {
+        c.push({ t: 'Buscar a ' + U.esc(perdido.nombre), sub: 'Por saber qué fue.',
+          fx: { cordura: 14, creditos: -8000 },
+          out: 'Tardas ocho meses en localizarle. Habláis una hora. No hay nada que arreglar y aun así ayuda.' });
+      }
+      c.push({ t: 'Enseñarle a alguien lo que sabes',
+        fx: { cordura: 18, carisma: 8, reputacion: 10 },
+        rel: { tipo: 'aprendiz', afecto: 60, quien: 'te escucha como no te escuchó nadie' },
+        flag: 'dejo_escuela',
+        out: 'Al principio por aburrimiento. Luego porque es lo mejor que haces en el día.' });
+      c.push({ t: 'No remover nada', fx: { cordura: -6 },
+        out: 'Hay cosas que se quedan como están y no pasa nada. Casi nada.' });
+      return {
+        id: 'vj_pendiente', gen: true,
+        t: '<span class="momento-tag">CUENTAS PENDIENTES</span>' +
+          '<p>A esta edad la cabeza va sola a los mismos tres sitios, y ninguno de los tres es agradable.</p>' +
+          '<p>Todavía se puede hacer algo con alguno.</p>',
+        c: c
+      };
+    }
+  });
+
+  /* --- 4. EL ÚLTIMO AÑO: se sabe cuándo se sabe --- */
+  SW.GUION.push({
+    id: 'vj_ultimo', min: 30, max: 200, prio: 58, unaVez: true, gen: true, c: [],
+    req: function (s) {
+      return s.flags.ultima_decada && !s.flags.ultimo_año &&
+        (s.stats.salud < 35 || (s.heridas && s.heridas.length >= 3));
+    },
+    hazlo: function (g) {
+      const s = g.s;
+      s.flags.ultimo_año = true;
+      const gente = s.relaciones.filter(function (r) { return r.afecto > 40; });
+      return {
+        id: 'vj_ultimo', gen: true,
+        t: '<span class="momento-tag">EL ÚLTIMO AÑO</span>' +
+          '<p>Un médico te lo dice de la única forma en que se puede decir: mirando la pared.</p>' +
+          '<p>' + (gente.length
+            ? 'Tienes ' + gente.length + ' persona' + (gente.length > 1 ? 's' : '') + ' a quien avisar.'
+            : 'No tienes a quién avisar, que también es una manera de haber vivido.') + '</p>',
+        c: [
+          { t: 'Reunir a todo el mundo una última vez',
+            req: function (st) { return gente.length > 0; },
+            fx: { cordura: 30, creditos: -15000, salud: -4 }, flag: 'ultima_cena',
+            out: 'Una mesa larga, comida de más y nadie mencionando lo evidente. Sales de allí en paz.' },
+          { t: 'Irte a un sitio bonito y esperar',
+            fx: { cordura: 24, salud: -6 }, mover: true, motivo: 'a esperar sentado y con vistas',
+            flag: 'se_fue_tranquilo',
+            out: 'Alquilas algo con ventana. Ves amanecer todos los días de lo que queda.' },
+          { t: 'Hacer una última cosa de las tuyas',
+            sub: 'Ya no hay nada que perder, literalmente.',
+            fx: { notoriedad: 25, salud: -18, cordura: 20 }, flag: 'ultima_locura',
+            out: 'Sale en los holos del sector. Sales tú, con esa cara. Vale la pena.' },
+          { t: 'No decírselo a nadie', fx: { cordura: -14 }, flag: 'se_lo_callo',
+            out: 'Sigues haciendo la compra y saludando al vecino. Se enteran después.' }
+        ]
+      };
+    }
+  });
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== src/engine.js ===== */
 /* ============================================================
    HOLOVIDA :: motor
@@ -26083,6 +26884,8 @@ body.sin-crt::after { display: none; }
     if (SW.cobrarPeligro) SW.cobrarPeligro(this);
     if (SW.olvidoAtencion) SW.olvidoAtencion(this);
     if (SW.pasoAnual) SW.pasoAnual(this);
+    if (SW.pasoTripulacion) SW.pasoTripulacion(this);
+    if (SW.pasoNegocios) SW.pasoNegocios(this);
     if (s.muerto) return;
     this.avanzarEstudio();
     if (SW.pasoAprendiz) SW.pasoAprendiz(this);
@@ -26674,6 +27477,81 @@ body.sin-crt::after { display: none; }
     if (d.viajarA) { this.abrirMapaViaje = true; s.destinoSugerido = d.viajarA; }
     if (d.abrirBodega && SW.menuBodega) { this.cola.unshift(this.prepararGen(SW.menuBodega(this))); this.fase = 'evento'; }
     if (d.rutaViaje && SW.resolverRuta) SW.resolverRuta(this, d.rutaViaje);
+
+    /* --- tripulación --- */
+    if (d.contratarTripulante) {
+      s.tripulacion = s.tripulacion || [];
+      s.tripulacion.push(d.contratarTripulante);
+      s.stats.creditos -= d.contratarTripulante.sueldo;
+      this.log('Contratas a <b>' + d.contratarTripulante.n + '</b> de ' +
+        SW.OFICIOS_TRIPULACION[d.contratarTripulante.of].n + '.', 'bien');
+    }
+    if (d.despedirTripulante != null && s.tripulacion) {
+      const q = s.tripulacion[d.despedirTripulante];
+      if (q) { s.tripulacion.splice(d.despedirTripulante, 1); this.log('Despides a ' + q.n + '.', 'mal'); }
+    }
+    if (d.subirSueldo != null && s.tripulacion && s.tripulacion[d.subirSueldo]) {
+      const q = s.tripulacion[d.subirSueldo];
+      q.sueldo = Math.round(q.sueldo * 1.4); q.lealtad = U.clamp(q.lealtad + 25, 0, 100);
+      this.log(q.n + ' cobra ahora ' + U.cr(q.sueldo) + '. Se le nota.', 'cr');
+    }
+    if (d.echarA && s.tripulacion) {
+      s.tripulacion = s.tripulacion.filter(function (t) { return t.n !== d.echarA; });
+    }
+    if (d.lealtadA && s.tripulacion) {
+      const q = s.tripulacion.filter(function (t) { return t.n === d.lealtadA.n; })[0];
+      if (q) q.lealtad = U.clamp(q.lealtad + d.lealtadA.d, -20, 100);
+    }
+    if (d.lealtadTodos && SW.moverLealtad) SW.moverLealtad(this, d.lealtadTodos);
+
+    /* --- negocios --- */
+    if (d.comprarNegocio) {
+      const T = (SW.NEGOCIOS || []).filter(function (x) { return x.id === d.comprarNegocio.tipo; })[0];
+      if (T) {
+        s.negocios = s.negocios || [];
+        s.stats.creditos -= d.comprarNegocio.precio;
+        s.negocios.push({ tipo: T.id, n: T.n + ' de ' + d.comprarNegocio.mundo,
+          mundo: d.comprarNegocio.mundo, precio: d.comprarNegocio.precio,
+          renta: T.renta, estado: 85, años: 0, encargado: null, robo: 0 });
+        this.log('Compras ' + T.n.toLowerCase() + ' en ' + d.comprarNegocio.mundo + '. Ya es tuyo y ya da problemas.', 'bien');
+        this.hito('Compra ' + T.n.toLowerCase() + ' en ' + d.comprarNegocio.mundo);
+      }
+    }
+    if (d.verNegocio != null && SW.menuNegocio) {
+      const mn = SW.menuNegocio(this, d.verNegocio);
+      if (mn) { this.cola.unshift(this.prepararGen(mn)); this.fase = 'evento'; }
+    }
+    if (d.negocioArregla != null && s.negocios && s.negocios[d.negocioArregla]) {
+      const n0 = s.negocios[d.negocioArregla];
+      n0.estado = U.clamp(n0.estado + 30, 0, 100);
+      this.log(n0.n + ': reformas. Estado ' + n0.estado + '%.', 'bien');
+    }
+    if (d.negocioArreglaN) { d.negocioArreglaN[0].estado = U.clamp(d.negocioArreglaN[0].estado + d.negocioArreglaN[1], 0, 100); }
+    if (d.negocioDaño) { d.negocioDaño[0].estado = U.clamp(d.negocioDaño[0].estado - d.negocioDaño[1], 0, 100); }
+    if (d.negocioPresion) { d.negocioPresion[0].presion = d.negocioPresion[1]; }
+    if (d.negocioSinEncargado) { d.negocioSinEncargado.encargado = null; }
+    if (d.negocioLimpiaRobo) { d.negocioLimpiaRobo.robo = 0; }
+    if (d.negocioPierde && s.negocios) {
+      s.negocios = s.negocios.filter(function (x) { return x !== d.negocioPierde; });
+    }
+    if (d.negocioEncargado != null && s.negocios && s.negocios[d.negocioEncargado]) {
+      const n1 = s.negocios[d.negocioEncargado];
+      n1.encargado = SW.genNombreCompleto(rng, rng.pick(['humano', 'rodiano', 'twilek', 'duros']));
+      n1.robo = 0;
+      this.log(n1.n + ': ahora lo lleva ' + n1.encargado + '.', 'res');
+    }
+    if (d.negocioAtiende != null && s.negocios && s.negocios[d.negocioAtiende]) {
+      const n2 = s.negocios[d.negocioAtiende];
+      n2.estado = U.clamp(n2.estado + 12, 0, 100);
+      this.log('Te pasas por ' + n2.n + '. Se nota cuando el dueño aparece.', 'res');
+    }
+    if (d.negocioVende != null && s.negocios && s.negocios[d.negocioVende]) {
+      const n3 = s.negocios[d.negocioVende];
+      const v = Math.round(n3.precio * 0.7 * (n3.estado / 100));
+      s.stats.creditos += v;
+      s.negocios.splice(d.negocioVende, 1);
+      this.log('Vendes ' + n3.n + ' por ' + U.cr(v) + '.', 'cr');
+    }
     /* --- encargos de leyenda del Gremio --- */
     if (s.leyenda) {
       const L = s.leyenda;
@@ -26841,6 +27719,7 @@ body.sin-crt::after { display: none; }
     if (d.apuesta === 'gana') { const g = Math.round(Math.max(1000, s.stats.creditos * 0.5)); s.stats.creditos += g; this.log('Ganas ' + U.cr(g) + '.', 'cr'); }
     if (d.apuesta === 'pierde') { const g = Math.round(Math.max(0, s.stats.creditos) * 0.5); s.stats.creditos -= g; this.log('Pierdes ' + U.cr(g) + '.', 'mal'); }
     if (d.legado) { s.legado = d.legado; this.hito('Deja un legado: ' + d.legado); }
+    if (d.gastarTodo) { s.stats.creditos = 0; s.negocios = []; }
     if (d.chequeo) this.chequeoMedico();
     if (d.mover) this.mover(d.mover === 'casa' ? (s.mundoSecuestro || s.mundoNatal) : (d.mover === 'cerca' ? this.mundoCercano() : null), d.motivo);
     if (d.mueveA) this.mover(U.fill(d.mueveA, slots), d.motivo);
@@ -27413,6 +28292,8 @@ body.sin-crt::after { display: none; }
        mismo. Con lo ilegal manda la notoriedad, que ahí es currículum. */
     factor += (s.stats.carisma - 50) / 420;
     factor += ((s.carga.ilegal ? s.stats.notoriedad : s.stats.reputacion) - 40) / 600;
+    // el tasador sabe lo que vale todo en cuatro sectores
+    if (SW.aporteDe) factor += SW.aporteDe(s, 'tasador') * 0.22;
     return Math.round(s.carga.coste * U.clamp(factor, 0.4, 2.1));
   };
 
@@ -27536,6 +28417,30 @@ body.sin-crt::after { display: none; }
     return p;
   };
 
+  /* ------------------------------------------------------------
+     LA VENTAJA DEL SABLE
+     Medido antes de esto: el mismo personaje ganaba el 53% de las
+     peleas con las manos vacías y el 56% con un sable de luz. Tres
+     puntos. El arma entraba sólo en la probabilidad de acertar
+     —(poder - dificultad) / 170— y el daño estaba en rangos fijos
+     iguales para todos, así que daba igual con qué pegaras.
+
+     Un sable contra alguien que no lo tiene no es un arma mejor: es
+     otra categoría de pelea. Corta la guardia, corta el arma y desvía
+     lo que le disparen. Pero contra un nombre grande —un mandaloriano
+     con beskar, un cazador de leyenda, cualquiera que haya visto
+     antes uno— la ventaja se cae: esa gente sabe exactamente a qué se
+     enfrenta. Y contra otro sable no hay ventaja ninguna: eso es un
+     duelo y tiene su propio minijuego.
+     ------------------------------------------------------------ */
+  SW.ventajaSable = function (s, cfg) {
+    if (!s.sable) return 0;
+    cfg = cfg || {};
+    if (cfg.sable || cfg.canon || cfg.rival === 'leyenda') return 0;
+    const dif = cfg.dif == null ? 50 : cfg.dif;
+    return U.clamp((85 - dif) / 40, 0, 1);
+  };
+
   /** Reducción de daño por armadura y prótesis */
   Game.prototype.defensa = function () {
     const eq = SW.bonosEquipo(this.s);
@@ -27584,6 +28489,7 @@ body.sin-crt::after { display: none; }
       aguante: 100,
       poder: this.poderCombate(),
       dif: (cfg && cfg.dif) || 50,
+      ventajaSable: SW.ventajaSable(this.s, cfg),
       postura: this.rng.pick(['embestida', 'guardia', 'finta'])
     };
     this.cola.unshift(this.escenaCombateEvento());
@@ -27705,6 +28611,18 @@ body.sin-crt::after { display: none; }
       recib = (ok ? rng.int(0, 4) : rng.int(9, 18)) * expuesto;
       txt = ok ? 'La Fuerza fluye y el resultado no admite discusión.' : 'La conexión se rompe en el peor momento.';
       if (ok && s.stats.alineamiento < -30) s.stats.cordura -= 2;
+    }
+
+    /* El sable contra quien no lo tiene: corta lo que le pongan
+       delante y desvía lo que le tiren. */
+    const vs = e.ventajaSable || 0;
+    if (vs > 0) {
+      dmg *= 1 + 0.85 * vs;
+      recib *= 1 - 0.40 * vs;
+      if (dmg > 0 && this.rng.chance(0.22 * vs)) {
+        txt += ' <span class="dim">Le partes el arma por la mitad.</span>';
+        e.dif = Math.max(15, e.dif - 6);
+      }
     }
 
     if (vader2) {
@@ -27896,6 +28814,9 @@ body.sin-crt::after { display: none; }
       if (rng.chance(0.28)) { this.herir('tajo de la jugada fallida', rng.int(12, 24), false); }
     }
 
+    const vsm = e.ventajaSable || 0;
+    if (vsm > 0) { dmg *= 1 + 0.85 * vsm; recib *= 1 - 0.40 * vsm; }
+
     e.aguante = U.clamp(e.aguante - 18, 0, 100);
     e.hpEnemigo -= dmg;
     if (recib > 0) this.aplicarFx({ salud: -recib }, {});
@@ -27960,7 +28881,9 @@ body.sin-crt::after { display: none; }
       dif: (cfg && cfg.dif) || 50,
       postura: this.rng.pick(['embestida', 'guardia', 'finta']),
       poder: s.stats.destreza * 0.5 + s.nave.vel * 4 + s.nave.arm * 4 +
-        (s.habilidades.indexOf('piloto') >= 0 ? 12 : 0) + (s.naveEstado - 60) / 3
+        (s.habilidades.indexOf('piloto') >= 0 ? 12 : 0) + (s.naveEstado - 60) / 3 +
+        // torretas tripuladas: alguien disparando mientras tú vuelas
+        (SW.aporteDe ? SW.aporteDe(s, 'artillero') * 22 + SW.aporteDe(s, 'piloto') * 14 : 0)
     };
     this.cola.unshift(this.escenaDogfightEvento());
   };
@@ -28421,6 +29344,14 @@ body.sin-crt::after { display: none; }
     if (id === 'orden' && SW.menuOrden) {
       const m = SW.menuOrden(this);
       if (m) { this.cola.push(this.prepararGen(m)); this.fase = 'evento'; return; }
+    }
+    if (id === 'tripulacion' && SW.menuTripulacion) {
+      this.cola.push(this.prepararGen(SW.menuTripulacion(this)));
+      this.actividadUsada = s.acciones <= 0; this.fase = 'evento'; return;
+    }
+    if (id === 'negocios' && SW.menuNegocios) {
+      this.cola.push(this.prepararGen(SW.menuNegocios(this)));
+      this.actividadUsada = s.acciones <= 0; this.fase = 'evento'; return;
     }
     if (id === 'mercancia') {
       this.cola.push(this.prepararGen(SW.menuBodega ? SW.menuBodega(this) : this.menuMercancia()));
@@ -29071,7 +30002,7 @@ body.sin-crt::after { display: none; }
     UI.herencia = null;
     document.body.classList.remove('en-juego');
     const m = SW.metricas();
-    const guardada = localStorage.getItem('holovida_save');
+    const guardada = UI.CLAVES.some(function (k) { return !!localStorage.getItem(k); });
     UI.app.innerHTML =
       '<div class="pantalla inicio"><div class="crt-frame">' +
       '<div class="logo">' +
@@ -29082,7 +30013,7 @@ body.sin-crt::after { display: none; }
       '</div>' +
       '<div class="menu-inicio">' +
       '<button class="btn grande" data-a="crear">▸ NUEVA VIDA</button>' +
-      (guardada ? '<button class="btn" data-a="continuar">▸ CONTINUAR PARTIDA</button>' : '') +
+      (guardada ? '<button class="btn" data-a="ranuras">▸ CONTINUAR PARTIDA</button>' : '') +
       '<button class="btn" data-a="rapida">▸ VIDA ALEATORIA (rápida)</button>' +
       ((SW.leerSalon && SW.leerSalon().length)
         ? '<button class="btn" data-a="salon">▸ VIDAS ANTERIORES (' + SW.leerSalon().length + ')</button>' : '') +
@@ -29110,11 +30041,37 @@ body.sin-crt::after { display: none; }
       if (!b) return;
       const a = b.getAttribute('data-a');
       if (a === 'salon') { UI.salonFama(); return; }
+      if (a === 'ranuras') { UI.menuRanuras(); return; }
       if (a === 'crear') UI.pantallaCrear();
       else if (a === 'rapida') UI.vidaRapida();
       else if (a === 'continuar') UI.cargarPartida();
       else if (a === 'info') UI.modalInfo();
     };
+  };
+
+  /** Elegir con qué vida a medias sigues. */
+  UI.menuRanuras = function () {
+    let h = '<div class="ranuras">';
+    UI.CLAVES.forEach(function (k, i) {
+      const d = UI.leerRanura(i);
+      h += '<button class="btn ranura' + (d ? '' : ' fantasma') + '" data-ran="' + i + '"' +
+        (d ? '' : ' disabled') + '>' +
+        '<b>Ranura ' + (i + 1) + '</b>' +
+        (d ? '<span>' + U.esc(d.nombre) + ' · ' + d.edad + ' años · ' + U.esc(d.mundo) +
+             '<br>' + U.esc(String(d.era)) + '</span>'
+           : '<span>vacía</span>') + '</button>';
+    });
+    h += '</div><p class="nota dim">Al empezar una vida nueva se te preguntará en qué ranura la guardas, ' +
+      'así que ya no se pisa nada sin querer.</p>';
+    UI.modal('CONTINUAR', h, null, function (root) {
+      root.onclick = function (e) {
+        const b = e.target.closest('[data-ran]');
+        if (!b || b.disabled) return;
+        UI.ranura = parseInt(b.dataset.ran, 10);
+        UI.cerrarModal();
+        UI.cargarPartida();
+      };
+    });
   };
 
   /* Las vidas anteriores, para poder compararte contigo mismo. */
@@ -29426,6 +30383,11 @@ body.sin-crt::after { display: none; }
 
   UI.empezar = function () {
     const c = UI.creador;
+    /* Se busca ranura libre antes de nada: empezar una vida ya no
+       borra la que tenías a medias. Si están las tres llenas, se usa
+       la que estés mirando. */
+    const libre = UI.CLAVES.findIndex(function (k) { return !localStorage.getItem(k); });
+    if (libre >= 0) UI.ranura = libre;
     const esp = SW.ESPECIES.filter(function (e) { return e.id === c.especie; })[0];
     const era = SW.ERAS.filter(function (e) { return e.id === c.era; })[0];
     const rasgo = SW.RASGOS.filter(function (r) { return r.id === c.rasgo; })[0];
@@ -29543,6 +30505,9 @@ body.sin-crt::after { display: none; }
     if (r) h += '<div class="tb-aviso racha ' + r.c + '"><b>' + (r.c === 'buena' ? '▲' : '▼') + ' ' + r.t + '</b><span>racha</span></div>';
     if (s.mision) h += '<div class="tb-aviso mision" title="misión de la Orden en ' + U.esc(s.mision.mundo) + '"><b>✷ misión</b><span>' + U.esc(s.mision.mundo) + '</span></div>';
     if (s.caza) h += '<div class="tb-aviso caza" title="expediente abierto en ' + U.esc(s.caza.mundo) + '"><b>⌖ caza</b><span>' + U.esc(s.caza.mundo) + '</span></div>';
+    if (s.contrato) h += '<div class="tb-aviso contrato" title="contrato del Gremio: ' + U.esc(s.contrato.nombre) + '"><b>✵ contrato</b><span>' + U.esc(s.contrato.destino) + '</span></div>';
+    if (s.leyenda) h += '<div class="tb-aviso leyenda" title="encargo de leyenda: ' + U.esc(s.leyenda.n) + '"><b>✦ encargo</b><span>de leyenda</span></div>';
+    if (s.carga) h += '<div class="tb-aviso carga' + (s.carga.ilegal ? ' ilegal' : '') + '" title="en bodega: ' + U.esc(s.carga.n) + '"><b>▣ bodega</b><span>' + (s.carga.ilegal ? 'ilegal' : 'carga') + '</span></div>';
     /* La atención de Vader: cada jedi que cierras llena un poco más la
        barra. Cuando se llena, baja él. */
     if (SW.esInquisidor && SW.esInquisidor(s)) {
@@ -29579,6 +30544,8 @@ body.sin-crt::after { display: none; }
     // la cara envejece con el personaje
     const ap = Object.assign({}, s.apariencia || {}, { edad: s.edadBio });
     let h = '<div class="holo-mini">' + SW.retrato(ap, 116, s.especie) + '</div>';
+    // lo primero de la ficha: lo que tienes abierto ahora mismo
+    if (SW.htmlAsuntos) h += SW.htmlAsuntos(s);
 
     /* Para qué sirve cada número. Estaban ahí sin explicar y había que
        adivinar si conviene subir carisma o intelecto. */
@@ -29979,13 +30946,22 @@ body.sin-crt::after { display: none; }
     const g = UI.juego;
     const inst = g.cola[0];
     if (!inst) return;
-    const mini = inst.ref && inst.ref.minijuego;
+    let mini = inst.ref && inst.ref.minijuego;
+    /* Hay gente que no puede con los juegos de reflejos, y en el móvil
+       con una mano tampoco es cómodo. Con el modo sin cronómetro el
+       minijuego se resuelve con lo que sabes hacer: misma escala de
+       notas, sin pedirte milisegundos. */
+    const sinTiempo = localStorage.getItem('holovida_sintiempo') === 'si';
+    if (mini && sinTiempo) mini = null;
 
     const esTrama = !!(inst.ref && inst.ref.esTrama);
     let h = '<div class="evento-overlay"><div class="evento' + (esTrama ? ' de-trama' : '') + '">';
     h += '<div class="ev-texto">' + inst.texto + '</div>';
     if (mini) {
       h += UI.htmlMinijuego(inst.ref);
+    } else if (inst.ref && inst.ref.minijuego) {
+      h += '<div class="mini mini-auto"><p class="mini-pie">Modo sin cronómetro: se resuelve con tu pericia.</p>' +
+        '<button class="btn grande bloque" data-auto>▸ RESOLVERLO</button></div>';
     }
     h += '<div class="ev-ops">';
     /* Durante un duelo el teclado numérico es del duelo: enseñar «1» en
@@ -30005,6 +30981,8 @@ body.sin-crt::after { display: none; }
     UI.app.querySelector('.hud').appendChild(div.firstChild);
     if (mini) UI.arrancarMinijuego(inst.ref);
     else UI.escribirTexto();
+    const bAuto = document.querySelector('[data-auto]');
+    if (bAuto) bAuto.onclick = function () { UI.resolverSinTiempo(inst.ref); };
   };
 
   /* ------------------------------------------------------------
@@ -30556,6 +31534,37 @@ body.sin-crt::after { display: none; }
     };
   };
 
+  /** Resuelve un minijuego con las estadísticas, sin pedir reflejos. */
+  UI.resolverSinTiempo = function (ref) {
+    const g = UI.juego;
+    const per = U.clamp(ref.pericia || 30, 0, 130);
+    const dif = U.clamp(ref.dificultad || 50, 10, 100);
+    // la misma cuenta que haría un jugador competente: pericia contra dificultad
+    const v = U.clamp(0.5 + (per - dif) / 110, 0.05, 0.95);
+    const r = Math.random();
+    let grado;
+    if (r < v * 0.42) grado = 2;
+    else if (r < v * 0.92) grado = 1;
+    else if (r < v * 0.92 + (1 - v) * 0.5) grado = 0;
+    else grado = -1;
+    if (ref.minijuego === 'sable' && SW.paramsDuelo) {
+      // el duelo necesita su desglose para que la forma siga contando
+      const P = SW.paramsDuelo(ref);
+      const res = { asaltos: P.asaltos, puntos: 0, perfectas: 0, buenas: 0, pronto: 0, fallos: 0,
+                    forma: ref.forma, fase: ref.fase || 0 };
+      for (let i = 0; i < P.asaltos; i++) {
+        const x = Math.random();
+        if (x < v * 0.55) { res.perfectas++; res.puntos += 2; }
+        else if (x < v * 0.55 + 0.3) { res.buenas++; res.puntos += 1; }
+        else if (x < 0.85) { res.pronto++; }
+        else { res.fallos++; res.puntos -= 1; }
+      }
+      g.duelo = res;
+      grado = SW.notaDuelo(res);
+    }
+    UI.finMinijuego(grado, 'Resuelto con tu pericia (' + per + ' contra dificultad ' + dif + ').');
+  };
+
   UI.pararMinijuego = function () {
     if (!UI.mini) return;
     UI.mini.terminado = true;
@@ -30591,6 +31600,7 @@ body.sin-crt::after { display: none; }
       '<button class="btn" data-m="resumen">▸ Ver ficha completa</button>' +
       '<button class="btn" data-m="guardar">▸ Guardar partida</button>' +
       '<button class="btn" data-m="crt">▸ Filtro de pantalla: ' + (localStorage.getItem('holovida_crt') === 'no' ? 'apagado' : 'encendido') + '</button>' +
+      '<button class="btn" data-m="sintiempo">▸ Minijuegos con cronómetro: ' + (localStorage.getItem('holovida_sintiempo') === 'si' ? 'no' : 'sí') + '</button>' +
       '<button class="btn" data-m="anim">▸ Animaciones: ' + (UI.sinAnimacion ? 'apagadas' : 'encendidas') + '</button>' +
       '<button class="btn peligro" data-m="nueva">▸ Abandonar y empezar de cero</button>' +
       '</div>', null,
@@ -30602,11 +31612,16 @@ body.sin-crt::after { display: none; }
           UI.cerrarModal();
           if (m === 'resumen') UI.modal('FICHA', SW.tarjetaResumen(SW.construirResumen(UI.juego.s)), function () { UI.renderJuego(); });
           else if (m === 'guardar') { UI.guardarPartida(); UI.flash('Partida guardada.'); UI.renderJuego(); }
-          else if (m === 'nueva') { localStorage.removeItem('holovida_save'); UI.pantallaInicio(); }
+          else if (m === 'nueva') { localStorage.removeItem(UI.CLAVES[UI.ranura] || UI.CLAVES[0]); UI.pantallaInicio(); }
           else if (m === 'crt') {
             const apagado = localStorage.getItem('holovida_crt') === 'no';
             localStorage.setItem('holovida_crt', apagado ? 'si' : 'no');
             UI.aplicarPreferencias(); UI.renderJuego();
+          }
+          else if (m === 'sintiempo') {
+            const on = localStorage.getItem('holovida_sintiempo') === 'si';
+            localStorage.setItem('holovida_sintiempo', on ? 'no' : 'si');
+            UI.cerrarModal(); UI.renderJuego(); UI.menuPausa();
           }
           else if (m === 'anim') {
             UI.sinAnimacion = !UI.sinAnimacion;
@@ -30768,10 +31783,26 @@ body.sin-crt::after { display: none; }
   };
   UI.cerrarModal = function () { if (UI._modal) { UI._modal.remove(); UI._modal = null; } };
 
+  /* Tres ranuras. Antes había una sola: empezar una vida nueva te
+     borraba la que tenías a medias sin avisar. La ranura 1 sigue
+     siendo la clave de siempre para no perder la partida de nadie. */
+  UI.CLAVES = ['holovida_save', 'holovida_save_2', 'holovida_save_3'];
+  UI.ranura = 0;
+
+  UI.leerRanura = function (i) {
+    try {
+      const raw = localStorage.getItem(UI.CLAVES[i]);
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      return { nombre: d.s.nombre, edad: d.s.edad, especie: d.s.especieN || d.s.especie,
+               mundo: d.s.mundo, era: d.s.eraN || d.s.era, muerto: !!d.s.muerto };
+    } catch (e) { return null; }
+  };
+
   UI.guardarPartida = function () {
     try {
       if (!UI.juego || UI.juego.s.muerto) return;
-      localStorage.setItem('holovida_save', JSON.stringify({
+      localStorage.setItem(UI.CLAVES[UI.ranura] || UI.CLAVES[0], JSON.stringify({
         s: UI.juego.s, semilla: UI.juego.rng.seedStr, calls: UI.juego.rng.calls
       }));
     } catch (e) {}
@@ -30779,7 +31810,7 @@ body.sin-crt::after { display: none; }
 
   UI.cargarPartida = function () {
     try {
-      const raw = localStorage.getItem('holovida_save');
+      const raw = localStorage.getItem(UI.CLAVES[UI.ranura] || UI.CLAVES[0]);
       if (!raw) return UI.pantallaInicio();
       const data = JSON.parse(raw);
       const esp = SW.ESPECIES.filter(function (e) { return e.id === data.s.especie; })[0] || SW.ESPECIES[0];
