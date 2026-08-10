@@ -1436,15 +1436,67 @@
     return i > 0 ? String(x).slice(0, i) : String(x);
   };
 
-  SW.dosierDe = function (nombre) {
+  /* ============================================================
+     RELOJ: lo que en este planeta todavía no existe (o ya no)
+     El dosier describe cada mundo «en general», y eso hacía que en
+     Lothal te cruzaras con la gente de Ezra doscientos años antes de
+     que Ezra naciera, o que hubiera guarnición imperial en plena Alta
+     República. Cada regla dice en qué ventana de años galácticos vale
+     un texto; gana la primera que encaje, así que las excepciones van
+     antes que la regla general.
+     ============================================================ */
+  SW.RELOJ_DOSIER = [
+    // lo concreto primero
+    { re: /\bezra\b/i,                                    desde: -5,    hasta: 1 },
+    { re: /primera orden/i,                               desde: 21,    hasta: 9999 },
+    { re: /inquisidor/i,                                  desde: -19,   hasta: -1 },
+    { re: /estrella de la muerte/i,                       desde: 0,     hasta: 9999 },
+    { re: /\bsaw\b|partisanos/i,                          desde: -19,   hasta: 1 },
+    { re: /\bvader\b/i,                                   desde: -19,   hasta: 5 },
+    { re: /cham syndulla/i,                               desde: -21,   hasta: 5 },
+    { re: /unkar plutt/i,                                 desde: 5,     hasta: 9999 },
+    { re: /ladrones espectrales/i,                        desde: 21,    hasta: 9999 },
+    // «restos» del Imperio: eso sólo existe cuando el Imperio ya cayó
+    { re: /restos imperiales|imperiales (refugiados|escondidos)|oficiales imperiales/i,
+                                                          desde: 4,     hasta: 40 },
+    // y el Imperio en activo: de la Proclamación al Concordato
+    { re: /\bimperial|\bimperio\b|\bmoff\b|soldados imperiales/i,
+                                                          desde: -19,   hasta: 12 },
+    { re: /separatista|uni[oó]n tecno|confederaci[oó]n/i,  desde: -25,   hasta: -18 },
+    { re: /\bclones\b|\bclon\b/i,                         desde: -32,   hasta: -8 }
+  ];
+
+  /** ¿Se puede decir esto en el año galáctico `y`? */
+  SW.cabeEnElAnio = function (txt, y) {
+    if (y == null) return true;
+    const t = String(txt);
+    for (let i = 0; i < SW.RELOJ_DOSIER.length; i++) {
+      const r = SW.RELOJ_DOSIER[i];
+      if (!r.re.test(t)) continue;
+      return y >= r.desde && y <= r.hasta;      // gana la primera que encaje
+    }
+    return true;
+  };
+
+  SW.dosierDe = function (nombre, anio) {
     const propio = SW.DOSIER[nombre] || {};
     const bioma = (SW.biomaDe ? SW.biomaDe(nombre).id : 'rocoso');
     const fondo = SW.DOSIER_BIOMA[bioma] || SW.DOSIER_BIOMA.rocoso;
+    const aTiempo = function (lista) {
+      if (anio == null) return lista;
+      const ok = lista.filter(function (x) { return SW.cabeEnElAnio(x, anio); });
+      return ok.length ? ok : lista;      // antes un anacronismo que un hueco
+    };
     const out = {};
     for (let i = 0; i < CLAVES.length; i++) {
       const k = CLAVES[i];
-      const p = propio[k], f = fondo[k];
-      if (k === 'aut') { out[k] = corto(p || f); continue; }
+      let p = propio[k], f = fondo[k];
+      if (k === 'aut') {
+        // la autoridad de un mundo cambia con quien manda en la galaxia
+        out[k] = corto((p && SW.cabeEnElAnio(p, anio) ? p : null) || f);
+        continue;
+      }
+      p = p && p.length ? aTiempo(p) : p;
       // lo propio primero, el fondo de bioma detrás: nunca se queda seco
       const lista = ((p && p.length) ? p.concat(f || []) : (f || [])).map(corto);
       // "nada", "nadie", "ninguna"... quedan bien en una lista y fatal

@@ -8200,15 +8200,67 @@ body.sin-crt::after { display: none; }
     return i > 0 ? String(x).slice(0, i) : String(x);
   };
 
-  SW.dosierDe = function (nombre) {
+  /* ============================================================
+     RELOJ: lo que en este planeta todavía no existe (o ya no)
+     El dosier describe cada mundo «en general», y eso hacía que en
+     Lothal te cruzaras con la gente de Ezra doscientos años antes de
+     que Ezra naciera, o que hubiera guarnición imperial en plena Alta
+     República. Cada regla dice en qué ventana de años galácticos vale
+     un texto; gana la primera que encaje, así que las excepciones van
+     antes que la regla general.
+     ============================================================ */
+  SW.RELOJ_DOSIER = [
+    // lo concreto primero
+    { re: /\bezra\b/i,                                    desde: -5,    hasta: 1 },
+    { re: /primera orden/i,                               desde: 21,    hasta: 9999 },
+    { re: /inquisidor/i,                                  desde: -19,   hasta: -1 },
+    { re: /estrella de la muerte/i,                       desde: 0,     hasta: 9999 },
+    { re: /\bsaw\b|partisanos/i,                          desde: -19,   hasta: 1 },
+    { re: /\bvader\b/i,                                   desde: -19,   hasta: 5 },
+    { re: /cham syndulla/i,                               desde: -21,   hasta: 5 },
+    { re: /unkar plutt/i,                                 desde: 5,     hasta: 9999 },
+    { re: /ladrones espectrales/i,                        desde: 21,    hasta: 9999 },
+    // «restos» del Imperio: eso sólo existe cuando el Imperio ya cayó
+    { re: /restos imperiales|imperiales (refugiados|escondidos)|oficiales imperiales/i,
+                                                          desde: 4,     hasta: 40 },
+    // y el Imperio en activo: de la Proclamación al Concordato
+    { re: /\bimperial|\bimperio\b|\bmoff\b|soldados imperiales/i,
+                                                          desde: -19,   hasta: 12 },
+    { re: /separatista|uni[oó]n tecno|confederaci[oó]n/i,  desde: -25,   hasta: -18 },
+    { re: /\bclones\b|\bclon\b/i,                         desde: -32,   hasta: -8 }
+  ];
+
+  /** ¿Se puede decir esto en el año galáctico `y`? */
+  SW.cabeEnElAnio = function (txt, y) {
+    if (y == null) return true;
+    const t = String(txt);
+    for (let i = 0; i < SW.RELOJ_DOSIER.length; i++) {
+      const r = SW.RELOJ_DOSIER[i];
+      if (!r.re.test(t)) continue;
+      return y >= r.desde && y <= r.hasta;      // gana la primera que encaje
+    }
+    return true;
+  };
+
+  SW.dosierDe = function (nombre, anio) {
     const propio = SW.DOSIER[nombre] || {};
     const bioma = (SW.biomaDe ? SW.biomaDe(nombre).id : 'rocoso');
     const fondo = SW.DOSIER_BIOMA[bioma] || SW.DOSIER_BIOMA.rocoso;
+    const aTiempo = function (lista) {
+      if (anio == null) return lista;
+      const ok = lista.filter(function (x) { return SW.cabeEnElAnio(x, anio); });
+      return ok.length ? ok : lista;      // antes un anacronismo que un hueco
+    };
     const out = {};
     for (let i = 0; i < CLAVES.length; i++) {
       const k = CLAVES[i];
-      const p = propio[k], f = fondo[k];
-      if (k === 'aut') { out[k] = corto(p || f); continue; }
+      let p = propio[k], f = fondo[k];
+      if (k === 'aut') {
+        // la autoridad de un mundo cambia con quien manda en la galaxia
+        out[k] = corto((p && SW.cabeEnElAnio(p, anio) ? p : null) || f);
+        continue;
+      }
+      p = p && p.length ? aTiempo(p) : p;
       // lo propio primero, el fondo de bioma detrás: nunca se queda seco
       const lista = ((p && p.length) ? p.concat(f || []) : (f || [])).map(corto);
       // "nada", "nadie", "ninguna"... quedan bien en una lista y fatal
@@ -8731,8 +8783,52 @@ body.sin-crt::after { display: none; }
     { id: 'hux', n: 'el General Hux', tipo: 'militar', eras: ['primera_orden'], desc: 'discursos largos y ambición corta', w: 3 }
   ];
 
-  SW.canonDeEra = function (era) {
-    return SW.CANON.filter(function (c) { return c.eras.indexOf(era) >= 0; });
+  /* ============================================================
+     Y ADEMÁS, EL RELOJ
+     `eras` es una red demasiado ancha: la Alta República dura siglos
+     y el Imperio temprano diecisiete años. Filtrando sólo por época te
+     podías cruzar con gente que aún no había nacido o que llevaba
+     décadas muerta. Aquí va la ventana de años galácticos en la que
+     cada uno está vivo Y es alguien con quien te puedes cruzar.
+     Quien no aparece en la tabla es porque su época ya lo dice todo.
+     ============================================================ */
+  SW.VENTANA_CANON = {
+    avar:     [-240, -225], elzar:    [-240, -225], porter:   [-245, -225],
+    marchion: [-240, -228],
+    quigon:   [-90,  -32],  shmi:     [-64,  -22],  watto:    [-60,   -5],
+    jango:    [-60,  -22],  maul:     [-40,   -2],
+    obiwan:   [-57,  -19],  anakin:   [-32,  -19],  ahsoka:   [-32,   34],
+    yoda:     [-896,   4],  windu:    [-72,  -19],  plo:      [-70,  -19],
+    aayla:    [-48,  -19],  dooku:    [-102, -19],  grievous: [-40,  -19],
+    ventress: [-40,  -19],  rex:      [-22,   34],  cody:     [-22,   -5],
+    padme:    [-46,  -19],  hondo:    [-60,   10],  cadbane:  [-60,   -9],
+    bokatan:  [-58,   34],
+    vader:    [-19,    4],  palpatine:[-84,    4],  inquisidor: [-19, -2],
+    kanan:    [-10,   -1],  hera:     [-25,   34],  saw:      [-30,    0],
+    tarkin:   [-64,    0],  obiwan_viejo: [-19,   0],
+    luke:     [-19,   34],  leia:     [-19,   35],  han:      [-32,   34],
+    chewie:   [-200,  35],  lando:    [-43,   35],  boba:     [-32,   34],
+    jabba:    [-60,    4],  monmothma:[-48,   35],  ackbar:   [-70,   29],
+    wedge:    [-21,   35],
+    mando:    [-25,   34],  gideon:   [-30,   34],  thrawn:   [-19,   34],
+    karga:    [-25,   34],
+    rey:      [15,  9999],  kylo:     [5,   9999],  finn:     [11,  9999],
+    poe:      [2,   9999],  maz:      [-1000, 9999], phasma:  [-5,  9999],
+    hux:      [0,   9999]
+  };
+
+  /** ¿Este personaje anda por ahí en el año galáctico `y`? */
+  SW.canonVivoEn = function (c, y) {
+    if (y == null) return true;
+    const v = SW.VENTANA_CANON[c.id];
+    if (!v) return true;
+    return y >= v[0] && y <= v[1];
+  };
+
+  SW.canonDeEra = function (era, anio) {
+    return SW.CANON.filter(function (c) {
+      return c.eras.indexOf(era) >= 0 && SW.canonVivoEn(c, anio);
+    });
   };
 
   /* ============================================================
@@ -8774,7 +8870,7 @@ body.sin-crt::after { display: none; }
      ============================================================ */
   SW.GEN = SW.GEN || {};
   SW.GEN.canon = function (rng, s) {
-    const pool = SW.canonDeEra(s.era);
+    const pool = SW.canonDeEra(s.era, SW.anioGalactico ? SW.anioGalactico(s) : null);
     if (!pool.length) return null;
     const p = rng.weighted(pool, function (c) { return c.w || 1; });
     // algunos tienen escena propia con consecuencias, no la plantilla genérica
@@ -8795,13 +8891,13 @@ body.sin-crt::after { display: none; }
     /* ---- ramas según quién es ---- */
     if (p.tipo === 'jedi') {
       if (esSith) {
-        c.push({ t: 'Atacar sin avisar', combate: { dif: 88, duelo: true, canon: p.id }, fx: { alineamiento: -20, notoriedad: 25 }, conocer: p });
+        c.push({ t: 'Atacar sin avisar', combate: { dif: 88, duelo: true, canon: p.id }, fx: { alineamiento: -20, notoriedad: 25 }, conocer: p, out: 'No hay saludo ni frase. Sólo tú saliendo de la sombra.' });
         c.push({ t: 'Dejar que te lea y marcharte', fx: { fuerza: 10, cordura: -10, notoriedad: 10 }, out: p.n + ' te mira demasiado tiempo. Sabe lo que eres. No hace nada. Todavía.', conocer: p });
         c.push({ t: 'Fingir ser un civil', fx: { carisma: 12, intelecto: 8 }, out: 'Cuela por poco. Te tiembla la mano hasta el hangar.', conocer: p });
       } else if (sensible) {
         c.push({ t: 'Pedirle que te enseñe algo', fx: { fuerza: 16, cordura: 10, alineamiento: 8 }, rel: { tipo: 'mentor', afecto: 45, canon: p.n, quien: p.desc }, out: p.n + ' te corrige la postura durante veinte minutos. Te dura toda la vida.', conocer: p });
         c.push({ t: 'Pedirle consejo sobre tu camino', fx: { cordura: 16, fuerza: 8, alineamiento: 10 }, out: 'Te contesta con una pregunta. Tardarás años en entenderla.', conocer: p });
-        c.push({ t: 'Retarle a un duelo de práctica', combate: { dif: 78, duelo: true, canon: p.id, practica: true }, fx: { destreza: 8 }, conocer: p });
+        c.push({ t: 'Retarle a un duelo de práctica', combate: { dif: 78, duelo: true, canon: p.id, practica: true }, fx: { destreza: 8 }, conocer: p, out: 'Acepta con media sonrisa y baja la hoja a modo de entrenamiento. Media.' });
         c.push({ t: 'No molestarle', fx: { cordura: 5 }, out: 'Se va. Piensas en ello mucho tiempo.' });
       } else {
         c.push({ t: 'Ofrecerle ayuda', fx: { alineamiento: 12, reputacion: 12, carisma: 8 }, rel: { tipo: 'aliado', afecto: 45, canon: p.n, quien: p.desc }, out: 'Acepta. Trabajáis juntos tres días. No vuelve a olvidarse de ti.', conocer: p });
@@ -8810,19 +8906,19 @@ body.sin-crt::after { display: none; }
         c.push({ t: 'Solo mirar y no decir nada', fx: { cordura: 6 }, out: 'Cuentas la anécdota durante décadas. Nadie te cree.', conocer: p });
       }
     } else if (p.tipo === 'sith' || p.tipo === 'villano') {
-      c.push({ t: 'Enfrentarte', combate: { dif: p.id === 'palpatine' || p.id === 'vader' ? 95 : 82, duelo: true, canon: p.id }, fx: { alineamiento: luminoso ? 10 : 0 }, conocer: p });
+      c.push({ t: 'Enfrentarte', combate: { dif: p.id === 'palpatine' || p.id === 'vader' ? 95 : 82, duelo: true, canon: p.id }, fx: { alineamiento: luminoso ? 10 : 0 }, conocer: p, out: p.n + ' ni siquiera parece sorprendido. Eso es lo que asusta.' });
       if (sensible) {
         c.push({ t: 'Escuchar lo que te ofrece', fx: { fuerza: 18, alineamiento: -22, cordura: -12, notoriedad: 12 }, flag: 'oferta_oscura', out: p.n + ' te habla del poder que la Orden te niega. Lo peor es que tiene parte de razón.', conocer: p });
       }
       c.push({ t: 'Arrodillarte y ofrecerle tus servicios', fx: { alineamiento: -25, notoriedad: 18, creditos: 20000 }, faccion: 'sith+25', rel: { tipo: 'amo', afecto: 20, canon: p.n, quien: p.desc }, out: 'Acepta. Ahora tienes un sitio en una estructura muy vertical.', conocer: p });
-      c.push({ t: 'Huir sin mirar atrás', fx: { cordura: -12, destreza: 8 }, mover: true, motivo: 'poniendo distancia con ' + p.n, conocer: p });
+      c.push({ t: 'Huir sin mirar atrás', fx: { cordura: -12, destreza: 8 }, mover: true, motivo: 'poniendo distancia con ' + p.n, conocer: p, out: 'Sales del sistema esa misma noche. Tardas años en dormir del tirón.' });
     } else if (p.tipo === 'clon') {
       c.push({ t: 'Compartir raciones y hablar de la guerra', fx: { cordura: 12, carisma: 8 }, rel: { tipo: 'camarada', afecto: 55, canon: p.n, quien: p.desc }, out: 'Habla despacio y escucha mejor. Te acuerdas de él mucho después.', conocer: p });
       c.push({ t: 'Pedirle instrucción de combate', fx: { destreza: 12, fisico: 8 }, habilidad: 'luchador', out: 'Te corrige cosas que llevabas años haciendo mal.', conocer: p });
       c.push({ t: 'Preguntarle por los chips', fx: { intelecto: 10, cordura: -8 }, flag: 'sospecha_chip', out: 'Se queda callado. "Los médicos dicen que es para la agresividad."', conocer: p });
     } else if (p.tipo === 'cazador') {
       c.push({ t: 'Contratarle', fx: { creditos: -35000, notoriedad: 10 }, rel: { tipo: 'contacto', afecto: 25, canon: p.n, quien: p.desc }, out: 'Caro y sin preguntas. Cumple.', conocer: p });
-      c.push({ t: 'Competir por el mismo contrato', combate: { dif: 76, botin: 40000, canon: p.id }, fx: { notoriedad: 15 }, conocer: p });
+      c.push({ t: 'Competir por el mismo contrato', combate: { dif: 76, botin: 40000, canon: p.id }, fx: { notoriedad: 15 }, conocer: p, out: 'Os miráis, miráis al objetivo y ya no hace falta hablar más.' });
       c.push({ t: 'Ofrecerle trabajar juntos', fx: { creditos: 18000, destreza: 8, notoriedad: 12 }, rel: { tipo: 'socio', afecto: 35, canon: p.n, quien: p.desc }, out: 'Acepta a medias y con un contrato de once páginas.', conocer: p });
       c.push({ t: 'Salir del local con calma', fx: { cordura: 4 }, out: 'No te sigue. Esta vez.' });
     } else if (p.tipo === 'criminal') {
@@ -8837,30 +8933,32 @@ body.sin-crt::after { display: none; }
       ], conocer: p });
       c.push({ t: 'Invitarle a una copa y escuchar', fx: { cordura: 10, carisma: 8, creditos: -400 }, out: 'Cuenta tres historias. Dos son mentira y la tercera da miedo.', conocer: p });
     } else if (p.tipo === 'politico') {
-      c.push({ t: 'Ofrecerle apoyo', fx: { reputacion: 14, alineamiento: 10 }, rel: { tipo: 'aliado', afecto: 40, canon: p.n, quien: p.desc }, faccion: luminoso ? 'rebelion+15' : 'republica+15', conocer: p });
-      c.push({ t: 'Venderle información', fx: { creditos: 22000, intelecto: 6 }, conocer: p });
+      c.push({ t: 'Ofrecerle apoyo', fx: { reputacion: 14, alineamiento: 10 }, rel: { tipo: 'aliado', afecto: 40, canon: p.n, quien: p.desc }, faccion: luminoso ? 'rebelion+15' : 'republica+15', conocer: p, out: 'Te apunta el nombre en una lista corta. En esa lista estar es estar.' });
+      c.push({ t: 'Venderle información', sub: 'Lo que sabes vale, y aquí lo pagan.', fx: { creditos: 22000, intelecto: 6 }, conocer: p,
+        out: 'Escucha sin interrumpir, hace dos preguntas muy concretas y manda pagar el doble de lo que ibas a pedir. Sales del despacho sabiendo que acabas de entrar en algo.' });
       c.push({ t: 'Pedirle un favor para tu mundo', fx: { reputacion: 10, carisma: 10 }, out: 'Toma nota. Meses después llega un envío sin remitente.', conocer: p });
-      c.push({ t: 'Filtrar su agenda a la prensa', fx: { creditos: 12000, alineamiento: -18, notoriedad: 15 }, conocer: p });
+      c.push({ t: 'Filtrar su agenda a la prensa', fx: { creditos: 12000, alineamiento: -18, notoriedad: 15 }, conocer: p,
+        out: 'Sale en tres holoperiódicos y en ninguno figuras tú. Cobras en efectivo y no vuelves a dormir en el mismo sitio dos noches.' });
     } else if (p.tipo === 'piloto') {
       c.push({ t: 'Retarle a una carrera', r: [
         { p: 0.3, t: 'Le ganas. Por muy poco, pero le ganas.', fx: { destreza: 14, reputacion: 14 }, habilidad: 'piloto' },
         { p: 0.7, t: 'Te deja atrás en la segunda curva.', fx: { destreza: 8, carisma: 5 } }
       ], conocer: p });
-      c.push({ t: 'Pedirle que te enseñe a volar', fx: { destreza: 14, intelecto: 8 }, habilidad: 'piloto', rel: { tipo: 'mentor', afecto: 40, canon: p.n, quien: p.desc }, conocer: p });
-      c.push({ t: 'Ofrecerte como copiloto', fx: { destreza: 10, cordura: 8 }, rel: { tipo: 'camarada', afecto: 45, canon: p.n, quien: p.desc }, conocer: p });
+      c.push({ t: 'Pedirle que te enseñe a volar', fx: { destreza: 14, intelecto: 8 }, habilidad: 'piloto', rel: { tipo: 'mentor', afecto: 40, canon: p.n, quien: p.desc }, conocer: p, out: 'Cuatro tardes en un simulador viejo. Te quita tres manías y te deja una para siempre.' });
+      c.push({ t: 'Ofrecerte como copiloto', fx: { destreza: 10, cordura: 8 }, rel: { tipo: 'camarada', afecto: 45, canon: p.n, quien: p.desc }, conocer: p, out: 'Dos saltos en el asiento de la derecha sin decir casi nada. Al bajar te da la mano.' });
     } else if (p.tipo === 'mando') {
       c.push({ t: 'Saludar según el Credo', fx: { reputacion: 10, carisma: 8 }, faccion: 'mandalorianos+18', rel: { tipo: 'aliado', afecto: 35, canon: p.n, quien: p.desc }, out: '"Este es el Camino." Y ya está: eso vale por un contrato.', conocer: p });
-      c.push({ t: 'Retarle por el honor', combate: { dif: 80, duelo: true, canon: p.id }, fx: { notoriedad: 12 }, conocer: p });
-      c.push({ t: 'Preguntarle por el beskar', fx: { intelecto: 8, creditos: -12000 }, item: 'placas de armadura clon repintadas', conocer: p });
+      c.push({ t: 'Retarle por el honor', combate: { dif: 80, duelo: true, canon: p.id }, fx: { notoriedad: 12 }, conocer: p, out: 'Deja el jetpack en el suelo y se pone en guardia. Aquí esto se hace así.' });
+      c.push({ t: 'Preguntarle por el beskar', fx: { intelecto: 8, creditos: -12000 }, item: 'placas de armadura clon repintadas', conocer: p, out: 'Te explica cómo se distingue el beskar de lo que te van a intentar vender, y luego te vende él algo más barato y honesto.' });
     } else if (p.tipo === 'militar') {
-      c.push({ t: 'Cuadrarte y obedecer', fx: { reputacion: 10, cordura: -6 }, faccion: 'imperio+12', conocer: p });
-      c.push({ t: 'Sabotear sus planes desde dentro', fx: { alineamiento: 15, notoriedad: 20, intelecto: 10 }, conocer: p });
-      c.push({ t: 'Ofrecerle tus servicios', fx: { creditos: 26000, alineamiento: -15 }, rel: { tipo: 'contacto', afecto: 25, canon: p.n, quien: p.desc }, conocer: p });
-      c.push({ t: 'Pasar desapercibido', fx: { cordura: 4, notoriedad: -5 }, conocer: p });
+      c.push({ t: 'Cuadrarte y obedecer', fx: { reputacion: 10, cordura: -6 }, faccion: 'imperio+12', conocer: p, out: 'Ni te mira. Pero alguien de su estado mayor apunta tu número de servicio.' });
+      c.push({ t: 'Sabotear sus planes desde dentro', fx: { alineamiento: 15, notoriedad: 20, intelecto: 10 }, conocer: p, out: 'Cambias tres cifras en una orden de reabastecimiento. Dos meses después una columna entera se queda sin combustible y nadie sabe por qué.' });
+      c.push({ t: 'Ofrecerle tus servicios', fx: { creditos: 26000, alineamiento: -15 }, rel: { tipo: 'contacto', afecto: 25, canon: p.n, quien: p.desc }, conocer: p, out: 'Acepta como quien acepta una herramienta: sin gratitud y pagando bien.' });
+      c.push({ t: 'Pasar desapercibido', fx: { cordura: 4, notoriedad: -5 }, conocer: p, out: 'Te apartas medio metro y dejas de existir para él. Es exactamente lo que querías.' });
     } else {
-      c.push({ t: 'Hablar con calma', fx: { cordura: 12, carisma: 8, intelecto: 6 }, rel: { tipo: 'contacto', afecto: 40, canon: p.n, quien: p.desc }, conocer: p });
-      c.push({ t: 'Pedirle ayuda', fx: { creditos: 8000, cordura: 8 }, conocer: p });
-      c.push({ t: 'Seguir tu camino', fx: {}, conocer: p });
+      c.push({ t: 'Hablar con calma', fx: { cordura: 12, carisma: 8, intelecto: 6 }, rel: { tipo: 'contacto', afecto: 40, canon: p.n, quien: p.desc }, conocer: p, out: 'Habláis un rato largo de nada importante. Te quedas mejor de lo que estabas.' });
+      c.push({ t: 'Pedirle ayuda', fx: { creditos: 8000, cordura: 8 }, conocer: p, out: 'No pregunta para qué. Te da lo que puede y te dice que no se lo devuelvas a él.' });
+      c.push({ t: 'Seguir tu camino', fx: { cordura: 3 }, conocer: p, out: 'Pasas de largo. Dentro de veinte años seguirás pensando en qué habrías dicho.' });
     }
 
     return { id: 'gen_canon_' + p.id, gen: true, canon: p, t: cab, c: c };
@@ -16248,7 +16346,7 @@ body.sin-crt::after { display: none; }
      ============================================================ */
   SW.GEN.buscarObjetivo = function (rng, s) {
     const c = s.contrato;
-    const d = SW.dosierDe ? SW.dosierDe(s.mundo) : null;
+    const d = SW.dosierDe ? SW.dosierDe(s.mundo, SW.anioGalactico ? SW.anioGalactico(s) : null) : null;
     const sitio = d ? rng.pick(d.hit) : 'el puerto';
     const banda = d ? rng.pick(d.fac) : 'la gente de aquí';
     return {
@@ -26404,6 +26502,259 @@ body.sin-crt::after { display: none; }
 
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* ===== src/data-desenlaces.js ===== */
+/* ============================================================
+   HOLOVIDA :: DESENLACES AUTOMÁTICOS
+   Un jugador se cruzó con alguien importante, eligió venderle
+   información y me dijo que «no había pasado nado». Fui a mirar y
+   tenía razón: la opción daba veintidós mil créditos y ni una línea
+   de texto. Salían los números y punto.
+
+   No era un caso aislado: hay más de dos mil opciones repartidas por
+   el juego que aplican efectos y no cuentan nada. Escribirlas todas a
+   mano no es realista, así que el motor cierra la escena él cuando el
+   autor no lo hizo: mira cuál es el efecto que más pesa y remata con
+   una frase que encaje con él.
+
+   Una frase escrita a mano SIEMPRE gana: esto sólo entra cuando no
+   hay ninguna. Y si el autor puso `out: ''` a propósito (porque la
+   siguiente escena habla por sí sola), también se respeta.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+
+  /* Qué efecto manda en la frase. El orden importa: perder salud pesa
+     más en el recuerdo que ganar tres puntos de carisma. */
+  const ORDEN = ['salud', 'creditos', 'cordura', 'alineamiento', 'reputacion',
+    'notoriedad', 'fuerza', 'carisma', 'intelecto', 'destreza', 'fisico', 'suerte'];
+
+  /* Cuánto tiene que moverse cada cosa para considerarla «la noticia» */
+  const PESO = { creditos: 0.0012, salud: 1.4, cordura: 1.1, alineamiento: 1, reputacion: 1,
+    notoriedad: 0.8, fuerza: 1, carisma: 0.9, intelecto: 0.9, destreza: 0.9, fisico: 0.9, suerte: 0.7 };
+
+  const LINEAS = {
+    'creditos+grande': [
+      'Pagan sin regatear y en el acto. Cuentas el saldo dos veces por si acaso.',
+      'El dinero entra limpio y de golpe. Cosas así no pasan a menudo.',
+      'Cobras más de lo que ibas a pedir, que siempre significa que pediste poco.',
+      'Se cierra con un apretón de manos y una transferencia que tarda seis segundos.',
+      'Nadie firma nada y aun así el dinero aparece antes de que salgas del edificio.',
+      'Te pagan en tres cuentas distintas para que no cante. Suma bien.',
+      'Es de esos días que se recuerdan por la cifra y no por lo que hiciste para ganarla.',
+      'Sales de ahí con más créditos de los que has visto juntos en años.',
+      'La cantidad es tan buena que tardas un rato en preguntarte por qué.'
+    ],
+    'creditos+': [
+      'Cobras lo hablado y nadie discute la cifra.',
+      'No es una fortuna, pero es dinero y es tuyo.',
+      'Sale la cuenta. A veces con eso basta.',
+      'Te pagan en el sitio, en metálico y sin recibo.',
+      'Da para la semana y para una copa. Tampoco pedías más.',
+      'Poco, pero puntual. Eso también vale.',
+      'Redondean a la baja y no te apetece discutir por tan poco.'
+    ],
+    'creditos-grande': [
+      'Duele pagarlo y aun así lo pagas. Hay cosas que sólo se arreglan así.',
+      'Sale caro. Lo raro sería que no.',
+      'Ves marcharse el dinero y te quedas mirando el saldo un rato largo.',
+      'Se lleva por delante los ahorros de bastante tiempo.',
+      'Pagas y te queda esa sensación de haber comprado algo que no se ve.',
+      'Es mucho dinero. Lo sabes mientras autorizas la transferencia.',
+      'No se negocia el precio de estas cosas: se paga o no se paga.'
+    ],
+    'creditos-': [
+      'Pagas y te vas sin mirar el saldo.',
+      'Se te va algo en el camino. Ya contabas con ello.',
+      'Cuatro créditos aquí, cuatro allá. Así se vacía una cuenta.',
+      'Sale de tu bolsillo, como casi todo.',
+      'Poco dinero y ninguna gana de discutirlo.'
+    ],
+    'salud-grande': [
+      'Sales de ahí andando de milagro y tardas semanas en volver a estar entero.',
+      'Lo pagas con el cuerpo. Eso tarda mucho más en devolverse que el dinero.',
+      'Te llevan a un centro médico y no recuerdas el viaje.',
+      'Pierdes la cuenta de los golpes antes de perder la conciencia.',
+      'Te cosen en una trastienda y te dicen que has tenido suerte. No lo parece.',
+      'El cuerpo dice basta y esta vez tiene razón.',
+      'Vas a acordarte de esto cada vez que cambie el tiempo.'
+    ],
+    'salud-': [
+      'Acabas con más golpes de los que pensabas y menos de los que podían ser.',
+      'Nada grave. Nada que no se note al día siguiente al levantarte.',
+      'Sales cojeando y haciéndote el entero delante de quien mira.',
+      'Un corte, un moratón y una lección barata.',
+      'Te duele algo que no sabías que se podía usar para eso.'
+    ],
+    'salud+': [
+      'Te recomponen. El cuerpo agradece lo que la cabeza todavía no.',
+      'Sales de ahí mejor de lo que entraste, y eso ya es raro.',
+      'Duermes doce horas seguidas y despiertas siendo otro.',
+      'Se cierra lo que llevabas abierto desde hacía demasiado.'
+    ],
+    'cordura+': [
+      'Te vas más ligero de lo que llegaste, y sin saber muy bien por qué.',
+      'Duermes bien esa noche. Últimamente no era lo normal.',
+      'Algo se te coloca por dentro y se queda colocado.',
+      'Se te quita un peso que llevabas sin darte cuenta de que lo llevabas.',
+      'Sales respirando distinto. No sabrías explicarlo a nadie.',
+      'Es una tontería y te arregla la semana entera.',
+      'Por una vez no le das vueltas por la noche.',
+      'Te ríes de verdad, que hacía tiempo.',
+      'Lo cuentas después como si no hubiera sido importante. Lo fue.'
+    ],
+    'cordura-': [
+      'Te lo llevas puesto y te dura más de lo que te gustaría reconocer.',
+      'No se lo cuentas a nadie. Vuelve solo, por las noches.',
+      'Sales de ahí con algo raro dentro y no lo sueltas en meses.',
+      'Te quedas dándole vueltas en sitios donde no viene a cuento.',
+      'Esa noche te despiertas dos veces y no sabes por qué.',
+      'Se te queda una imagen que no pediste y no se borra.',
+      'Haces como si nada. Te sale regular.',
+      'Algo se te tuerce por dentro y tardas en enderezarlo.',
+      'Piensas en ello mientras haces otra cosa, que es lo peor.'
+    ],
+    'alineamiento+': [
+      'Nadie aplaude. Tú sabes lo que has hecho y con eso te vale.',
+      'No sale en ningún registro. Sale en cómo te miras después.',
+      'Cuesta más y era lo correcto. Las dos cosas son verdad.',
+      'Nadie se entera y no hacía falta que nadie se enterase.',
+      'Te complica el mes y no te arrepientes ni un segundo.',
+      'Es lo que había que hacer. No siempre está tan claro.',
+      'Pierdes tiempo, dinero y ganas. Ganas otra cosa.',
+      'Alguien duerme mejor esta noche por lo que has hecho, y no eres tú.'
+    ],
+    'alineamiento-': [
+      'Funciona. Y funciona demasiado bien, que es lo que da que pensar.',
+      'Sale bien y nadie te pide explicaciones. Todavía.',
+      'Lo haces y sigues con el día. Ahí está el problema.',
+      'La primera vez cuesta. Esta no ha costado nada.',
+      'Te justificas por el camino y te convences a la tercera calle.',
+      'Nadie va a saberlo nunca. Eso no lo hace más limpio.',
+      'Sale barato. Todo lo que sale barato se paga luego.',
+      'Alguien paga esto por ti y ni siquiera sabes cómo se llama.'
+    ],
+    'reputacion+': [
+      'Se corre la voz. La próxima vez ya no tienes que presentarte.',
+      'Alguien lo cuenta en otro sitio y llega antes que tú.',
+      'Tu nombre empieza a decirse con otro tono.',
+      'Te saludan dos desconocidos en la misma semana.',
+      'Se te empieza a tener en cuenta en conversaciones donde no estás.',
+      'La versión que circula es mejor que lo que pasó, y no la corriges.'
+    ],
+    'reputacion-': [
+      'Se corre la voz, y esta vez no a tu favor.',
+      'Te cuesta un par de puertas que antes estaban abiertas.',
+      'Alguien lo cuenta mal a propósito y prende enseguida.',
+      'Notas el cambio en cómo te miran antes de que nadie diga nada.'
+    ],
+    'notoriedad+': [
+      'Ahora hay gente que sabe tu cara y no todos son amigos.',
+      'Sales en una conversación que no querías protagonizar.',
+      'Empiezan a preguntar por ti en sitios donde no conviene.',
+      'Tu nombre aparece en una lista. No en la buena.',
+      'Alguien pega tu cara en un tablón y le pone una cifra debajo.',
+      'A partir de hoy entras en los sitios mirando las salidas.'
+    ],
+    'fuerza+': [
+      'Notas algo que antes no estaba. Todavía no sabes ponerle nombre.',
+      'Se te queda dentro, callado, y crece por su cuenta.',
+      'Por un momento sabes lo que va a pasar antes de que pase.',
+      'Algo responde cuando lo llamas. Poco, pero responde.'
+    ],
+    'carisma+': [
+      'Aprendes algo de cómo se maneja a la gente, y lo usas esa misma tarde.',
+      'Te sale mejor de lo que esperabas y tomas nota de por qué.',
+      'Descubres que si esperas dos segundos antes de hablar, ganas la sala.',
+      'Te escuchan hasta el final. No siempre pasaba.',
+      'Aprendes a decir que no sin que suene a que no.'
+    ],
+    'intelecto+': [
+      'Te llevas una idea que no tenías al entrar.',
+      'Aprendes algo que no estabas buscando, que suele ser lo que más dura.',
+      'Entiendes por fin una cosa que llevabas años haciendo de memoria.',
+      'Te queda una pregunta mejor que la que traías.',
+      'Apuntas dos cosas y una de ellas te sirve años después.',
+      'Sales sabiendo un poco más de cómo funciona todo esto.'
+    ],
+    'destreza+': [
+      'Las manos van solas al final. Eso no se olvida.',
+      'Repites el gesto luego, tú solo, hasta que sale limpio.',
+      'Le pillas el punto a la tercera y ya no lo pierdes.',
+      'Descubres que ibas sobrado de fuerza y corto de precisión.'
+    ],
+    'fisico+': [
+      'El cuerpo aguanta y se acuerda.',
+      'Acabas reventado y al día siguiente, un poco más fuerte.',
+      'Te descubres haciendo sin pensar algo que hace un año no podías.'
+    ],
+    'suerte+': [
+      'Sale bien por muy poco. Es mejor no pensar en el margen.',
+      'Podía haber salido de siete maneras y sale de la buena.',
+      'No sabes a quién darle las gracias, así que no se las das a nadie.'
+    ],
+    'nada': [
+      'Y ya está. No todo lo que se decide tiene eco.',
+      'La cosa se queda ahí. Sigues con el día.',
+      'Pasa lo que tenía que pasar, que es casi nada.',
+      'Se resuelve solo y ni te enteras de cómo.',
+      'Nadie dice nada más del asunto.',
+      'Queda en eso. Hay días así.'
+    ]
+  };
+
+  /* Cosas que ya hablan solas: no hay que rematarlas */
+  const YA_HABLA = ['volver', 'esMenu', 'devuelveAccion', 'combate', 'dogfight', 'duelo',
+    'minijuego', 'reto', 'retoDuelo', 'cadena', 'generar', 'situacion', 'mueveA', 'mover',
+    'viajarA', 'rutaViaje', 'empleo', 'buscarEmpleo', 'casar', 'hijo', 'nuevaRel',
+    'cortarRel', 'matarRel', 'romper', 'despido', 'carcel', 'elegirBando', 'aceptaMision',
+    'cierraMision', 'abandonaMision', 'retoMision', 'abreTrama', 'tramaAvanza', 'tramaCierra'];
+
+  SW.necesitaDesenlace = function (d) {
+    if (!d || d.out !== undefined) return false;      // el autor ya decidió, aunque fuera callar
+    if (d.p != null && d.t) return false;             // es una rama sorteada: su `t` es el texto
+    for (let i = 0; i < YA_HABLA.length; i++) if (d[YA_HABLA[i]] != null) return false;
+    return !!d.fx;
+  };
+
+  /** El efecto que más pesa de todos, con su signo. */
+  SW.efectoDominante = function (fx) {
+    let mejor = null, peso = 0;
+    for (let i = 0; i < ORDEN.length; i++) {
+      const k = ORDEN[i];
+      const v = fx[k];
+      if (!v) continue;
+      const p = Math.abs(v) * (PESO[k] || 1);
+      if (p > peso) { peso = p; mejor = { k: k, v: v, p: p }; }
+    }
+    return peso >= 4 ? mejor : null;
+  };
+
+  /** Una frase de cierre para una opción que no traía ninguna. */
+  SW.desenlaceAuto = function (g, d) {
+    const dom = SW.efectoDominante(d.fx || {});
+    let clave = 'nada';
+    if (dom) {
+      const signo = dom.v > 0 ? '+' : '-';
+      const grande = dom.k === 'creditos' ? Math.abs(dom.v) >= 15000 : Math.abs(dom.v) >= 18;
+      clave = dom.k + signo + (grande ? 'grande' : '');
+      if (!LINEAS[clave]) clave = dom.k + signo;
+      if (!LINEAS[clave]) clave = 'nada';
+    }
+    const pool = LINEAS[clave];
+    /* Esto se dispara unas sesenta veces por vida: sin memoria, las
+       frases más usadas se repetirían cada dos escenas. Se guardan las
+       últimas seis y se evitan mientras queden alternativas. */
+    g._desRecientes = g._desRecientes || [];
+    const libres = pool.filter(function (x) { return g._desRecientes.indexOf(x) < 0; });
+    const linea = g.rng.pick(libres.length ? libres : pool);
+    g._desRecientes.push(linea);
+    if (g._desRecientes.length > 6) g._desRecientes.shift();
+    return linea;
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== src/engine.js ===== */
 /* ============================================================
    HOLOVIDA :: motor
@@ -26701,11 +27052,15 @@ body.sin-crt::after { display: none; }
              (nota ? ': ' + nota : '') + '.', delta >= 0 ? 'rel' : 'mal');
   };
 
-  /** el dosier del mundo donde estás, cacheado mientras no te muevas */
+  /** el dosier del mundo donde estás, cacheado mientras no te muevas.
+      Lleva el año galáctico dentro de la clave: el dosier de Lothal en
+      el 200 ABY no puede hablar de guarniciones imperiales. */
   Game.prototype.dosier = function () {
-    if (!this._dos || this._dosMundo !== this.s.mundo) {
-      this._dosMundo = this.s.mundo;
-      this._dos = SW.dosierDe ? SW.dosierDe(this.s.mundo) : { cri: ['un animal'], pel: ['un peligro'], fac: ['una banda'], hit: ['un sitio'], bie: ['mercancía'], aut: 'quien mande', cli: ['mal tiempo'], com: ['comida'], gen: ['gente'] };
+    const y = SW.anioGalactico ? SW.anioGalactico(this.s) : null;
+    const clave = this.s.mundo + '@' + y;
+    if (!this._dos || this._dosMundo !== clave) {
+      this._dosMundo = clave;
+      this._dos = SW.dosierDe ? SW.dosierDe(this.s.mundo, y) : { cri: ['un animal'], pel: ['un peligro'], fac: ['una banda'], hit: ['un sitio'], bie: ['mercancía'], aut: 'quien mande', cli: ['mal tiempo'], com: ['comida'], gen: ['gente'] };
     }
     return this._dos;
   };
@@ -27369,7 +27724,13 @@ body.sin-crt::after { display: none; }
       }
     }
 
-    const texto = soloBase ? null : (d.out || (d.p != null && d.t ? d.t : null));
+    let texto = soloBase ? null : (d.out || (d.p != null && d.t ? d.t : null));
+    /* Si la opción aplica efectos y nadie escribió el desenlace, lo pone
+       el motor: sin esto la elección se resolvía con una fila de números
+       y el jugador leía, con razón, que no había pasado nada. */
+    if (!soloBase && !texto && SW.necesitaDesenlace && SW.necesitaDesenlace(d)) {
+      texto = SW.desenlaceAuto(this, d);
+    }
     if (texto) this.log(U.fill(texto, slots), d.tono || 'res');
 
     if (d.volver) { this.devolverAccion(); return; }
@@ -27844,8 +28205,26 @@ body.sin-crt::after { display: none; }
     'granjera de humedad', 'traficante de información', 'monje de los Whills'
   ];
 
+  /* Con qué edad biológica se puede tener cada cosa. Un evento de
+     infancia que te «presenta a alguien» sorteaba el tipo de relación
+     de una tabla que incluía «pareja», y salías del colegio con novia
+     a los seis años. La edad manda por encima de lo que pida la escena. */
+  const EDAD_MINIMA = { 'pareja': 16, 'amante': 17, 'romance': 16, 'cónyuge': 18, 'aprendiz': 20 };
+  const DEGRADA = function (tipo, edadBio) {
+    const min = EDAD_MINIMA[tipo];
+    if (min == null || edadBio >= min) return tipo;
+    if (tipo === 'aprendiz') return 'alumno';
+    return edadBio >= 12 ? 'amor de crío' : 'amigo';
+  };
+
   Game.prototype.añadirRelacion = function (tipo, afecto, nombre, quien, esCanon) {
     const s = this.s, rng = this.rng;
+    const pedido = tipo;
+    tipo = DEGRADA(tipo, s.edadBio);
+    if (tipo !== pedido) {
+      // un cariño de crío es un cariño de crío, no un matrimonio
+      afecto = Math.min(afecto == null ? 40 : afecto, 60);
+    }
     // si ya conoces a esa persona, se refuerza el vínculo en vez de duplicarla
     if (nombre) {
       const ya = s.relaciones.filter(function (r) { return r.nombre === nombre; })[0];
@@ -27896,11 +28275,15 @@ body.sin-crt::after { display: none; }
     this.hito('Se cruza con ' + p.n);
   };
   Game.prototype.nuevaRelacion = function () {
-    const rng = this.rng;
-    const tipo = rng.weighted([
-      { v: 'amigo', w: 40 }, { v: 'pareja', w: 22 }, { v: 'contacto', w: 20 },
-      { v: 'rival', w: 10 }, { v: 'socio', w: 8 }
-    ], function (o) { return o.w; }).v;
+    const rng = this.rng, bio = this.s.edadBio;
+    /* De crío se conoce gente, no se echa novia: hasta los dieciséis la
+       tabla ni siquiera propone pareja. */
+    const tabla = bio >= 16
+      ? [{ v: 'amigo', w: 40 }, { v: 'pareja', w: 22 }, { v: 'contacto', w: 20 },
+         { v: 'rival', w: 10 }, { v: 'socio', w: 8 }]
+      : [{ v: 'amigo', w: 62 }, { v: 'contacto', w: 14 }, { v: 'rival', w: 14 },
+         { v: 'amor de crío', w: bio >= 12 ? 10 : 0 }];
+    const tipo = rng.weighted(tabla, function (o) { return o.w; }).v;
     this.añadirRelacion(tipo, tipo === 'rival' ? -25 : rng.int(20, 60));
   };
   Game.prototype.cortarRelacion = function () {
@@ -27933,6 +28316,10 @@ body.sin-crt::after { display: none; }
   };
   Game.prototype.casarse = function () {
     const s = this.s;
+    if (s.edadBio < 18) {
+      this.log('Tienes ' + s.edadBio + ' años. Aquí no se casa nadie con esa edad.', 'res');
+      return;
+    }
     if (SW.puedeCasarse && !SW.puedeCasarse(s)) {
       this.log('La Orden prohíbe el apego. No hay boda: hay una conversación difícil.', 'mal');
       this.aplicarFx({ cordura: -8 }, {});
@@ -27953,6 +28340,7 @@ body.sin-crt::after { display: none; }
   };
   Game.prototype.tenerHijo = function (nombre) {
     const s = this.s, rng = this.rng;
+    if (s.edadBio < 16) return;          // por lo mismo que no hay bodas de crío
     const n = this.nombreLibre(nombre || SW.genNombre(rng, s.especie));
     s.relaciones.push({ nombre: n, tipo: 'hijo', afecto: 70, especie: s.especieN, desde: s.edad });
     this.log('Nace ' + n + '.', 'bien');

@@ -294,11 +294,15 @@
              (nota ? ': ' + nota : '') + '.', delta >= 0 ? 'rel' : 'mal');
   };
 
-  /** el dosier del mundo donde estás, cacheado mientras no te muevas */
+  /** el dosier del mundo donde estás, cacheado mientras no te muevas.
+      Lleva el año galáctico dentro de la clave: el dosier de Lothal en
+      el 200 ABY no puede hablar de guarniciones imperiales. */
   Game.prototype.dosier = function () {
-    if (!this._dos || this._dosMundo !== this.s.mundo) {
-      this._dosMundo = this.s.mundo;
-      this._dos = SW.dosierDe ? SW.dosierDe(this.s.mundo) : { cri: ['un animal'], pel: ['un peligro'], fac: ['una banda'], hit: ['un sitio'], bie: ['mercancía'], aut: 'quien mande', cli: ['mal tiempo'], com: ['comida'], gen: ['gente'] };
+    const y = SW.anioGalactico ? SW.anioGalactico(this.s) : null;
+    const clave = this.s.mundo + '@' + y;
+    if (!this._dos || this._dosMundo !== clave) {
+      this._dosMundo = clave;
+      this._dos = SW.dosierDe ? SW.dosierDe(this.s.mundo, y) : { cri: ['un animal'], pel: ['un peligro'], fac: ['una banda'], hit: ['un sitio'], bie: ['mercancía'], aut: 'quien mande', cli: ['mal tiempo'], com: ['comida'], gen: ['gente'] };
     }
     return this._dos;
   };
@@ -962,7 +966,13 @@
       }
     }
 
-    const texto = soloBase ? null : (d.out || (d.p != null && d.t ? d.t : null));
+    let texto = soloBase ? null : (d.out || (d.p != null && d.t ? d.t : null));
+    /* Si la opción aplica efectos y nadie escribió el desenlace, lo pone
+       el motor: sin esto la elección se resolvía con una fila de números
+       y el jugador leía, con razón, que no había pasado nada. */
+    if (!soloBase && !texto && SW.necesitaDesenlace && SW.necesitaDesenlace(d)) {
+      texto = SW.desenlaceAuto(this, d);
+    }
     if (texto) this.log(U.fill(texto, slots), d.tono || 'res');
 
     if (d.volver) { this.devolverAccion(); return; }
@@ -1437,8 +1447,26 @@
     'granjera de humedad', 'traficante de información', 'monje de los Whills'
   ];
 
+  /* Con qué edad biológica se puede tener cada cosa. Un evento de
+     infancia que te «presenta a alguien» sorteaba el tipo de relación
+     de una tabla que incluía «pareja», y salías del colegio con novia
+     a los seis años. La edad manda por encima de lo que pida la escena. */
+  const EDAD_MINIMA = { 'pareja': 16, 'amante': 17, 'romance': 16, 'cónyuge': 18, 'aprendiz': 20 };
+  const DEGRADA = function (tipo, edadBio) {
+    const min = EDAD_MINIMA[tipo];
+    if (min == null || edadBio >= min) return tipo;
+    if (tipo === 'aprendiz') return 'alumno';
+    return edadBio >= 12 ? 'amor de crío' : 'amigo';
+  };
+
   Game.prototype.añadirRelacion = function (tipo, afecto, nombre, quien, esCanon) {
     const s = this.s, rng = this.rng;
+    const pedido = tipo;
+    tipo = DEGRADA(tipo, s.edadBio);
+    if (tipo !== pedido) {
+      // un cariño de crío es un cariño de crío, no un matrimonio
+      afecto = Math.min(afecto == null ? 40 : afecto, 60);
+    }
     // si ya conoces a esa persona, se refuerza el vínculo en vez de duplicarla
     if (nombre) {
       const ya = s.relaciones.filter(function (r) { return r.nombre === nombre; })[0];
@@ -1489,11 +1517,15 @@
     this.hito('Se cruza con ' + p.n);
   };
   Game.prototype.nuevaRelacion = function () {
-    const rng = this.rng;
-    const tipo = rng.weighted([
-      { v: 'amigo', w: 40 }, { v: 'pareja', w: 22 }, { v: 'contacto', w: 20 },
-      { v: 'rival', w: 10 }, { v: 'socio', w: 8 }
-    ], function (o) { return o.w; }).v;
+    const rng = this.rng, bio = this.s.edadBio;
+    /* De crío se conoce gente, no se echa novia: hasta los dieciséis la
+       tabla ni siquiera propone pareja. */
+    const tabla = bio >= 16
+      ? [{ v: 'amigo', w: 40 }, { v: 'pareja', w: 22 }, { v: 'contacto', w: 20 },
+         { v: 'rival', w: 10 }, { v: 'socio', w: 8 }]
+      : [{ v: 'amigo', w: 62 }, { v: 'contacto', w: 14 }, { v: 'rival', w: 14 },
+         { v: 'amor de crío', w: bio >= 12 ? 10 : 0 }];
+    const tipo = rng.weighted(tabla, function (o) { return o.w; }).v;
     this.añadirRelacion(tipo, tipo === 'rival' ? -25 : rng.int(20, 60));
   };
   Game.prototype.cortarRelacion = function () {
@@ -1526,6 +1558,10 @@
   };
   Game.prototype.casarse = function () {
     const s = this.s;
+    if (s.edadBio < 18) {
+      this.log('Tienes ' + s.edadBio + ' años. Aquí no se casa nadie con esa edad.', 'res');
+      return;
+    }
     if (SW.puedeCasarse && !SW.puedeCasarse(s)) {
       this.log('La Orden prohíbe el apego. No hay boda: hay una conversación difícil.', 'mal');
       this.aplicarFx({ cordura: -8 }, {});
@@ -1546,6 +1582,7 @@
   };
   Game.prototype.tenerHijo = function (nombre) {
     const s = this.s, rng = this.rng;
+    if (s.edadBio < 16) return;          // por lo mismo que no hay bodas de crío
     const n = this.nombreLibre(nombre || SW.genNombre(rng, s.especie));
     s.relaciones.push({ nombre: n, tipo: 'hijo', afecto: 70, especie: s.especieN, desde: s.edad });
     this.log('Nace ' + n + '.', 'bien');

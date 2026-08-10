@@ -162,7 +162,7 @@
      ============================================================ */
   SW.GEN.buscarObjetivo = function (rng, s) {
     const c = s.contrato;
-    const d = SW.dosierDe ? SW.dosierDe(s.mundo) : null;
+    const d = SW.dosierDe ? SW.dosierDe(s.mundo, SW.anioGalactico ? SW.anioGalactico(s) : null) : null;
     const sitio = d ? rng.pick(d.hit) : 'el puerto';
     const banda = d ? rng.pick(d.fac) : 'la gente de aquí';
     return {

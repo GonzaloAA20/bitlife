@@ -199,8 +199,52 @@
     { id: 'hux', n: 'el General Hux', tipo: 'militar', eras: ['primera_orden'], desc: 'discursos largos y ambición corta', w: 3 }
   ];
 
-  SW.canonDeEra = function (era) {
-    return SW.CANON.filter(function (c) { return c.eras.indexOf(era) >= 0; });
+  /* ============================================================
+     Y ADEMÁS, EL RELOJ
+     `eras` es una red demasiado ancha: la Alta República dura siglos
+     y el Imperio temprano diecisiete años. Filtrando sólo por época te
+     podías cruzar con gente que aún no había nacido o que llevaba
+     décadas muerta. Aquí va la ventana de años galácticos en la que
+     cada uno está vivo Y es alguien con quien te puedes cruzar.
+     Quien no aparece en la tabla es porque su época ya lo dice todo.
+     ============================================================ */
+  SW.VENTANA_CANON = {
+    avar:     [-240, -225], elzar:    [-240, -225], porter:   [-245, -225],
+    marchion: [-240, -228],
+    quigon:   [-90,  -32],  shmi:     [-64,  -22],  watto:    [-60,   -5],
+    jango:    [-60,  -22],  maul:     [-40,   -2],
+    obiwan:   [-57,  -19],  anakin:   [-32,  -19],  ahsoka:   [-32,   34],
+    yoda:     [-896,   4],  windu:    [-72,  -19],  plo:      [-70,  -19],
+    aayla:    [-48,  -19],  dooku:    [-102, -19],  grievous: [-40,  -19],
+    ventress: [-40,  -19],  rex:      [-22,   34],  cody:     [-22,   -5],
+    padme:    [-46,  -19],  hondo:    [-60,   10],  cadbane:  [-60,   -9],
+    bokatan:  [-58,   34],
+    vader:    [-19,    4],  palpatine:[-84,    4],  inquisidor: [-19, -2],
+    kanan:    [-10,   -1],  hera:     [-25,   34],  saw:      [-30,    0],
+    tarkin:   [-64,    0],  obiwan_viejo: [-19,   0],
+    luke:     [-19,   34],  leia:     [-19,   35],  han:      [-32,   34],
+    chewie:   [-200,  35],  lando:    [-43,   35],  boba:     [-32,   34],
+    jabba:    [-60,    4],  monmothma:[-48,   35],  ackbar:   [-70,   29],
+    wedge:    [-21,   35],
+    mando:    [-25,   34],  gideon:   [-30,   34],  thrawn:   [-19,   34],
+    karga:    [-25,   34],
+    rey:      [15,  9999],  kylo:     [5,   9999],  finn:     [11,  9999],
+    poe:      [2,   9999],  maz:      [-1000, 9999], phasma:  [-5,  9999],
+    hux:      [0,   9999]
+  };
+
+  /** ¿Este personaje anda por ahí en el año galáctico `y`? */
+  SW.canonVivoEn = function (c, y) {
+    if (y == null) return true;
+    const v = SW.VENTANA_CANON[c.id];
+    if (!v) return true;
+    return y >= v[0] && y <= v[1];
+  };
+
+  SW.canonDeEra = function (era, anio) {
+    return SW.CANON.filter(function (c) {
+      return c.eras.indexOf(era) >= 0 && SW.canonVivoEn(c, anio);
+    });
   };
 
   /* ============================================================
@@ -242,7 +286,7 @@
      ============================================================ */
   SW.GEN = SW.GEN || {};
   SW.GEN.canon = function (rng, s) {
-    const pool = SW.canonDeEra(s.era);
+    const pool = SW.canonDeEra(s.era, SW.anioGalactico ? SW.anioGalactico(s) : null);
     if (!pool.length) return null;
     const p = rng.weighted(pool, function (c) { return c.w || 1; });
     // algunos tienen escena propia con consecuencias, no la plantilla genérica
@@ -263,13 +307,13 @@
     /* ---- ramas según quién es ---- */
     if (p.tipo === 'jedi') {
       if (esSith) {
-        c.push({ t: 'Atacar sin avisar', combate: { dif: 88, duelo: true, canon: p.id }, fx: { alineamiento: -20, notoriedad: 25 }, conocer: p });
+        c.push({ t: 'Atacar sin avisar', combate: { dif: 88, duelo: true, canon: p.id }, fx: { alineamiento: -20, notoriedad: 25 }, conocer: p, out: 'No hay saludo ni frase. Sólo tú saliendo de la sombra.' });
         c.push({ t: 'Dejar que te lea y marcharte', fx: { fuerza: 10, cordura: -10, notoriedad: 10 }, out: p.n + ' te mira demasiado tiempo. Sabe lo que eres. No hace nada. Todavía.', conocer: p });
         c.push({ t: 'Fingir ser un civil', fx: { carisma: 12, intelecto: 8 }, out: 'Cuela por poco. Te tiembla la mano hasta el hangar.', conocer: p });
       } else if (sensible) {
         c.push({ t: 'Pedirle que te enseñe algo', fx: { fuerza: 16, cordura: 10, alineamiento: 8 }, rel: { tipo: 'mentor', afecto: 45, canon: p.n, quien: p.desc }, out: p.n + ' te corrige la postura durante veinte minutos. Te dura toda la vida.', conocer: p });
         c.push({ t: 'Pedirle consejo sobre tu camino', fx: { cordura: 16, fuerza: 8, alineamiento: 10 }, out: 'Te contesta con una pregunta. Tardarás años en entenderla.', conocer: p });
-        c.push({ t: 'Retarle a un duelo de práctica', combate: { dif: 78, duelo: true, canon: p.id, practica: true }, fx: { destreza: 8 }, conocer: p });
+        c.push({ t: 'Retarle a un duelo de práctica', combate: { dif: 78, duelo: true, canon: p.id, practica: true }, fx: { destreza: 8 }, conocer: p, out: 'Acepta con media sonrisa y baja la hoja a modo de entrenamiento. Media.' });
         c.push({ t: 'No molestarle', fx: { cordura: 5 }, out: 'Se va. Piensas en ello mucho tiempo.' });
       } else {
         c.push({ t: 'Ofrecerle ayuda', fx: { alineamiento: 12, reputacion: 12, carisma: 8 }, rel: { tipo: 'aliado', afecto: 45, canon: p.n, quien: p.desc }, out: 'Acepta. Trabajáis juntos tres días. No vuelve a olvidarse de ti.', conocer: p });
@@ -278,19 +322,19 @@
         c.push({ t: 'Solo mirar y no decir nada', fx: { cordura: 6 }, out: 'Cuentas la anécdota durante décadas. Nadie te cree.', conocer: p });
       }
     } else if (p.tipo === 'sith' || p.tipo === 'villano') {
-      c.push({ t: 'Enfrentarte', combate: { dif: p.id === 'palpatine' || p.id === 'vader' ? 95 : 82, duelo: true, canon: p.id }, fx: { alineamiento: luminoso ? 10 : 0 }, conocer: p });
+      c.push({ t: 'Enfrentarte', combate: { dif: p.id === 'palpatine' || p.id === 'vader' ? 95 : 82, duelo: true, canon: p.id }, fx: { alineamiento: luminoso ? 10 : 0 }, conocer: p, out: p.n + ' ni siquiera parece sorprendido. Eso es lo que asusta.' });
       if (sensible) {
         c.push({ t: 'Escuchar lo que te ofrece', fx: { fuerza: 18, alineamiento: -22, cordura: -12, notoriedad: 12 }, flag: 'oferta_oscura', out: p.n + ' te habla del poder que la Orden te niega. Lo peor es que tiene parte de razón.', conocer: p });
       }
       c.push({ t: 'Arrodillarte y ofrecerle tus servicios', fx: { alineamiento: -25, notoriedad: 18, creditos: 20000 }, faccion: 'sith+25', rel: { tipo: 'amo', afecto: 20, canon: p.n, quien: p.desc }, out: 'Acepta. Ahora tienes un sitio en una estructura muy vertical.', conocer: p });
-      c.push({ t: 'Huir sin mirar atrás', fx: { cordura: -12, destreza: 8 }, mover: true, motivo: 'poniendo distancia con ' + p.n, conocer: p });
+      c.push({ t: 'Huir sin mirar atrás', fx: { cordura: -12, destreza: 8 }, mover: true, motivo: 'poniendo distancia con ' + p.n, conocer: p, out: 'Sales del sistema esa misma noche. Tardas años en dormir del tirón.' });
     } else if (p.tipo === 'clon') {
       c.push({ t: 'Compartir raciones y hablar de la guerra', fx: { cordura: 12, carisma: 8 }, rel: { tipo: 'camarada', afecto: 55, canon: p.n, quien: p.desc }, out: 'Habla despacio y escucha mejor. Te acuerdas de él mucho después.', conocer: p });
       c.push({ t: 'Pedirle instrucción de combate', fx: { destreza: 12, fisico: 8 }, habilidad: 'luchador', out: 'Te corrige cosas que llevabas años haciendo mal.', conocer: p });
       c.push({ t: 'Preguntarle por los chips', fx: { intelecto: 10, cordura: -8 }, flag: 'sospecha_chip', out: 'Se queda callado. "Los médicos dicen que es para la agresividad."', conocer: p });
     } else if (p.tipo === 'cazador') {
       c.push({ t: 'Contratarle', fx: { creditos: -35000, notoriedad: 10 }, rel: { tipo: 'contacto', afecto: 25, canon: p.n, quien: p.desc }, out: 'Caro y sin preguntas. Cumple.', conocer: p });
-      c.push({ t: 'Competir por el mismo contrato', combate: { dif: 76, botin: 40000, canon: p.id }, fx: { notoriedad: 15 }, conocer: p });
+      c.push({ t: 'Competir por el mismo contrato', combate: { dif: 76, botin: 40000, canon: p.id }, fx: { notoriedad: 15 }, conocer: p, out: 'Os miráis, miráis al objetivo y ya no hace falta hablar más.' });
       c.push({ t: 'Ofrecerle trabajar juntos', fx: { creditos: 18000, destreza: 8, notoriedad: 12 }, rel: { tipo: 'socio', afecto: 35, canon: p.n, quien: p.desc }, out: 'Acepta a medias y con un contrato de once páginas.', conocer: p });
       c.push({ t: 'Salir del local con calma', fx: { cordura: 4 }, out: 'No te sigue. Esta vez.' });
     } else if (p.tipo === 'criminal') {
@@ -305,30 +349,32 @@
       ], conocer: p });
       c.push({ t: 'Invitarle a una copa y escuchar', fx: { cordura: 10, carisma: 8, creditos: -400 }, out: 'Cuenta tres historias. Dos son mentira y la tercera da miedo.', conocer: p });
     } else if (p.tipo === 'politico') {
-      c.push({ t: 'Ofrecerle apoyo', fx: { reputacion: 14, alineamiento: 10 }, rel: { tipo: 'aliado', afecto: 40, canon: p.n, quien: p.desc }, faccion: luminoso ? 'rebelion+15' : 'republica+15', conocer: p });
-      c.push({ t: 'Venderle información', fx: { creditos: 22000, intelecto: 6 }, conocer: p });
+      c.push({ t: 'Ofrecerle apoyo', fx: { reputacion: 14, alineamiento: 10 }, rel: { tipo: 'aliado', afecto: 40, canon: p.n, quien: p.desc }, faccion: luminoso ? 'rebelion+15' : 'republica+15', conocer: p, out: 'Te apunta el nombre en una lista corta. En esa lista estar es estar.' });
+      c.push({ t: 'Venderle información', sub: 'Lo que sabes vale, y aquí lo pagan.', fx: { creditos: 22000, intelecto: 6 }, conocer: p,
+        out: 'Escucha sin interrumpir, hace dos preguntas muy concretas y manda pagar el doble de lo que ibas a pedir. Sales del despacho sabiendo que acabas de entrar en algo.' });
       c.push({ t: 'Pedirle un favor para tu mundo', fx: { reputacion: 10, carisma: 10 }, out: 'Toma nota. Meses después llega un envío sin remitente.', conocer: p });
-      c.push({ t: 'Filtrar su agenda a la prensa', fx: { creditos: 12000, alineamiento: -18, notoriedad: 15 }, conocer: p });
+      c.push({ t: 'Filtrar su agenda a la prensa', fx: { creditos: 12000, alineamiento: -18, notoriedad: 15 }, conocer: p,
+        out: 'Sale en tres holoperiódicos y en ninguno figuras tú. Cobras en efectivo y no vuelves a dormir en el mismo sitio dos noches.' });
     } else if (p.tipo === 'piloto') {
       c.push({ t: 'Retarle a una carrera', r: [
         { p: 0.3, t: 'Le ganas. Por muy poco, pero le ganas.', fx: { destreza: 14, reputacion: 14 }, habilidad: 'piloto' },
         { p: 0.7, t: 'Te deja atrás en la segunda curva.', fx: { destreza: 8, carisma: 5 } }
       ], conocer: p });
-      c.push({ t: 'Pedirle que te enseñe a volar', fx: { destreza: 14, intelecto: 8 }, habilidad: 'piloto', rel: { tipo: 'mentor', afecto: 40, canon: p.n, quien: p.desc }, conocer: p });
-      c.push({ t: 'Ofrecerte como copiloto', fx: { destreza: 10, cordura: 8 }, rel: { tipo: 'camarada', afecto: 45, canon: p.n, quien: p.desc }, conocer: p });
+      c.push({ t: 'Pedirle que te enseñe a volar', fx: { destreza: 14, intelecto: 8 }, habilidad: 'piloto', rel: { tipo: 'mentor', afecto: 40, canon: p.n, quien: p.desc }, conocer: p, out: 'Cuatro tardes en un simulador viejo. Te quita tres manías y te deja una para siempre.' });
+      c.push({ t: 'Ofrecerte como copiloto', fx: { destreza: 10, cordura: 8 }, rel: { tipo: 'camarada', afecto: 45, canon: p.n, quien: p.desc }, conocer: p, out: 'Dos saltos en el asiento de la derecha sin decir casi nada. Al bajar te da la mano.' });
     } else if (p.tipo === 'mando') {
       c.push({ t: 'Saludar según el Credo', fx: { reputacion: 10, carisma: 8 }, faccion: 'mandalorianos+18', rel: { tipo: 'aliado', afecto: 35, canon: p.n, quien: p.desc }, out: '"Este es el Camino." Y ya está: eso vale por un contrato.', conocer: p });
-      c.push({ t: 'Retarle por el honor', combate: { dif: 80, duelo: true, canon: p.id }, fx: { notoriedad: 12 }, conocer: p });
-      c.push({ t: 'Preguntarle por el beskar', fx: { intelecto: 8, creditos: -12000 }, item: 'placas de armadura clon repintadas', conocer: p });
+      c.push({ t: 'Retarle por el honor', combate: { dif: 80, duelo: true, canon: p.id }, fx: { notoriedad: 12 }, conocer: p, out: 'Deja el jetpack en el suelo y se pone en guardia. Aquí esto se hace así.' });
+      c.push({ t: 'Preguntarle por el beskar', fx: { intelecto: 8, creditos: -12000 }, item: 'placas de armadura clon repintadas', conocer: p, out: 'Te explica cómo se distingue el beskar de lo que te van a intentar vender, y luego te vende él algo más barato y honesto.' });
     } else if (p.tipo === 'militar') {
-      c.push({ t: 'Cuadrarte y obedecer', fx: { reputacion: 10, cordura: -6 }, faccion: 'imperio+12', conocer: p });
-      c.push({ t: 'Sabotear sus planes desde dentro', fx: { alineamiento: 15, notoriedad: 20, intelecto: 10 }, conocer: p });
-      c.push({ t: 'Ofrecerle tus servicios', fx: { creditos: 26000, alineamiento: -15 }, rel: { tipo: 'contacto', afecto: 25, canon: p.n, quien: p.desc }, conocer: p });
-      c.push({ t: 'Pasar desapercibido', fx: { cordura: 4, notoriedad: -5 }, conocer: p });
+      c.push({ t: 'Cuadrarte y obedecer', fx: { reputacion: 10, cordura: -6 }, faccion: 'imperio+12', conocer: p, out: 'Ni te mira. Pero alguien de su estado mayor apunta tu número de servicio.' });
+      c.push({ t: 'Sabotear sus planes desde dentro', fx: { alineamiento: 15, notoriedad: 20, intelecto: 10 }, conocer: p, out: 'Cambias tres cifras en una orden de reabastecimiento. Dos meses después una columna entera se queda sin combustible y nadie sabe por qué.' });
+      c.push({ t: 'Ofrecerle tus servicios', fx: { creditos: 26000, alineamiento: -15 }, rel: { tipo: 'contacto', afecto: 25, canon: p.n, quien: p.desc }, conocer: p, out: 'Acepta como quien acepta una herramienta: sin gratitud y pagando bien.' });
+      c.push({ t: 'Pasar desapercibido', fx: { cordura: 4, notoriedad: -5 }, conocer: p, out: 'Te apartas medio metro y dejas de existir para él. Es exactamente lo que querías.' });
     } else {
-      c.push({ t: 'Hablar con calma', fx: { cordura: 12, carisma: 8, intelecto: 6 }, rel: { tipo: 'contacto', afecto: 40, canon: p.n, quien: p.desc }, conocer: p });
-      c.push({ t: 'Pedirle ayuda', fx: { creditos: 8000, cordura: 8 }, conocer: p });
-      c.push({ t: 'Seguir tu camino', fx: {}, conocer: p });
+      c.push({ t: 'Hablar con calma', fx: { cordura: 12, carisma: 8, intelecto: 6 }, rel: { tipo: 'contacto', afecto: 40, canon: p.n, quien: p.desc }, conocer: p, out: 'Habláis un rato largo de nada importante. Te quedas mejor de lo que estabas.' });
+      c.push({ t: 'Pedirle ayuda', fx: { creditos: 8000, cordura: 8 }, conocer: p, out: 'No pregunta para qué. Te da lo que puede y te dice que no se lo devuelvas a él.' });
+      c.push({ t: 'Seguir tu camino', fx: { cordura: 3 }, conocer: p, out: 'Pasas de largo. Dentro de veinte años seguirás pensando en qué habrías dicho.' });
     }
 
     return { id: 'gen_canon_' + p.id, gen: true, canon: p, t: cab, c: c };
