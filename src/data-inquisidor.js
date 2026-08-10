@@ -368,9 +368,32 @@
     },
     hazlo: function (g) {
       g.s.flags.vader_visto = true;
+      SW.premioEncuentroVader(g);
       return SW.ESCENAS.vader_llega(g);
     }
   });
+
+  /* El casco se gana por PLANTARSE delante de él, no por ganarle.
+     Ganarle es casi imposible a propósito: si la reliquia dependiera de
+     eso, no la vería nadie nunca. Lo que se premia es haber llegado
+     hasta aquí y haberle mirado, salgas vivo o no. */
+  SW.premioEncuentroVader = function (g) {
+    const s = g.s;
+    if (s.flags.casco_desbloqueado) return;
+    s.flags.casco_desbloqueado = true;
+    g.hito('Se planta delante de Darth Vader');
+    if (SW.desbloquearReliquia) SW.desbloquearReliquia('casco_vader');
+    g.log('Muy pocos han estado a dos metros de eso. <b>El casco queda desbloqueado</b>: ' +
+      'podrás empezar cualquier vida futura llevándolo.', 'bien');
+    g.popup({
+      tipo: 'reliquia', titulo: 'RELIQUIA DESBLOQUEADA', nombre: 'Casco de Darth Vader',
+      sprite: 'casco_vader', color: '#c8102e',
+      desc: 'Estás a dos metros de él y no has salido corriendo. Eso ya es más de lo que puede decir ' +
+            'casi nadie, y en esta galaxia lo que se hace delante de Vader no se olvida: ' +
+            'a partir de ahora podrás empezar cualquier vida con el casco.',
+      stats: ['no hace falta ganarle', 'la fama cuenta casi el doble', 'tira de ti hacia el lado oscuro']
+    });
+  };
 
   SW.ESCENAS.vader_llega = function (g) {
     const s = g.s;
@@ -480,13 +503,14 @@
     g.log('Se queda de rodillas. La respiración se rompe y no vuelve a empezar. ' +
       'Cuando se calla del todo, el silencio es lo más raro que has oído en tu vida.', 'muerte');
     if (SW.marcarCanon) SW.marcarCanon(g, 'Darth Vader', 'muerto');
+    // el casco ya lo tenías por plantarte: esto es la hazaña, que es otra cosa
     if (SW.desbloquearReliquia) SW.desbloquearReliquia('casco_vader');
     g.popup({
-      tipo: 'reliquia', titulo: 'RELIQUIA DESBLOQUEADA', nombre: 'Casco de Darth Vader',
+      tipo: 'hazaña', titulo: 'HAS MATADO A DARTH VADER', nombre: 'El hangar en silencio',
       sprite: 'casco_vader', color: '#c8102e',
-      desc: 'Lo levantas del suelo del hangar. Pesa mucho más de lo que parece. ' +
-            'A partir de ahora podrás empezar cualquier vida llevándolo puesto.',
-      stats: ['la fama cuenta doble', 'tira de ti hacia el lado oscuro', 'se guarda entre partidas']
+      desc: 'No lo ha hecho nadie. Lo levantas del suelo, todavía caliente, y pesa mucho más de lo ' +
+            'que parece. El Emperador lo va a saber en menos de una hora.',
+      stats: ['el casco ya era tuyo', 'ahora además eres quien lo mató', 'queda en el salón de tus vidas']
     });
     g.cola.unshift(g.prepararGen({
       id: 'vader_muerto', gen: true,

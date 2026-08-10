@@ -75,7 +75,7 @@ Si aceptas, tienes pestaña propia y **años de cacería**: rastrear (Fuerza, pr
 
 La pelea con **Darth Vader** tiene dos fases. La primera es dura y se puede ganar. Después se para, ladea la cabeza y dice una frase; a partir de ahí una parada limpia ya no le hace nada —solo cuentan las que le abren la guardia— y cada hueco que dejas se paga entero. Ganar es **casi imposible**: menos del 1% jugando muy bien, y no llega al 7% jugando de forma prácticamente perfecta con la forma adecuada.
 
-Si lo consigues, se desbloquea el **casco de Vader**, que se guarda entre partidas y puedes equipar en el creador de cualquier vida futura: la fama cuenta casi el doble y algo tira de ti hacia abajo un poco cada año.
+El **casco de Vader** no se gana matándole: se gana **por plantarte delante de él**. En cuanto baja de la rampa queda desbloqueado, ganes, pierdas, huyas o te mate — si dependiera de vencerle no lo vería nadie nunca. Se guarda entre partidas y se equipa en el creador de cualquier vida futura: la fama cuenta casi el doble y algo tira de ti hacia abajo un poco cada año. Matarle es otra cosa, y tiene su propia entrada en el salón de tus vidas.
 
 Y si sobreviviste a la Purga y **no** aceptaste, son ellos los que vienen: escondido bien, tres de cada cuatro reciben al menos una visita en veinte años; buscando a otros supervivientes, todos.
 

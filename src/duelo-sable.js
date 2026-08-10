@@ -142,7 +142,8 @@
   SW.RELIQUIAS = {
     casco_vader: {
       id: 'casco_vader', n: 'Casco de Darth Vader', ico: '☗',
-      d: 'Chapa quemada y una rejilla que ya no respira por nadie. Pesa mucho más de lo que parece.',
+      d: 'Chapa quemada y una rejilla que ya no respira por nadie. Pesa mucho más de lo que parece. ' +
+         'Se desbloquea por plantarse delante de él, no por ganarle.',
       efecto: 'La galaxia te toma en serio a la primera: todo lo que ganas en fama vale casi el doble. ' +
               'A cambio, algo tira de ti hacia abajo un poco cada año.'
     }

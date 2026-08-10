@@ -279,45 +279,139 @@
     L.rect(19, 36, 10, 1, pal[3]);
   };
 
-  /* --- el casco. Ese casco. --- */
+  /* --- el casco. Ese casco. ---
+     A 48 px de lado el modelado fino se pierde: lo que se lee es la
+     silueta y las aristas. Así que está dibujado como lo que es, una
+     pieza de laca negra con cantos brillantes: casi todo sombra, y las
+     líneas de luz haciendo el trabajo. Tres planos —cúpula, ala y
+     máscara— y encima las piezas que se reconocen aunque sea del
+     tamaño de una uña: lentes, nariz, rejilla y pómulos. */
   S2.casco_vader = function (L) {
-    const pal = PAL.negro;
-    // cúpula
-    for (let y = 4; y < 22; y++) {
-      const t = (y - 4) / 18;
-      const ancho = Math.round(9 + Math.sqrt(t) * 7);
-      for (let x = 24 - ancho; x <= 24 + ancho; x++) {
-        const lat = (x - (24 - ancho)) / (ancho * 2);
-        L.set(x, y, pal[lat < 0.2 ? 0 : lat < 0.52 ? 1 : lat < 0.82 ? 2 : 3]);
+    /* 0 es el brillo y 6 el fondo del negro. Ojo con aclarar esto: la
+       tubería de acabado ya mete luz de canto, y si el material sale
+       claro el casco parece de plástico gris. */
+    const K = ['#6d798a', '#49525f', '#333b46', '#232932', '#171c23', '#0d1116', '#06080b'];
+    const CX = 24;
+
+    /* --- los tres planos --- */
+    const cupula = function (y) {                    // una bala, no una bola
+      if (y < 3 || y > 21) return 0;
+      const t = (21 - y) / 19;
+      return 12.6 * Math.pow(Math.max(0, 1 - Math.pow(t, 2.7)), 0.40);
+    };
+    const ALA_Y0 = 19, ALA_Y1 = 25;
+    const ala = function (y) {                       // vuelo cónico
+      if (y < ALA_Y0 || y > ALA_Y1) return 0;
+      return 12.4 + (y - ALA_Y0) * 0.95;             // hasta 18.1: bien más ancho que la cara
+    };
+    const mascara = function (y) {
+      if (y < 24 || y > 46) return 0;
+      if (y <= 33) return 12.2 + (y - 24) * 0.10;
+      if (y <= 40) return 13.1 - (y - 33) * 0.20;
+      if (y <= 43) return 11.7 - (y - 40) * 1.2;     // barbilla
+      return Math.max(0, 8.1 - (y - 43) * 0.8);      // cuello
+    };
+
+    /* Laca: casi todo sombra, una franja especular estrecha a la
+       izquierda y un rebote frío en el canto derecho. */
+    const laca = function (x, hw, mas) {
+      const lat = (x - (CX - hw)) / (2 * hw);
+      // (el ajuste de plano llega por `mas`: la cara va un punto más
+      //  clara que la cúpula para que lentes y rejilla recorten)
+      let i;
+      if (lat < 0.09) i = 4;
+      else if (lat < 0.17) i = 2;
+      else if (lat < 0.25) i = 1;            // el brillo, y es estrecho
+      else if (lat < 0.38) i = 3;
+      else if (lat < 0.62) i = 4;
+      else if (lat < 0.84) i = 5;
+      else if (lat < 0.94) i = 6;
+      else i = 5;                            // rebote del canto derecho
+      return K[Math.min(6, Math.max(0, i + (mas || 0)))];
+    };
+    const banda = function (y, hw, mas) {
+      if (hw <= 0) return;
+      for (let x = Math.round(CX - hw); x <= Math.round(CX + hw); x++) L.set(x, y, laca(x, hw, mas));
+    };
+
+    for (let y = 24; y <= 46; y++) banda(y, mascara(y), y >= 26 && y <= 42 ? -1 : 0);
+    for (let y = 3; y <= 21; y++) banda(y, cupula(y), 0);
+    for (let y = ALA_Y0; y <= ALA_Y1; y++) banda(y, ala(y), 1);
+
+    /* Los cantos del ala. La línea negra de debajo es la que hace que
+       el casco se reconozca aunque lo veas del tamaño de un sello. */
+    banda(ALA_Y0, ala(ALA_Y0), -2);
+    const bx = Math.round(ala(ALA_Y1));
+    for (let x = CX - bx; x <= CX + bx; x++) { L.set(x, ALA_Y1, K[6]); L.set(x, ALA_Y1 - 1, K[5]); }
+
+    /* --- lentes --- angulares, con la punta hacia la nariz.
+       Fila a fila: es la única forma de que el ángulo se lea aquí. */
+    const OJO = '#04060a';
+    const filas = [                       // [fila, borde exterior, interior]
+      [27, 12, 17], [28, 11, 19], [29, 10, 20],
+      [30, 11, 20], [31, 12, 19], [32, 14, 18], [33, 16, 17]
+    ];
+    filas.forEach(function (f, k) {
+      for (let x = f[1]; x <= f[2]; x++) { L.set(x, f[0], OJO); L.set(2 * CX - x, f[0], OJO); }
+      L.set(f[1] - 1, f[0], K[0]);                        // marco a la luz
+      L.set(f[2] + 1, f[0], K[5]);
+      L.set(2 * CX - (f[1] - 1), f[0], K[2]);             // y el del otro lado, en sombra
+      L.set(2 * CX - (f[2] + 1), f[0], K[6]);
+      // cierre inferior de la lente
+      if (k === filas.length - 1) {
+        for (let x = f[1] - 1; x <= f[2] + 1; x++) { L.set(x, f[0] + 1, K[5]); L.set(2 * CX - x, f[0] + 1, K[6]); }
       }
+    });
+    // ceja: el reborde que sobresale por encima de las lentes
+    for (let x = 10; x <= 19; x++) { L.set(x, 26, K[0]); L.set(2 * CX - x, 26, K[2]); }
+    // reflejo del cristal
+    L.rect(12, 28, 4, 1, '#3d4d60');
+    L.rect(13, 29, 2, 1, '#26313f');
+    L.rect(33, 28, 3, 1, '#1e2733');
+
+    /* --- nariz --- el caballete, con la arista izquierda a la luz */
+    for (let y = 26; y <= 33; y++) {
+      const w = 1 + Math.round((y - 26) * 0.45);
+      for (let x = CX - w; x <= CX + w; x++) L.set(x, y, K[5]);
+      L.set(CX - w, y, K[0]);                             // arista iluminada
+      L.set(CX + w, y, K[6]);                             // y su sombra
     }
-    // ala de la cúpula, que es lo que le da la silueta
-    L.rect(8, 20, 32, 3, pal[2]);
-    L.rect(8, 20, 32, 1, pal[0]);
-    // máscara: mejillas anguladas
-    for (let y = 23; y < 40; y++) {
-      const t = (y - 23) / 17;
-      const ancho = Math.round(15 - t * 6);
-      for (let x = 24 - ancho; x <= 24 + ancho; x++) {
-        const lat = (x - (24 - ancho)) / (ancho * 2);
-        L.set(x, y, pal[lat < 0.16 ? 1 : lat < 0.5 ? 2 : 3]);
-      }
+    L.rect(21, 34, 6, 1, K[2]);                           // base del caballete
+
+    /* --- rejilla --- barras negras dentro de un marco. La pieza que
+       más se reconoce, así que ocupa lo que tiene que ocupar. */
+    L.rect(16, 35, 17, 1, K[1]);                          // labio superior
+    L.rect(16, 36, 17, 1, K[6]);
+    for (let y = 37; y <= 41; y++) {
+      const w = 8 - Math.max(0, y - 39) * 2;
+      for (let x = CX - w; x <= CX + w; x++) L.set(x, y, ((x - CX) % 2 === 0) ? OJO : K[3]);
+      L.set(CX - w - 1, y, K[1]);
+      L.set(CX + w + 1, y, K[5]);
     }
-    // ojos: dos triángulos que no miran a nada
-    L.rect(13, 24, 8, 4, '#1a1418');
-    L.rect(27, 24, 8, 4, '#1a1418');
-    L.rect(14, 25, 6, 2, '#3a2a30');
-    L.rect(28, 25, 6, 2, '#3a2a30');
-    // el triángulo de la nariz y la rejilla
-    L.rect(22, 27, 4, 6, pal[3]);
-    L.rect(19, 34, 10, 1, '#181c22');
-    L.rect(20, 36, 8, 1, '#181c22');
-    L.rect(21, 38, 6, 1, '#181c22');
-    // el brillo raspado de una pieza quemada
-    L.rect(16, 8, 3, 7, '#5e6874');
-    L.rect(31, 30, 2, 5, '#4a5260');
-    // el corte que le hizo alguien
-    L.rect(30, 6, 1, 9, '#7a5a3a');
+    L.rect(17, 42, 15, 1, K[6]);
+
+    /* --- pómulos --- panel a cada lado con su junta y su vent */
+    L.linea(15.5, 27, 14.5, 41, K[6], 0.5);
+    L.linea(32.5, 27, 33.5, 41, K[6], 0.5);
+    [13, 35].forEach(function (cx, i) {
+      L.elipse(cx, 33, 1.6, 1.9, K[6]);
+      L.anillo(cx, 33, 1.6, 1.9, i ? K[3] : K[1], 1);
+      L.rect(cx - 1, 33, 3, 1, '#04060a');
+    });
+
+    /* --- cuello --- el faldón que se apoya en la coraza */
+    L.rect(16, 43, 16, 1, K[2]);
+    L.rect(17, 44, 14, 2, K[6]);
+
+    /* --- y lo que le pasó --- partido y quemado por el lado derecho.
+       Sin esto es un casco de disfraz; con esto es el que levantaste tú
+       del suelo de un hangar. */
+    L.linea(32, 6, 29.5, 18, '#05070a', 1);               // la grieta
+    L.linea(31.6, 6, 29.1, 18, '#3a342c', 0.5);           // su labio, metal desnudo
+    L.set(30, 11, '#6a5b41'); L.set(30, 12, '#5c4f38');
+    L.set(29, 15, '#433b2d');
+    L.rect(28, 17, 3, 1, '#131418');                      // hollín
+    L.rect(27, 20, 4, 1, '#15161a');
   };
 
   /* --- peto de armadura --- */
@@ -822,7 +916,7 @@
     motor: ['#3a4652', 0.13], trofeo: ['#5e4818', 0.12],
     rifle: ['#2e343c', 0.13], blaster: ['#2e343c', 0.13],
     droide: ['#3a4652', 0.10], astromec: ['#3a4652', 0.10],
-    criatura: ['#2a1c10', 0.16]
+    criatura: ['#2a1c10', 0.16], casco_vader: ['#39414d', 0.035]
   };
 
   /* --- arma blanca: vibrohoja --- */
