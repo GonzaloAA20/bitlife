@@ -24897,6 +24897,712 @@ body.sin-crt::after { display: none; }
 
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* ===== src/data-rutas.js ===== */
+/* ============================================================
+   HOLOVIDA :: RUTAS
+   Tener nave sólo hacía que el billete costara menos, que es la
+   forma más aburrida posible de premiar una nave. Volar es elegir
+   por dónde: la ruta balizada se paga y es segura; el tramo sin
+   balizar es gratis y ahí fuera hay gente; y el corredor restringido
+   es rápido y barato porque no estás pagando las tasas de nadie.
+
+   La velocidad de la nave y el estado del casco mandan de verdad:
+   correr más es escapar de lo que te encuentres.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+  SW.GEN = SW.GEN || {};
+
+  /* Un número que resume lo que vuela tu nave, de 0 a 1. */
+  SW.solturaNave = function (s) {
+    if (!s.nave) return 0;
+    return U.clamp((s.nave.vel || 4) / 12 * 0.7 + (s.naveEstado || 60) / 100 * 0.3, 0.1, 1);
+  };
+
+  SW.menuRuta = function (g, destino) {
+    const s = g.s;
+    const saltos = SW.saltosEntre(s.mundo, destino);
+    const m = SW.mundo(destino);
+    const tasa = SW.costeViaje(s.mundo, destino, true, s);
+    const sol = SW.solturaNave(s);
+    const ley = m.ley;
+    const pct = function (x) { return Math.round(U.clamp(x, 0, 1) * 100) + '%'; };
+
+    // lo que te puedes encontrar en cada ruta
+    const rPirata = U.clamp(0.30 + saltos * 0.05 - sol * 0.28, 0.08, 0.62);
+    const rControl = U.clamp(0.20 + ley * 0.035 - sol * 0.12 +
+      (s.carga && s.carga.ilegal ? 0.18 : 0) + s.buscado / 400, 0.08, 0.72);
+
+    const c = [
+      { t: '⬢ Ruta comercial balizada — ' + U.cr(tasa),
+        sub: saltos + ' saltos · tasas pagadas, faros cada tramo. No pasa nada y no pasa nada.',
+        rutaViaje: { destino: destino, tipo: 'comercial', coste: tasa } },
+      { t: '◇ Tramo sin balizar — gratis',
+        sub: 'Ni tasas ni faros. Riesgo de encontronazo: ' + pct(rPirata) +
+             (sol > 0.6 ? ' · tu nave corre, eso ayuda' : ' · tu nave no corre mucho'),
+        rutaViaje: { destino: destino, tipo: 'oscura', coste: 0, riesgo: rPirata } },
+      { t: '⇥ Corredor restringido — ' + U.cr(Math.round(tasa * 0.25)),
+        sub: 'La vía rápida de los convoyes militares. Rápido y barato porque no deberías estar ahí. ' +
+             'Riesgo de control: ' + pct(rControl),
+        rutaViaje: { destino: destino, tipo: 'atajo', coste: Math.round(tasa * 0.25), riesgo: rControl } }
+    ];
+    if (s.carga) {
+      c.push({ t: '▣ Antes de salir: ver la bodega',
+        sub: 'Llevas ' + U.esc(s.carga.n) + (s.carga.ilegal ? ' — y eso en un control es un problema' : ''),
+        abrirBodega: true });
+    }
+    c.push({ t: '◂ No salir todavía', volver: true });
+
+    return {
+      id: 'ruta_viaje', gen: true, esMenu: true,
+      t: '<span class="scene-tag">PLAN DE VUELO · ' + U.esc(destino.toUpperCase()) + '</span>' +
+        '<p>' + U.esc(s.nave.n) + ' lista en la rampa. ' + saltos + ' saltos hasta ' + U.esc(destino) +
+        ', que es un mundo con ley ' + ley + '/10.</p>' +
+        '<p class="dim">Velocidad ' + (s.nave.vel || 4) + '/12 · casco ' + (s.naveEstado || 0) + '%. ' +
+        'Correr más es poder irte de lo que te encuentres.</p>',
+      c: c
+    };
+  };
+
+  /* ------------------------------------------------------------
+     Volar. Lo que pasa por el camino pasa antes de llegar.
+     ------------------------------------------------------------ */
+  SW.resolverRuta = function (g, cfg) {
+    const s = g.s, rng = g.rng;
+    const sol = SW.solturaNave(s);
+    if (cfg.coste) g.aplicarFx({ creditos: -cfg.coste }, {});
+
+    if (cfg.tipo === 'comercial') {
+      g.log('Ruta balizada, faros cada tramo y una cola de treinta naves en la aduana. Aburrido y limpio.', 'viaje');
+      g.mover(cfg.destino, 'por la ruta de siempre');
+      return;
+    }
+
+    if (cfg.tipo === 'oscura') {
+      if (!rng.chance(cfg.riesgo || 0.3)) {
+        g.log('Tres saltos por donde no hay faros. Silencio, oscuridad y nadie. Sales gratis.', 'viaje');
+        g.aplicarFx({ destreza: 4, cordura: -3 }, {});
+        g.mover(cfg.destino, 'por el camino largo');
+        return;
+      }
+      // hay alguien ahí fuera
+      g.cola.unshift(g.prepararGen(SW.GEN.encuentroRuta(g, cfg.destino)));
+      g.fase = 'evento';
+      return;
+    }
+
+    // atajo: no es peligroso, es ilegal
+    if (!rng.chance(cfg.riesgo || 0.25)) {
+      g.log('Entras en el corredor restringido como si fuera tuyo y sales por el otro lado en la mitad de tiempo.', 'viaje');
+      g.aplicarFx({ notoriedad: 2 }, {});
+      g.mover(cfg.destino, 'por donde no se debe');
+      return;
+    }
+    g.cola.unshift(g.prepararGen(SW.GEN.controlRuta(g, cfg.destino)));
+    g.fase = 'evento';
+  };
+
+  /* --- lo que te encuentras en el tramo sin balizar --- */
+  SW.GEN.encuentroRuta = function (g, destino) {
+    const s = g.s, rng = g.rng;
+    const sol = SW.solturaNave(s);
+    const quien = rng.pick([
+      { n: 'una corbeta pirata con las marcas quemadas', dif: 58 },
+      { n: 'dos cazas viejos que vuelan demasiado juntos', dif: 52 },
+      { n: 'un carguero que pide auxilio y no tiene avería ninguna', dif: 62 },
+      { n: 'algo que no responde y no tiene luces', dif: 68 }
+    ]);
+    return {
+      id: 'ruta_encuentro', gen: true,
+      t: '<span class="scene-tag">A MITAD DE SALTO</span>' +
+        '<p>Sale de la sombra de una luna muerta: ' + quien.n + '. Te tiene a tiro y lo sabe.</p>' +
+        '<p class="dim">Tu nave: velocidad ' + (s.nave ? s.nave.vel : 0) + '/12 · casco ' + s.naveEstado + '%.</p>',
+      c: [
+        { t: 'Correr', sub: 'Depende de lo que vuele tu nave.',
+          r: [
+            { p: U.clamp(0.25 + sol * 0.6, 0.2, 0.88), t: 'Los dejas atrás. Para eso pagaste los motores.',
+              fx: { destreza: 6, cordura: -6 }, mueveA: destino, motivo: 'con alguien detrás' },
+            { p: 0.5, t: 'Te alcanzan un par de veces antes de saltar. El casco lo nota.',
+              fx: { naveEstado: -22, salud: -10, cordura: -8 }, mueveA: destino, motivo: 'a trompicones' }
+          ] },
+        { t: 'Plantarles cara', sub: 'Combate espacial.',
+          dogfight: { dif: quien.dif }, rutaTras: destino },
+        { t: 'Soltar la carga y que se entretengan',
+          req: function (st) { return !!st.carga; },
+          sub: 'Pierdes la mercancía, salvas la nave.',
+          tirarCarga: true, fx: { cordura: -8 }, mueveA: destino, motivo: 'más ligero de lo que salió' },
+        { t: 'Pagar el peaje que te pidan',
+          sub: 'Aquí el peaje se llama de otra manera.',
+          fx: { creditos: -Math.max(3000, Math.round(Math.max(0, s.stats.creditos) * 0.18)), cordura: -6, notoriedad: 4 },
+          mueveA: destino, motivo: 'después de pagar a quien no debía' }
+      ]
+    };
+  };
+
+  /* --- y lo que pasa cuando te paran en el corredor --- */
+  SW.GEN.controlRuta = function (g, destino) {
+    const s = g.s;
+    const ilegal = !!(s.carga && s.carga.ilegal);
+    const multa = 4000 + Math.round(Math.max(0, s.stats.creditos) * 0.08);
+    return {
+      id: 'ruta_control', gen: true,
+      t: '<span class="scene-tag">CONTROL EN EL CORREDOR</span>' +
+        '<p>Una patrullera se cruza en tu vector y te ilumina entero. «Corredor restringido. Identifíquese ' +
+        'y prepare la bodega para inspección.»</p>' +
+        (ilegal ? '<p><b>Llevas ' + U.esc(s.carga.n) + ' ahí detrás.</b></p>' : ''),
+      c: [
+        { t: 'Pagar la multa y sonreír', sub: U.cr(multa),
+          fx: { creditos: -multa, cordura: -4 }, mueveA: destino, motivo: 'con una multa encima',
+          out: ilegal ? 'Ni abren la bodega. Hoy tenían prisa y tú suerte.' : 'Papeleo y a otra cosa.' },
+        { t: 'Hablarles bien', sub: 'Depende de tu carisma.',
+          r: [
+            { p: U.clamp(0.22 + s.stats.carisma / 190, 0.18, 0.72),
+              t: 'Les cuentas una historia con la seguridad justa y te dejan seguir sin mirar nada.',
+              fx: { carisma: 8 }, mueveA: destino, motivo: 'hablando más que volando' },
+            { p: 0.55, t: 'No cuela. Abren la bodega.',
+              fx: { creditos: -multa, notoriedad: ilegal ? 16 : 4 },
+              buscado: ilegal ? 25 : 0, tirarCarga: !!ilegal,
+              mueveA: destino, motivo: 'después de un mal rato' }
+          ] },
+        { t: 'Acelerar y que se fastidien', sub: 'Depende de lo que vuele tu nave.',
+          r: [
+            { p: U.clamp(0.20 + SW.solturaNave(s) * 0.55, 0.15, 0.8),
+              t: 'Metes la nave por un desfiladero de basura orbital y los pierdes. Eso ya es una anécdota de bar.',
+              fx: { destreza: 8, notoriedad: 12, naveEstado: -10 }, buscado: 15,
+              mueveA: destino, motivo: 'huyendo de una patrullera' },
+            { p: 0.5, t: 'No corres tanto como creías.',
+              fx: { naveEstado: -25, creditos: -multa * 2, notoriedad: 18 }, buscado: 35,
+              tirarCarga: !!ilegal, mueveA: destino, motivo: 'escoltado hasta la órbita' }
+          ] },
+        { t: 'Dar media vuelta y salir por la ruta larga',
+          fx: { creditos: -Math.round(SW.costeViaje(s.mundo, destino, true, s) * 0.8), cordura: -4 },
+          mueveA: destino, motivo: 'por el camino de siempre, al final',
+          out: 'Pierdes semanas y dinero, pero nadie apunta tu matrícula.' }
+      ]
+    };
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== src/data-gremio-leyenda.js ===== */
+/* ============================================================
+   HOLOVIDA :: CONTRATOS DE LEYENDA
+   Los contratos normales del Gremio son un oficio: viaje, rastreo,
+   captura, entrega. Esto es lo otro: el encargo que sólo te llega
+   cuando ya tienes nombre, que ocupa una noche entera encadenada y
+   que se juega, no se sortea.
+
+   Cuatro escenas seguidas dentro del mismo año, dos minijuegos y un
+   final que depende de lo que hayas hecho en cada una.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+  SW.ESCENAS = SW.ESCENAS || {};
+  SW.GUION = SW.GUION || [];
+
+  const esCazador = function (s) {
+    return s.trabajo === 'cazarrecompensas' || s.flags.en_el_gremio;
+  };
+
+  /* Los encargos que no salen en el tablón. Cada uno cambia el tono
+     de las cuatro escenas y lo que te llevas al final. */
+  const ENCARGOS = [
+    { id: 'desertor', n: 'el desertor de la 501', dif: 74, pago: 90000,
+      quien: 'Un soldado que se llevó algo al irse. El Imperio no dice el qué.',
+      donde: 'un mundo de nieve donde no hay registros de nadie',
+      giro: 'Lo que se llevó es una lista de nombres. La tuya está en ella.' },
+    { id: 'senadora', n: 'la senadora que sabe demasiado', dif: 68, pago: 120000,
+      quien: 'Cargo público, escolta propia y una agenda que alguien quiere quemada.',
+      donde: 'una recepción de gala a la que no estás invitado',
+      giro: 'La agenda que quieren quemada demuestra quién puso el contrato.' },
+    { id: 'nino', n: 'el crío que mueve cosas sin tocarlas', dif: 62, pago: 200000,
+      quien: 'Seis años. El cliente paga vivo y paga mucho, y no dice para qué.',
+      donde: 'una granja al final de un camino sin nombre',
+      giro: 'El cliente lleva capa negra y no ha venido en persona a decírtelo.' },
+    { id: 'colega', n: 'el mejor cazador del Gremio', dif: 86, pago: 150000,
+      quien: 'Uno de los tuyos. Cerró un contrato que no debía y ahora es el contrato.',
+      donde: 'el sitio donde tú también te esconderías',
+      giro: 'Te estaba esperando. Sabía que te lo darían a ti precisamente.' },
+    { id: 'hutt', n: 'el contable de un cártel hutt', dif: 70, pago: 110000,
+      quien: 'Se fue con los libros. Los libros valen más que él y él lo sabe.',
+      donde: 'una estación de tránsito con nueve niveles y ninguna ley',
+      giro: 'Te ofrece los libros. Con los libros no vuelves a trabajar en tu vida.' }
+  ];
+
+  /* ------------------------------------------------------------
+     EL DISPARADOR: sólo si ya eres alguien
+     ------------------------------------------------------------ */
+  SW.GUION.push({
+    id: 'gl_encargo', min: 20, max: 200, prio: 76, repetible: true, gen: true, c: [],
+    req: function (s) {
+      if (!esCazador(s) || s.contrato || s.leyenda) return false;
+      if (s.flags.gremio_desconfia) return false;
+      // hace falta oficio: cuatro contratos cerrados o un nombre muy grande
+      const veterano = (s.contadores.cazas || 0) >= 4 || s.stats.notoriedad >= 60;
+      if (!veterano) return false;
+      return s.ultimoEncargo == null || (s.edad - s.ultimoEncargo) >= 4;
+    },
+    hazlo: function (g) {
+      const s = g.s;
+      const libres = ENCARGOS.filter(function (e) { return !s.flags['encargo_' + e.id]; });
+      if (!libres.length) return null;
+      if (!g.rng.chance(0.6)) return null;
+      const e = g.rng.pick(libres);
+      s.ultimoEncargo = s.edad;
+      s.flags['encargo_' + e.id] = true;
+      const rango = 1 + Math.min(1.2, (s.contadores.cazas || 0) * 0.08);
+      s.leyenda = {
+        id: e.id, n: e.n, dif: e.dif, pago: Math.round(e.pago * rango),
+        giro: e.giro, ventaja: 0, ruido: 0, sabeQueVas: false
+      };
+      return SW.ESCENAS.gl_oferta(g, e);
+    }
+  });
+
+  const tag = function (t) { return '<span class="scene-tag">' + t + '</span>'; };
+
+  SW.ESCENAS.gl_oferta = function (g, e) {
+    const s = g.s;
+    const L = s.leyenda;
+    if (!L) return null;              // sin encargo abierto no hay oferta que hacer
+    e = e || ENCARGOS.filter(function (x) { return x.id === L.id; })[0] || {};
+    return {
+      id: 'gl_oferta', gen: true,
+      t: tag('ENCARGO PRIVADO') +
+        '<p>No te llega por el tablón. Te llega por un intermediario que no da su nombre y que sabe ' +
+        'el tuyo, el de tu nave y cuántos contratos llevas cerrados.</p>' +
+        '<p>Objetivo: <b>' + U.esc(L.n) + '</b>. ' + U.esc(e.quien) + '</p>' +
+        '<p>Última posición: ' + U.esc(e.donde) + '.</p>' +
+        '<p class="dim">' + U.cr(L.pago) + ' al cierre. Dificultad ' + L.dif + '. ' +
+        'De estos se cogen pocos en una vida.</p>',
+      c: [
+        { t: 'Aceptar sin preguntar', sub: 'Es lo que se espera de un profesional.',
+          fx: { notoriedad: 8 }, cadena: 'gl_rastro' },
+        { t: 'Preguntar quién paga', sub: 'Saber quién paga cambia cómo se cobra.',
+          fx: { intelecto: 8, notoriedad: 4 }, encargoVentaja: 14, flag: 'sabe_quien_paga',
+          out: 'No te lo dice. Pero por cómo no te lo dice, ya sabes bastante.',
+          cadena: 'gl_rastro' },
+        { t: 'Pedir el doble', sub: 'Depende de tu nombre.',
+          r: [
+            { p: U.clamp(0.18 + s.stats.notoriedad / 170, 0.15, 0.7),
+              t: 'Se lo piensa cuatro segundos y acepta. Eso significa que tenía margen y que el trabajo es peor de lo que suena.',
+              fx: { carisma: 8 }, encargoPago: 2, encargoVentaja: -8 },
+            { p: 0.6, t: 'Se levanta. A los dos pasos se para, vuelve y acepta el precio de antes.',
+              fx: { reputacion: -4 } }
+          ], cadena: 'gl_rastro' },
+        { t: 'Rechazarlo', sub: 'Hay encargos que huelen desde la puerta.',
+          fx: { cordura: 8, reputacion: -6 }, cerrarLeyenda: true,
+          out: 'Se lo darán a otro. Puede que te toque cazar a ese otro dentro de unos años.' }
+      ]
+    };
+  };
+
+  /* --- 1. EL RASTRO: un reto de concentración, no un dado --- */
+  SW.ESCENAS.gl_rastro = function (g) {
+    const s = g.s, L = s.leyenda;
+    if (!L) return null;
+    g.retoFuerza({
+      dif: U.clamp(L.dif - s.stats.intelecto / 4 - (L.ventaja || 0), 35, 90),
+      sinPremio: true,
+      txt: 'Nueve meses de movimientos: billetes, transferencias, un médico pagado en efectivo, ' +
+           'una compra de raciones para dos cuando debería ser para uno. El patrón está ahí. ' +
+           'Sostenlo entero en la cabeza y te dirá dónde duerme.',
+      critico: { t: 'El patrón se ordena solo. No sólo sabes dónde está: sabes a qué hora sale a por agua.',
+        fx: { intelecto: 12, reputacion: 6 }, encargoVentaja: 26, cadena: 'gl_cerco' },
+      bien: { t: 'Sacas el sitio. No la rutina, pero el sitio.',
+        fx: { intelecto: 6 }, encargoVentaja: 10, cadena: 'gl_cerco' },
+      medio: { t: 'Sacas una zona y tres nombres. Vas a tener que preguntar, y preguntar hace ruido.',
+        fx: { cordura: -4 }, encargoRuido: 20, cadena: 'gl_cerco' },
+      mal: { t: 'Te equivocas de rastro y aprietas a quien no era. A las seis horas alguien le avisa.',
+        fx: { cordura: -8, reputacion: -4 }, encargoRuido: 45, encargoAviso: true, cadena: 'gl_cerco' }
+    });
+    return null;
+  };
+
+  /* --- 2. EL CERCO: cómo entras decide cómo acaba --- */
+  SW.ESCENAS.gl_cerco = function (g) {
+    const s = g.s, L = s.leyenda;
+    if (!L) return null;
+    const avisado = L.sabeQueVas || (L.ruido || 0) > 35;
+    return {
+      id: 'gl_cerco', gen: true,
+      t: tag('LA NOCHE') +
+        '<p>Sabes dónde está. ' + (avisado
+          ? 'Y él sabe que lo sabes: lleva dos días durmiendo vestido y con la puerta trabada.'
+          : 'Y no tiene ni idea. Eso vale más que cualquier arma que lleves encima.') + '</p>' +
+        '<p class="dim">Ventaja acumulada: ' + (L.ventaja || 0) + ' · ruido que has hecho: ' + (L.ruido || 0) + '</p>',
+      c: [
+        { t: 'Entrar por donde no hay puerta', sub: 'Silencio. Depende de tu destreza.',
+          r: [
+            { p: U.clamp(0.30 + s.stats.destreza / 200 + (L.ventaja || 0) / 200 - (avisado ? 0.18 : 0), 0.2, 0.85),
+              t: 'Estás dentro y sentado en su cocina cuando se despierta.',
+              encargoVentaja: 20, fx: { destreza: 8 }, cadena: 'gl_cara' },
+            { p: 0.5, t: 'Una alarma que no estaba en los planos. Ahora es una persecución.',
+              encargoRuido: 30, fx: { salud: -12, destreza: 4 }, cadena: 'gl_cara' }
+          ] },
+        { t: 'Esperarle fuera toda la noche', sub: 'Paciencia. Lento y seguro, si aguantas.',
+          r: [
+            { p: 0.68, t: 'Sale a las cuatro de la mañana, como sale todo el mundo que se cree listo.',
+              encargoVentaja: 12, fx: { cordura: -6 }, cadena: 'gl_cara' },
+            { p: 0.32, t: 'No sale. A la mañana siguiente descubres que hay una segunda salida.',
+              encargoRuido: 25, fx: { cordura: -10 }, cadena: 'gl_cara' }
+          ] },
+        { t: 'Quemarle el sitio y esperar en la única salida',
+          sub: 'Funciona siempre. Y hay gente dentro que no es él.',
+          fx: { alineamiento: -22, notoriedad: 18, cordura: -10 },
+          encargoVentaja: 24, encargoRuido: 40, flag: 'quemo_el_sitio',
+          out: 'Sale tosiendo y con las manos vacías. Detrás salen otros cuatro que no tenían nada que ver.',
+          cadena: 'gl_cara' },
+        { t: 'Llamar a la puerta', sub: 'A veces lo que nadie espera es lo educado.',
+          r: [
+            { p: U.clamp(0.20 + s.stats.carisma / 220, 0.18, 0.6),
+              t: 'Abre. Se queda mirándote. «Llevo un año esperando a alguien y esperaba a alguien peor.»',
+              encargoVentaja: 18, fx: { carisma: 10 }, cadena: 'gl_cara' },
+            { p: 0.55, t: 'Contesta un disparo a través de la puerta.',
+              fx: { salud: -20 }, encargoRuido: 20, cadena: 'gl_cara' }
+          ] }
+      ]
+    };
+  };
+
+  /* --- 3. CARA A CARA: el giro, y el minijuego --- */
+  SW.ESCENAS.gl_cara = function (g) {
+    const s = g.s, L = s.leyenda;
+    if (!L) return null;
+    const e = ENCARGOS.filter(function (x) { return x.id === L.id; })[0] || {};
+    return {
+      id: 'gl_cara', gen: true,
+      t: tag('CARA A CARA') +
+        '<p>Le tienes delante y no está pidiendo clemencia: está hablando.</p>' +
+        '<p><b>' + U.esc(e.giro || '') + '</b></p>' +
+        '<p class="dim">Se paga ' + U.cr(L.pago) + ' por entregarlo. Lo que dice, si es verdad, vale más.</p>',
+      c: [
+        { t: 'No escuchar y reducirlo', sub: 'Un profesional cobra y se va.',
+          cadena: 'gl_pulso' },
+        { t: 'Escuchar hasta el final', sub: 'Y decidir después, sabiendo.',
+          fx: { intelecto: 8, cordura: -4 }, encargoVerdad: true,
+          out: 'Habla nueve minutos. Nada de lo que dice se puede comprobar y todo encaja.',
+          cadena: 'gl_pulso' },
+        { t: 'Preguntarle qué haría él en tu sitio',
+          req: function (st) { return st.stats.carisma > 45; },
+          fx: { carisma: 10, cordura: 4 }, encargoVerdad: true, encargoVentaja: 10,
+          out: '«Cobrar», dice. «Pero yo dormía peor que tú.»', cadena: 'gl_pulso' },
+        { t: 'Avisarle de que salga por atrás y decir que se te escapó',
+          sub: 'Renuncias al pago y el Gremio no se lo va a creer.',
+          fx: { alineamiento: 25, cordura: 12, reputacion: -14, notoriedad: -6 },
+          soltarLeyenda: true }
+      ]
+    };
+  };
+
+  /* --- 4. EL PULSO: se resuelve con las manos --- */
+  SW.ESCENAS.gl_pulso = function (g) {
+    const s = g.s, L = s.leyenda;
+    if (!L) return null;
+    const dif = U.clamp(L.dif - (L.ventaja || 0) / 2 + (L.ruido || 0) / 4, 30, 95);
+    // con sable es un duelo; sin él, quien saque primero
+    if (s.sable) {
+      g.retoDuelo({
+        id: 'gl_duelo', tag: 'SE ACABÓ HABLAR', modo: 'duelo', dif: dif, sinPremio: true,
+        txt: 'Tiene con qué defenderse y sabe usarlo. Aquí no hay plan que valga: hay manos.',
+        critico: { t: 'Lo desarmas en cuatro movimientos sin hacerle un rasguño de más.',
+          fx: { destreza: 10 }, encargoEstado: 'vivo', cadena: 'gl_cierre' },
+        bien: { t: 'Cuesta, pero cae.', fx: { salud: -12 }, encargoEstado: 'vivo', cadena: 'gl_cierre' },
+        medio: { t: 'Cae, y tú también acabas en el suelo un rato.',
+          fx: { salud: -28 }, encargoEstado: 'vivo', cadena: 'gl_cierre' },
+        mal: { t: 'Se te va de las manos. Cuando acaba, ya no hay a quién entregar vivo.',
+          fx: { salud: -34, cordura: -12 }, encargoEstado: 'muerto', cadena: 'gl_cierre' }
+      });
+      return null;
+    }
+    g.reto = {
+      sinPremio: true,
+      critico: { t: 'Sacas antes. Ni siquiera llega a apuntarte.', fx: { destreza: 10 },
+        encargoEstado: 'vivo', cadena: 'gl_cierre' },
+      bien: { t: 'Sacas primero por poco.', fx: { salud: -8 }, encargoEstado: 'vivo', cadena: 'gl_cierre' },
+      medio: { t: 'Empatáis y os lleváis los dos algo.', fx: { salud: -24 },
+        encargoEstado: 'vivo', cadena: 'gl_cierre' },
+      mal: { t: 'Saca él. Sales vivo de milagro y de él no queda nada que entregar entero.',
+        fx: { salud: -36, cordura: -10 }, encargoEstado: 'muerto', cadena: 'gl_cierre' }
+    };
+    g.cola.unshift(g.prepararGen({
+      id: 'gl_pulso', gen: true,
+      t: tag('QUIEN SAQUE PRIMERO') +
+        '<p>Las manos de los dos bajan a la vez. Va a amagar: siempre amagan.</p>',
+      minijuego: 'desenfundar',
+      dificultad: dif,
+      pericia: Math.round(s.stats.destreza * 0.7 + (s.habilidades.indexOf('tirador') >= 0 ? 14 : 0)),
+      c: [{ t: 'Bajar la mano y aceptar lo que venga', retoSalta: true }]
+    }));
+    g.fase = 'evento';
+    return null;
+  };
+
+  /* --- 5. EL CIERRE: lo que te llevas --- */
+  SW.ESCENAS.gl_cierre = function (g) {
+    const s = g.s, L = s.leyenda;
+    if (!L) return null;
+    const vivo = L.estado !== 'muerto';
+    const pago = Math.round(L.pago * (vivo ? 1 : 0.55));
+    const c = [
+      { t: vivo ? 'Entregarlo y cobrar' : 'Entregar lo que queda y cobrar',
+        sub: U.cr(pago), cerrarLeyenda: 'entregar', encargoCobro: pago }
+    ];
+    if (vivo) {
+      c.push({ t: 'Soltarlo y quedarte con lo que sabe',
+        sub: 'No cobras. Te llevas otra cosa.', cerrarLeyenda: 'soltar' });
+      if (L.verdad) {
+        c.push({ t: 'Ir a por quien puso el contrato',
+          sub: 'Sabes quién es. Es mucho más grande que tú.',
+          cerrarLeyenda: 'vengar' });
+      }
+    }
+    c.push({ t: 'Desaparecer y no volver a coger el comunicador',
+      sub: 'Ni cobras ni entregas. El Gremio te borra.', cerrarLeyenda: 'huir' });
+    return {
+      id: 'gl_cierre', gen: true,
+      t: tag('EL CIERRE') +
+        '<p>Se acabó. ' + (vivo ? 'Está vivo, atado y callado en tu bodega.'
+                                : 'No está vivo, y eso te va a costar casi la mitad del pago.') + '</p>' +
+        (L.verdad ? '<p>Y encima te ha contado lo que te ha contado, que no se te va a olvidar.</p>' : ''),
+      c: c
+    };
+  };
+
+  /* ------------------------------------------------------------
+     Los cierres, que es donde el encargo deja huella
+     ------------------------------------------------------------ */
+  SW.cerrarLeyenda = function (g, modo, pago) {
+    const s = g.s, L = s.leyenda;
+    if (!L) return;
+    s.leyenda = null;
+    if (modo === 'entregar') {
+      s.stats.creditos += pago || L.pago;
+      s.contadores.cazas = (s.contadores.cazas || 0) + 1;
+      s.contadores.leyendas = (s.contadores.leyendas || 0) + 1;
+      g.aplicarFx({ notoriedad: 20, reputacion: 14, alineamiento: -10, cordura: -8 }, {});
+      g.log('Cierras un encargo de los que no salen en el tablón. Cobras ' + U.cr(pago || L.pago) + '.', 'cr');
+      g.hito('Cierra el encargo de ' + L.n);
+      if (s.contadores.leyendas >= 3) {
+        s.flags.leyenda_del_gremio = true;
+        g.hito('Leyenda del Gremio: tres encargos imposibles');
+        g.log('En el Gremio ya no dicen tu nombre: dicen «el que cerró los tres».', 'bien');
+      }
+    } else if (modo === 'soltar') {
+      g.aplicarFx({ alineamiento: 26, cordura: 14, reputacion: -16, intelecto: 8 }, {});
+      s.faccionRep = s.faccionRep || {};
+      s.faccionRep.gremio = (s.faccionRep.gremio || 0) - 35;
+      g.añadirRelacion('contacto', 70, null, 'te debe la vida y lo sabe');
+      g.log('Le sueltas. En el Gremio se enteran en dos semanas.', 'mal');
+      if (g.rng.chance(0.5)) s.flags.gremio_desconfia = true;
+      g.hito('Suelta a un objetivo de leyenda');
+    } else if (modo === 'vengar') {
+      g.log('Das media vuelta y vas a por el que firmó el contrato.', 'res');
+      g.aplicarFx({ alineamiento: 16, notoriedad: 30 }, {});
+      s.buscado = Math.min(100, s.buscado + 40);
+      g.iniciarCombate({ dif: L.dif + 14, duelo: true, aMuerte: true,
+        botin: Math.round(L.pago * 2), sable: !!s.sable });
+      g.hito('Va a por quien puso el contrato');
+    } else {
+      g.aplicarFx({ cordura: 6, reputacion: -20, notoriedad: -10 }, {});
+      s.flags.gremio_desconfia = true;
+      g.log('Apagas el comunicador y cambias de sector. El Gremio te da de baja.', 'mal');
+    }
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* ===== src/data-canon-secuelas.js ===== */
+/* ============================================================
+   HOLOVIDA :: LO QUE PASA DESPUÉS DE CRUZARTE CON ALGUIEN
+   Encontrarte con el Conde Dooku, hacer un trato, cobrar veinte mil
+   créditos y que ahí se acabe es anticlimático: te has cruzado con
+   una de las cinco personas que deciden la galaxia y el juego lo
+   despacha con una línea de log.
+
+   Aquí se guarda cómo acabó cada encuentro y vuelve años después.
+   No siempre igual: un trato con un Lord Sith no vuelve como vuelve
+   un favor que le hiciste a un contrabandista.
+   ============================================================ */
+(function (global) {
+  'use strict';
+  const SW = (global.SW = global.SW || {});
+  const U = SW.U;
+  SW.GUION = SW.GUION || [];
+
+  /* ------------------------------------------------------------
+     Cómo clasificar lo que acabas de hacer. Se deduce de los
+     efectos de la propia opción para no tener que reescribir a mano
+     las nueve ramas del generador de encuentros.
+     ------------------------------------------------------------ */
+  SW.modoEncuentro = function (d) {
+    if (!d) return 'roce';
+    if (d.combate) return 'enfrentado';
+    const fx = d.fx || {};
+    if ((fx.alineamiento || 0) <= -18 || /sith\+|imperio\+/.test(d.faccion || '')) return 'trato_oscuro';
+    if ((fx.creditos || 0) >= 15000) return 'negocio';
+    if (d.rel) return 'vinculo';
+    if (d.mover) return 'huida';
+    return 'roce';
+  };
+
+  /** Lo llama el motor cada vez que una escena de leyenda se resuelve. */
+  SW.anotarEncuentro = function (g, persona, d) {
+    const s = g.s;
+    if (!persona || !persona.n) return;
+    s.encuentros = s.encuentros || [];
+    if (s.encuentros.some(function (e) { return e.n === persona.n; })) return;
+    s.encuentros.push({
+      n: persona.n, tipo: persona.tipo || 'gente',
+      modo: SW.modoEncuentro(d), edad: s.edad, cobrado: false
+    });
+  };
+
+  /* ------------------------------------------------------------
+     LA SECUELA
+     ------------------------------------------------------------ */
+  const PENDIENTE = function (s) {
+    if (!s.encuentros) return null;
+    for (let i = 0; i < s.encuentros.length; i++) {
+      const e = s.encuentros[i];
+      if (e.cobrado) continue;
+      if (s.edad - e.edad < 3) continue;      // que dé tiempo a olvidarlo
+      return e;
+    }
+    return null;
+  };
+
+  SW.GUION.push({
+    id: 'ce_secuela', min: 12, max: 200, prio: 70, repetible: true, gen: true, c: [],
+    req: function (s) { return !!PENDIENTE(s); },
+    hazlo: function (g) {
+      const s = g.s;
+      const e = PENDIENTE(s);
+      if (!e) return null;
+      if (!g.rng.chance(0.45)) return null;
+      e.cobrado = true;
+      const años = s.edad - e.edad;
+      return SW.escenaSecuela(g, e, años);
+    }
+  });
+
+  SW.escenaSecuela = function (g, e, años) {
+    const s = g.s;
+    const N = U.esc(e.n);
+    const tag = '<span class="canon-tag">' + años + ' AÑOS DESPUÉS</span>';
+    const oscuro = e.tipo === 'sith' || e.tipo === 'villano';
+
+    /* --- hiciste un trato con alguien muy grande --- */
+    if (e.modo === 'trato_oscuro' || e.modo === 'negocio') {
+      const cobro = oscuro ? 'cobrar' : 'pedir';
+      return {
+        id: 'ce_sec_trato', gen: true,
+        t: tag + '<p>Aquel trato con <b>' + N + '</b> no era un trato: era una cuenta abierta. ' +
+          'Y hoy alguien viene a ' + cobro + 'la.</p>' +
+          '<p>' + (oscuro
+            ? 'No viene ' + N + ' en persona. Viene alguien con su autoridad, que es peor, porque a ese sí le pueden matar y no le importa.'
+            : 'Viene un intermediario con una carpeta y una sonrisa de las que no se discuten.') + '</p>',
+        c: [
+          { t: 'Pagar lo que sea que se deba',
+            fx: { creditos: -Math.max(20000, Math.round(Math.max(0, s.stats.creditos) * 0.3)), cordura: -6 },
+            out: 'Queda saldado. Por escrito no hay nada, que es justo el problema.' },
+          { t: 'Pagar con un favor en vez de con dinero',
+            sub: 'Más barato hoy, más caro siempre.',
+            fx: { notoriedad: 14, alineamiento: -14, cordura: -10 }, flag: 'debe_un_favor_grande',
+            out: 'Aceptan encantados. Los favores no vencen nunca y ellos lo saben.' },
+          { t: 'Negarte', sub: 'A gente así.',
+            r: [
+              { p: U.clamp(0.2 + s.stats.notoriedad / 260, 0.15, 0.5),
+                t: 'Te miran, calculan lo que costaría y deciden que no compensa. Todavía.',
+                fx: { notoriedad: 10, cordura: -8 } },
+              { p: 0.6, t: 'No hace falta que insistan mucho.',
+                fx: { salud: -26, creditos: -30000, cordura: -12 }, buscado: 25,
+                herida: { n: 'un aviso escrito en la cara', sev: 14 } }
+            ] },
+          { t: 'Contarlo todo a quien esté enfrente de ' + N,
+            sub: 'Convertir la deuda en información.',
+            fx: { creditos: 35000, notoriedad: 22, alineamiento: 10 }, buscado: 30,
+            flag: 'delato_a_una_leyenda',
+            out: 'Pagan bien por saber. Y ahora tienes a los dos lados pendientes de ti.' }
+        ]
+      };
+    }
+
+    /* --- te enfrentaste y sigues vivo --- */
+    if (e.modo === 'enfrentado') {
+      return {
+        id: 'ce_sec_duelo', gen: true,
+        t: tag + '<p>Lo de <b>' + N + '</b> no se quedó donde pasó. Alguien lo contó, alguien lo adornó, ' +
+          'y a estas alturas hay una versión en la que tú quedas mucho mejor de lo que quedaste.</p>' +
+          '<p>Hoy se te acerca alguien que se la cree entera.</p>',
+        c: [
+          { t: 'Dejar que se la crea', fx: { reputacion: 16, notoriedad: 12, carisma: 6 },
+            out: 'No corriges nada. La leyenda se alimenta sola a partir de aquí.' },
+          { t: 'Contar lo que pasó de verdad',
+            fx: { reputacion: -4, cordura: 12, alineamiento: 8 },
+            out: '«Me dio una paliza y me fui corriendo.» Se decepciona. Tú duermes mejor.' },
+          { t: 'Aprovecharlo para cobrar',
+            fx: { creditos: 26000, carisma: 10, notoriedad: 10, alineamiento: -6 },
+            out: 'Le vendes la historia y un objeto que juras que es de aquel día.' },
+          { t: 'Preguntar por dónde anda ' + N + ' ahora',
+            sub: 'Porque aquello no acabó.',
+            fx: { intelecto: 8, notoriedad: 8, cordura: -8 }, flag: 'busca_revancha',
+            out: 'Te dan un sector y una fecha. Ahora tienes que decidir si vas.' }
+        ]
+      };
+    }
+
+    /* --- os hicisteis algo parecido a amigos --- */
+    if (e.modo === 'vinculo') {
+      return {
+        id: 'ce_sec_vinculo', gen: true,
+        t: tag + '<p>Llega un mensaje sin remitente y con una sola línea. Es de <b>' + N + '</b>, ' +
+          'y es una petición de ayuda de las que no se hacen dos veces.</p>',
+        c: [
+          { t: 'Ir', sub: 'Sin preguntar qué es.',
+            fx: { alineamiento: 16, reputacion: 14, cordura: 10, salud: -14 },
+            flag: 'debe_favor_una_leyenda', notoriedad: 10,
+            out: 'Tres semanas muy malas y una deuda que ahora tiene ' + N + ' contigo. Eso vale una fortuna.' },
+          { t: 'Ir, pero cobrando',
+            fx: { creditos: 40000, reputacion: -6, alineamiento: -8 },
+            out: 'Paga sin discutir. Y algo se rompe entre vosotros sin que nadie lo diga.' },
+          { t: 'Mandar ayuda sin ir tú',
+            fx: { creditos: -18000, alineamiento: 8, cordura: -4 },
+            out: 'Llega a tiempo. No es lo mismo, y los dos lo sabéis.' },
+          { t: 'No contestar', fx: { cordura: -16, alineamiento: -10 },
+            out: 'No vuelve a escribir. Te acuerdas de esto en momentos raros durante años.' }
+        ]
+      };
+    }
+
+    /* --- saliste corriendo, o pasaste de largo --- */
+    return {
+      id: 'ce_sec_roce', gen: true,
+      t: tag + '<p>Sale <b>' + N + '</b> en un holo y te quedas quieto mirándolo más rato del que hace falta.</p>' +
+        '<p>' + (e.modo === 'huida'
+          ? 'Aquel día echaste a correr y hasta hoy no habías pensado en cómo habría ido si no lo hubieras hecho.'
+          : 'Estuvisteis a tres metros y no dijiste nada. La galaxia es enorme y aun así os cruzasteis.') + '</p>',
+      c: [
+        { t: 'Contarlo por fin a alguien', fx: { cordura: 10, carisma: 6 },
+          out: 'No te creen. Da igual: tú estabas allí.' },
+        { t: 'Buscar la forma de volver a cruzarte',
+          fx: { intelecto: 6, notoriedad: 8, cordura: -4 }, flag: 'busca_a_' + e.n.replace(/\s+/g, '_'),
+          out: 'Empiezas a seguir por dónde va. Es una manera rara de vivir y ya no la sueltas.' },
+        { t: 'Escribir lo que viste y venderlo',
+          fx: { creditos: 14000, intelecto: 8, notoriedad: 6 },
+          out: 'Un holoperiódico de tercera te compra el testimonio. Le cambian el titular.' },
+        { t: 'Apagar el holo', fx: { cordura: 4 },
+          out: 'Algunas cosas pasan una vez y ya está.' }
+      ]
+    };
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
 /* ===== src/engine.js ===== */
 /* ============================================================
    HOLOVIDA :: motor
@@ -25883,7 +26589,10 @@ body.sin-crt::after { display: none; }
     if (d.retoMision && SW.retoMision) SW.retoMision(this, d.retoMision);
     if (d.cierraMision && SW.cerrarMision) SW.cerrarMision(this, d.cierraMision);
     if (d.cierraMisionGrado != null && SW.cerrarMision) SW.cerrarMision(this, 'fuerza', d.cierraMisionGrado);
-    if (d.conocer) this.conocerCanon(d.conocer);
+    /* Cruzarte con una leyenda deja cuenta abierta: cómo acabó se
+       anota aquí y vuelve años después en otra escena. Antes el
+       encuentro se resolvía con un log y ahí moría. */
+    if (d.conocer) { this.conocerCanon(d.conocer); if (SW.anotarEncuentro) SW.anotarEncuentro(this, d.conocer, d); }
     if (d.conocerN) this.conocerCanon({ n: d.conocerN });
     // marcar cómo acabó una leyenda: eso vuelve más tarde
     if (d.canonMarca && SW.marcarCanon) SW.marcarCanon(this, d.canonMarca[0], d.canonMarca[1]);
@@ -25963,6 +26672,25 @@ body.sin-crt::after { display: none; }
       s.carga = null;
     }
     if (d.viajarA) { this.abrirMapaViaje = true; s.destinoSugerido = d.viajarA; }
+    if (d.abrirBodega && SW.menuBodega) { this.cola.unshift(this.prepararGen(SW.menuBodega(this))); this.fase = 'evento'; }
+    if (d.rutaViaje && SW.resolverRuta) SW.resolverRuta(this, d.rutaViaje);
+    /* --- encargos de leyenda del Gremio --- */
+    if (s.leyenda) {
+      const L = s.leyenda;
+      if (d.encargoVentaja) L.ventaja = (L.ventaja || 0) + d.encargoVentaja;
+      if (d.encargoRuido) L.ruido = (L.ruido || 0) + d.encargoRuido;
+      if (d.encargoAviso) L.sabeQueVas = true;
+      if (d.encargoVerdad) L.verdad = true;
+      if (d.encargoEstado) L.estado = d.encargoEstado;
+      if (d.encargoPago) L.pago = Math.round(L.pago * d.encargoPago);
+    }
+    if (d.soltarLeyenda && SW.cerrarLeyenda) SW.cerrarLeyenda(this, 'soltar');
+    if (d.cerrarLeyenda && SW.cerrarLeyenda) {
+      if (d.cerrarLeyenda === true) s.leyenda = null;
+      else SW.cerrarLeyenda(this, d.cerrarLeyenda, d.encargoCobro);
+    }
+    // si la ruta acabó en combate espacial, el destino espera detrás
+    if (d.rutaTras) s.rutaPendiente = d.rutaTras;
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
     if (d.taller && SW.menuTaller && s.nave) this.cola.unshift(this.prepararGen(SW.menuTaller(this)));
     if (d.carrera && SW.iniciarCarrera) SW.iniciarCarrera(this, d.circuito);
@@ -27313,6 +28041,7 @@ body.sin-crt::after { display: none; }
       s.nave = null; s.naveNombre = null;
       this.escena = null;
       if (s.stats.salud <= 0) this.morir('Derribado.');
+      if (s.rutaPendiente && !s.muerto) { const dd = s.rutaPendiente; s.rutaPendiente = null; this.mover(dd, 'después de pelear por el camino'); }
       return;
     }
     if (e.hpEnemigo <= 0) {
@@ -29151,11 +29880,18 @@ body.sin-crt::after { display: none; }
       const via = e.target.closest('[data-viajar]');
       if (via && !via.disabled) {
         const destino = via.dataset.viajar;
-        const coste = SW.costeViaje(s.mundo, destino, !!s.nave, s);
         UI.pararMapa();
         g.log('› Viajar a ' + destino, 'eleccion');
-        g.aplicarFx({ creditos: -coste }, {});
-        g.mover(destino, 'por decisión propia');
+        /* Con nave propia, volar es elegir por dónde. Sin nave compras
+           un billete y te sientas donde te digan: ahí no hay plan de
+           vuelo que valga. */
+        if (s.nave && SW.menuRuta) {
+          g.cola.unshift(g.prepararGen(SW.menuRuta(g, destino)));
+          g.fase = 'evento';
+        } else {
+          g.aplicarFx({ creditos: -SW.costeViaje(s.mundo, destino, false, s) }, {});
+          g.mover(destino, 'por decisión propia');
+        }
         UI.renderJuego();
       }
     });

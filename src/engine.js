@@ -983,7 +983,10 @@
     if (d.retoMision && SW.retoMision) SW.retoMision(this, d.retoMision);
     if (d.cierraMision && SW.cerrarMision) SW.cerrarMision(this, d.cierraMision);
     if (d.cierraMisionGrado != null && SW.cerrarMision) SW.cerrarMision(this, 'fuerza', d.cierraMisionGrado);
-    if (d.conocer) this.conocerCanon(d.conocer);
+    /* Cruzarte con una leyenda deja cuenta abierta: cómo acabó se
+       anota aquí y vuelve años después en otra escena. Antes el
+       encuentro se resolvía con un log y ahí moría. */
+    if (d.conocer) { this.conocerCanon(d.conocer); if (SW.anotarEncuentro) SW.anotarEncuentro(this, d.conocer, d); }
     if (d.conocerN) this.conocerCanon({ n: d.conocerN });
     // marcar cómo acabó una leyenda: eso vuelve más tarde
     if (d.canonMarca && SW.marcarCanon) SW.marcarCanon(this, d.canonMarca[0], d.canonMarca[1]);
@@ -1063,6 +1066,25 @@
       s.carga = null;
     }
     if (d.viajarA) { this.abrirMapaViaje = true; s.destinoSugerido = d.viajarA; }
+    if (d.abrirBodega && SW.menuBodega) { this.cola.unshift(this.prepararGen(SW.menuBodega(this))); this.fase = 'evento'; }
+    if (d.rutaViaje && SW.resolverRuta) SW.resolverRuta(this, d.rutaViaje);
+    /* --- encargos de leyenda del Gremio --- */
+    if (s.leyenda) {
+      const L = s.leyenda;
+      if (d.encargoVentaja) L.ventaja = (L.ventaja || 0) + d.encargoVentaja;
+      if (d.encargoRuido) L.ruido = (L.ruido || 0) + d.encargoRuido;
+      if (d.encargoAviso) L.sabeQueVas = true;
+      if (d.encargoVerdad) L.verdad = true;
+      if (d.encargoEstado) L.estado = d.encargoEstado;
+      if (d.encargoPago) L.pago = Math.round(L.pago * d.encargoPago);
+    }
+    if (d.soltarLeyenda && SW.cerrarLeyenda) SW.cerrarLeyenda(this, 'soltar');
+    if (d.cerrarLeyenda && SW.cerrarLeyenda) {
+      if (d.cerrarLeyenda === true) s.leyenda = null;
+      else SW.cerrarLeyenda(this, d.cerrarLeyenda, d.encargoCobro);
+    }
+    // si la ruta acabó en combate espacial, el destino espera detrás
+    if (d.rutaTras) s.rutaPendiente = d.rutaTras;
     if (d.hangar) this.cola.unshift(this.prepararGen(this.menuHangar()));
     if (d.taller && SW.menuTaller && s.nave) this.cola.unshift(this.prepararGen(SW.menuTaller(this)));
     if (d.carrera && SW.iniciarCarrera) SW.iniciarCarrera(this, d.circuito);
@@ -2413,6 +2435,7 @@
       s.nave = null; s.naveNombre = null;
       this.escena = null;
       if (s.stats.salud <= 0) this.morir('Derribado.');
+      if (s.rutaPendiente && !s.muerto) { const dd = s.rutaPendiente; s.rutaPendiente = null; this.mover(dd, 'después de pelear por el camino'); }
       return;
     }
     if (e.hpEnemigo <= 0) {

@@ -883,11 +883,18 @@
       const via = e.target.closest('[data-viajar]');
       if (via && !via.disabled) {
         const destino = via.dataset.viajar;
-        const coste = SW.costeViaje(s.mundo, destino, !!s.nave, s);
         UI.pararMapa();
         g.log('› Viajar a ' + destino, 'eleccion');
-        g.aplicarFx({ creditos: -coste }, {});
-        g.mover(destino, 'por decisión propia');
+        /* Con nave propia, volar es elegir por dónde. Sin nave compras
+           un billete y te sientas donde te digan: ahí no hay plan de
+           vuelo que valga. */
+        if (s.nave && SW.menuRuta) {
+          g.cola.unshift(g.prepararGen(SW.menuRuta(g, destino)));
+          g.fase = 'evento';
+        } else {
+          g.aplicarFx({ creditos: -SW.costeViaje(s.mundo, destino, false, s) }, {});
+          g.mover(destino, 'por decisión propia');
+        }
         UI.renderJuego();
       }
     });
