@@ -1177,10 +1177,13 @@
     if (d.carrera && SW.iniciarCarrera) SW.iniciarCarrera(this, d.circuito);
     if (d.tomarContrato && inst && inst.ref && inst.ref.contrato) {
       s.contrato = inst.ref.contrato;
-      if (d.pistaExtra) s.contrato.rastro = 1;
+      if (d.pistaExtra && SW.darPistaCaza) SW.darPistaCaza(this, 'El Gremio te vende el informe completo: sabes por dónde entró al sistema.');
       this.log('Contrato aceptado: ' + s.contrato.nombre + ', en ' + s.contrato.destino + '.', 'bien');
     }
-    if (d.cazaAvanza && s.contrato) { if (d.rastro) s.contrato.rastro = U.clamp((s.contrato.rastro || 0) + d.rastro, 0, 3); }
+    if (d.cazaAvanza && s.contrato && d.rastro > 0 && SW.darPistaCaza) {
+      for (let n = 0; n < d.rastro; n++) SW.darPistaCaza(this, null);
+    }
+    if (d.cazaRegalo && SW.darPistaCaza) SW.darPistaCaza(this, 'Te dan la dirección a cambio de una parte. La apuntas antes de que cambien de idea.');
     if (d.cazaBusca && SW.resolverBusqueda) SW.resolverBusqueda(this, d.cazaBusca);
     if (d.cazaCaptura && d.minijuegoCaza && s.contrato) {
       // el disparo de aturdimiento se juega, no se tira

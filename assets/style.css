@@ -1331,3 +1331,97 @@ body.sin-crt::after { display: none; }
 .btn.ranura b { display: block; font-size: 13px; }
 .btn.ranura span { display: block; font-size: 11px; color: var(--txt-dim); text-transform: none; letter-spacing: 0; margin-top: 3px; }
 .mini-auto { text-align: center; }
+
+/* ---- pistas de un contrato de caza ----------------------------
+   Lo que llevas averiguado, en lista y a la vista. Antes el «rastro»
+   era un número invisible y se podían pasar años sin leer un dato. */
+.pistas { margin: 6px 0 10px; padding: 0 0 0 2px; list-style: none; }
+.pistas li {
+  position: relative; padding: 4px 0 4px 20px; line-height: 1.45;
+  border-bottom: 1px solid rgba(58, 214, 255, .10);
+}
+.pistas li:last-child { border-bottom: 0; }
+.pistas li::before {
+  content: '›'; position: absolute; left: 4px; top: 4px;
+  color: var(--acento, #3ad6ff); font-weight: 700;
+}
+
+/* ============================================================
+   MÓVIL: QUE QUEPA LA VIDA, NO SOLO LOS MARCOS
+   Medido en un teléfono de 390×844: la barra de arriba ocupaba
+   106 px, la franja del planeta 135, los filtros del diario 86 en
+   dos filas y las pestañas de abajo 222. Total: 549 px de 844 —
+   el 65% de la pantalla era mobiliario, y del diario, que es el
+   juego, se veía UNA línea. En el escritorio la ficha va en una
+   columna lateral y no pasa esto; en el móvil se apilaba todo.
+
+   Aquí se recorta el mobiliario y se le devuelve el sitio al texto.
+   ============================================================ */
+@media (max-width: 560px) {
+
+  /* --- la franja del planeta: bonita, pero no a este precio --- */
+  .escena { height: clamp(62px, 9.5vh, 96px); }
+  .escena-pie { padding: 6px 10px; }
+  .escena-pie b { font-size: 11px; }
+  .escena-pie span { font-size: 9px; }
+
+  /* --- filtros del diario: una fila que se arrastra, no dos que se
+         apilan. Se ven los mismos y ocupan la mitad --- */
+  .log-filtros {
+    flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: none; -ms-overflow-style: none;
+    padding: 5px 0 6px; margin-bottom: 2px;
+  }
+  .log-filtros::-webkit-scrollbar { display: none; }
+  .lf { flex: 0 0 auto; font-size: 9.5px; padding: 5px 9px; }
+
+  /* --- pestañas de actividad: tres filas de 43 px eran un cuarto
+         de la pantalla para catorce botones --- */
+  .acts { gap: 4px; }
+  .act { min-width: 56px; padding: 4px 6px; gap: 1px; }
+  .act i { font-size: 14px; }
+  .act span { font-size: 8.5px; }
+  .acciones-bar { padding: 8px 10px; gap: 8px; }
+
+  /* --- barra de arriba: la misma información, menos aire --- */
+  .topbar { padding: 6px 10px; gap: 1px 9px; }
+  .btn.mini { min-height: 34px; }
+
+  /* --- y con todo eso, el diario: letra algo menor y menos
+         interlínea. De ~32 caracteres por línea a ~42, que es la
+         diferencia entre leer y hacer scroll --- */
+  .l { font-size: 12.8px; line-height: 1.5; margin: 2px 0; }
+  .l-efectos { padding: 1px 0 6px 12px; gap: 4px; }
+  .l-efectos .fx { font-size: 10px; }
+  .año em { font-size: 8.5px; }
+}
+
+/* ---- la ventana de una escena, en un teléfono ----------------
+   Estaba centrada verticalmente con 22 px de margen interior y
+   88vh de alto: en escenas largas la última opción se cortaba
+   contra el borde y no había forma de saber que había más.
+   `svh` es la altura visible de verdad, con la barra del navegador
+   puesta; `vh` cuenta la pantalla entera y por eso sobraba. */
+@media (max-width: 560px) {
+  .evento-overlay { padding: 10px 8px; align-items: flex-start; }
+  .evento {
+    padding: 14px 13px 20px;
+    max-height: 90vh;            /* respaldo para navegadores viejos */
+    max-height: 90svh;
+  }
+  .ev-texto { font-size: 14px; line-height: 1.5; margin-bottom: 14px; }
+  .ev-texto p { margin: 0 0 9px; }
+  .scene-tag { font-size: 9px; letter-spacing: .18em; }
+  /* el texto de una opción no puede ser MÁS PEQUEÑO que el relato:
+     es lo único que se toca */
+  .op { padding: 9px 11px; }
+  .op-t { font-size: 14px; line-height: 1.35; }
+  .op-s { font-size: 11.5px; line-height: 1.35; }
+  .pistas li { padding-left: 17px; }
+}
+
+/* pantallas muy bajas (móvil apaisado, teléfonos pequeños):
+   la ilustración sobra antes que ninguna otra cosa */
+@media (max-height: 640px) and (max-width: 900px) {
+  .escena { display: none; }
+}

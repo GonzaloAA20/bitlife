@@ -160,21 +160,132 @@
   /* ============================================================
      4. LA BÚSQUEDA — ya en el planeta
      ============================================================ */
+  /* ------------------------------------------------------------
+     Lo que averiguas cuando una vía sale bien. Antes «el rastro se
+     calienta» era un número invisible del 0 al 3 y no te enterabas de
+     nada: se podían pasar cuatro años buscando sin leer una sola pista.
+     Ahora cada acierto te da un dato concreto, se apuntan todos y los
+     ves en la pantalla de búsqueda.
+     ------------------------------------------------------------ */
+  const HALLAZGOS = {
+    preguntar: [
+      'Un camarero de {sitio} le sirvió hace nueve días y se acuerda del acento.',
+      'Media docena de personas en {sitio} niegan haberle visto, y las seis demasiado deprisa.',
+      'Alguien de {gente} te dice el barrio. No el número, pero el barrio.',
+      'Le pusieron un mote aquí. Con el mote sí le conoce todo el mundo.'
+    ],
+    pagar: [
+      'Pagas sin preguntar y sale el nombre falso con el que se registró en el puerto.',
+      'Por {precio} te enseñan una grabación de tres segundos. Suficiente.',
+      'Compras la ruta que hizo desde el puerto. Termina en {sitio}.',
+      'Alguien de {banda} te pasa quién le está pagando el escondite.'
+    ],
+    rastrear: [
+      'Encuentras dónde tiró lo que llevaba encima al llegar. Eso dice mucho.',
+      'Sigues sus compras: come siempre a la misma hora y en el mismo radio.',
+      'Das con la ventana desde la que vigila la calle. Está usada.',
+      'Cruzas manifiestos de carga hasta que uno no cuadra. Ese es el suyo.'
+    ],
+    trampa: [
+      'Dejas correr un rumor con un cebo dentro y alguien muerde por él.',
+      'Montas una entrega falsa. No aparece, pero manda a alguien a mirar.',
+      'Pones vigilancia en {sitio} tres semanas. A la tercera pasa por delante.',
+      'Le haces creer que tiene un comprador. Contesta desde una terminal que puedes situar.'
+    ]
+  };
+  const CERCA = [
+    'Ya sabes en qué edificio duerme.',
+    'Tienes su rutina entera escrita en una hoja.',
+    'Sabes por dónde sale, a qué hora y con quién.'
+  ];
+
+  const VIAS = {
+    preguntar: { n: 'Preguntar', stat: 'carisma', base: 0.30, ruido: 6,
+                 txt: 'Preguntas sin llamar mucho la atención.' },
+    pagar:     { n: 'Pagar información', stat: null, base: 0.58, ruido: 10,
+                 txt: 'El dinero abre bocas.' },
+    rastrear:  { n: 'Rastrear', stat: 'mixto', base: 0.30, ruido: 2,
+                 txt: 'Sigues su rastro como se sigue un rastro.' },
+    trampa:    { n: 'Montar una trampa', stat: 'intelecto', base: 0.32, ruido: 4,
+                 txt: 'Montas la trampa y esperas.' }
+  };
+
+  /** Probabilidad real de sacar algo por cada vía. Se enseña al jugador. */
+  SW.probBusqueda = function (s, modo) {
+    const c = s.contrato, V = VIAS[modo];
+    if (!c || !V) return 0;
+    const st = s.stats;
+    let p = V.base;
+    if (V.stat === 'carisma') p += (st.carisma - c.dif * 0.75) / 120;
+    else if (V.stat === 'intelecto') p += (st.intelecto - c.dif * 0.70) / 120;
+    else if (V.stat === 'mixto') p += (st.intelecto * 0.6 + st.destreza * 0.6 - c.dif * 0.75) / 120;
+    else {
+      /* Pagar es la vía fiable: no depende de lo que valgas, sino de lo
+         que sueltes. Pero a alguien bien escondido no le delata nadie
+         por cuatro créditos, así que también baja con la dificultad. */
+      p += Math.min(0.12, Math.max(0, st.creditos) / 900000) - (c.dif - 50) * 0.004;
+    }
+    /* El oficio tiene que notarse. Un cazarrecompensas de profesión con
+       doce capturas encima no busca igual que alguien con una placa
+       recién comprada, y hasta ahora buscaban exactamente igual. */
+    if (s.trabajo === 'cazarrecompensas') p += 0.12;
+    p += Math.min(0.12, (s.contadores.cazas || 0) * 0.015);
+    if (s.habilidades.indexOf('rastreador') >= 0) p += 0.12;
+    if (s.habilidades.indexOf('cazarrecompensas') >= 0) p += 0.10;
+    if (SW.naveAbre && SW.naveAbre(s, 'buscar')) p += 0.08;
+    if (SW.aporteDe) p += SW.aporteDe(s, 'tasador') * 0.10;
+    // si llevas varios intentos en seco, el siguiente es más fácil
+    p += Math.min(0.30, (c.seco || 0) * 0.10);
+    return U.clamp(p, 0.15, 0.92);
+  };
+
+  const pct = function (x) { return Math.round(x * 100) + '%'; };
+
+  /** Apuntar una pista, venga de donde venga. Si llegas a tres, se captura. */
+  SW.darPistaCaza = function (g, texto) {
+    const c = g.s.contrato;
+    if (!c) return;
+    c.pistas = c.pistas || [];
+    if (c.pistas.length >= 3) return;
+    const t = texto || g.rng.pick(HALLAZGOS.rastrear).replace(/\{[a-z]+\}/g, 'el puerto');
+    c.pistas.push(SW.contraer ? SW.contraer(t) : t);
+    c.rastro = c.pistas.length;
+    c.seco = 0;
+    g.log('<b>' + c.pistas[c.pistas.length - 1] + '</b>', 'bien');
+    if (c.pistas.length >= 3) {
+      c.fase = 'captura';
+      g.log(g.rng.pick(CERCA) + ' Mañana.', 'bien');
+    }
+  };
+
   SW.GEN.buscarObjetivo = function (rng, s) {
     const c = s.contrato;
     const d = SW.dosierDe ? SW.dosierDe(s.mundo, SW.anioGalactico ? SW.anioGalactico(s) : null) : null;
     const sitio = d ? rng.pick(d.hit) : 'el puerto';
     const banda = d ? rng.pick(d.fac) : 'la gente de aquí';
+    c.pistas = c.pistas || [];
+    const coste = 3000 + Math.round(c.dif * 55);
+
+    const sabido = c.pistas.length
+      ? '<ul class="pistas">' + c.pistas.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>'
+      : '<p class="dim">Todavía no sabes nada que sirva.</p>';
+
     return {
       id: 'cz_buscar', gen: true, cazaPaso: 'buscar',
       t: '<span class="scene-tag">EN ' + s.mundo.toUpperCase() + '</span>' +
-         '<p>Buscas a <b>' + c.nombre + '</b>. Lo que sabes: ' + c.pista + '.</p>' +
-         '<p class="dim">Rastro: ' + ['frío', 'tibio', 'caliente', 'lo tienes'][U.clamp(c.rastro, 0, 3)] + '</p>',
+         '<p>Buscas a <b>' + c.nombre + '</b>, ' + c.tipoN + '. De partida sabes que ' + c.pista + '.</p>' +
+         '<p><b>Lo que llevas averiguado (' + c.pistas.length + ' de 3):</b></p>' + sabido +
+         (c.alerta >= 2 ? '<p class="dim">Sabe que le buscan. Cuanto más tardes, más preparado estará.</p>' : '') +
+         (c.seco >= 2 ? '<p class="dim">Llevas un tiempo en seco. Por probabilidad, ya te toca.</p>' : ''),
       c: [
-        { t: 'Preguntar en ' + sitio, cazaBusca: 'preguntar', sub: 'Depende de tu carisma' },
-        { t: 'Pagar información a ' + banda, cazaBusca: 'pagar', coste: 4000, sub: 'Rápido y caro' },
-        { t: 'Rastrear por tu cuenta', cazaBusca: 'rastrear', sub: 'Depende de tu intelecto y destreza' },
-        { t: 'Montar una trampa y esperar', cazaBusca: 'trampa', sub: 'Lento pero muy efectivo si sale' },
+        { t: 'Preguntar en ' + sitio, cazaBusca: 'preguntar',
+          sub: pct(SW.probBusqueda(s, 'preguntar')) + ' · tu carisma · discreto' },
+        { t: 'Pagar información a ' + banda, cazaBusca: 'pagar', coste: coste,
+          sub: pct(SW.probBusqueda(s, 'pagar')) + ' · ' + U.cr(coste) + ' · caro y ruidoso' },
+        { t: 'Rastrear por tu cuenta', cazaBusca: 'rastrear',
+          sub: pct(SW.probBusqueda(s, 'rastrear')) + ' · intelecto y destreza · nadie se entera' },
+        { t: 'Montar una trampa y esperar', cazaBusca: 'trampa',
+          sub: pct(SW.probBusqueda(s, 'trampa')) + ' · tu intelecto · tarda' },
         { t: 'Abandonar el contrato', cazaAbandona: true,
           sub: 'El Gremio toma nota, y el aviso no es una forma de hablar: pierdes lo invertido ' +
                'y te cuesta reputación' }
@@ -185,53 +296,112 @@
   SW.resolverBusqueda = function (g, modo) {
     const s = g.s, rng = g.rng, c = s.contrato;
     if (!c) return;
-    let p, txt;
-    if (modo === 'preguntar') {
-      p = U.clamp(0.28 + (s.stats.carisma - c.dif) / 150, 0.08, 0.8);
-      txt = 'Preguntas sin llamar la atención.';
-    } else if (modo === 'pagar') {
-      p = U.clamp(0.52 + (s.stats.creditos > 20000 ? 0.1 : 0), 0.3, 0.82);
-      txt = 'El dinero abre bocas.';
-    } else if (modo === 'rastrear') {
-      p = U.clamp(0.24 + (s.stats.intelecto + s.stats.destreza - c.dif * 2) / 190, 0.06, 0.82);
-      txt = 'Sigues su rastro como se sigue un rastro.';
-    } else {
-      p = U.clamp(0.36 + (s.stats.intelecto - c.dif) / 150, 0.1, 0.78);
-      txt = 'Montas la trampa y esperas.';
-    }
-    if (s.habilidades.indexOf('rastreador') >= 0) p += 0.12;
-    if (s.habilidades.indexOf('cazarrecompensas') >= 0) p += 0.10;
-    if (SW.naveAbre && SW.naveAbre(s, 'buscar')) p += 0.08;
+    const V = VIAS[modo] || VIAS.preguntar;
+    const p = SW.probBusqueda(s, modo);
+    c.pistas = c.pistas || [];
 
     if (rng.chance(p)) {
-      c.rastro = Math.min(3, c.rastro + 1);
-      g.log(txt + ' El rastro se calienta.', 'bien');
+      c.seco = 0;
+      const d = SW.dosierDe ? SW.dosierDe(s.mundo, SW.anioGalactico ? SW.anioGalactico(s) : null) : null;
+      const hallazgo = rng.pick(HALLAZGOS[modo] || HALLAZGOS.preguntar)
+        .replace('{sitio}', d ? rng.pick(d.hit) : 'el puerto')
+        .replace('{banda}', d ? rng.pick(d.fac) : 'la gente de aquí')
+        .replace('{gente}', d ? rng.pick(d.gen) : 'los de aquí')
+        .replace('{precio}', U.cr(3000 + Math.round(c.dif * 55)));
+      c.pistas.push(SW.contraer ? SW.contraer(hallazgo) : hallazgo);
+      c.rastro = c.pistas.length;
+      g.log(V.txt + ' <b>' + hallazgo + '</b>', 'bien');
       g.aplicarFx({ intelecto: 3, destreza: 2 }, {});
     } else {
-      c.rastro = Math.max(0, c.rastro - (rng.chance(0.4) ? 1 : 0));
-      g.log(txt + ' No sale nada. Y ahora sabe que le buscan.', 'mal');
+      /* Fallar ya no borra lo que sabías. Lo que hace es que él se
+         entere de que le buscan, y eso se paga después, en la captura.
+         Perder pistas convertía la búsqueda en un pozo: dabas dos pasos
+         y retrocedías dos, y así cuatro años. */
+      c.seco = (c.seco || 0) + 1;
+      c.alerta = (c.alerta || 0) + 1;
+      g.log(V.txt + ' No sale nada, y alguien va a contarle que preguntas por él.', 'mal');
       g.aplicarFx({ cordura: -3 }, {});
-      if (rng.chance(0.22)) {
-        g.log(c.nombre + ' te ha visto primero.', 'mal');
-        g.iniciarCombate({ dif: c.dif, duelo: false });
+      const riesgo = 0.08 + (c.alerta || 0) * 0.02 + V.ruido * 0.004;
+      if (rng.chance(Math.min(0.22, riesgo))) {
+        g.cola.unshift(g.prepararGen(SW.GEN.emboscadaCaza(rng, s)));
+        g.fase = 'evento';
         return;
       }
     }
-    if (c.rastro >= 3) { c.fase = 'captura'; g.log('Ya sabes dónde duerme. Mañana.', 'bien'); }
+    if (c.pistas.length >= 3) {
+      c.fase = 'captura';
+      g.log(rng.pick(CERCA) + ' Mañana.', 'bien');
+    }
+  };
+
+  /* ------------------------------------------------------------
+     Que te descubran no puede ser una sentencia de muerte sin más.
+     Antes un fallo de búsqueda te metía de cabeza en un combate a la
+     dificultad completa del objetivo, sin preguntarte nada. Ahora es
+     una escena: los que vienen son los suyos, no él, y tienes salidas.
+     ------------------------------------------------------------ */
+  SW.GEN.emboscadaCaza = function (rng, s) {
+    const c = s.contrato;
+    const dif = Math.max(30, c.dif - 18);
+    return {
+      id: 'cz_emboscada', gen: true,
+      t: '<span class="scene-tag">TE HAN VISTO PRIMERO</span>' +
+         '<p>Dos personas que no son ' + U.esc(c.nombre) + ' te esperan a la salida. ' +
+         'Le has puesto nervioso, y esto es lo que hace la gente nerviosa.</p>' +
+         '<p class="dim">No vienen a matarte: vienen a que te vayas del planeta.</p>',
+      c: [
+        { t: 'Pelear', sub: 'Dificultad ' + dif + ', más baja que la de él.',
+          combate: { dif: dif } },
+        { t: 'Escabullirte por donde has venido', sub: 'Depende de tu destreza.',
+          r: [
+            { p: U.clamp(0.30 + s.stats.destreza / 170, 0.25, 0.85),
+              t: 'Sales por un patio de servicio antes de que te corten el paso.',
+              fx: { destreza: 6, cordura: -4 } },
+            { p: 0.5, t: 'Te alcanzan en el callejón y te lo hacen saber.',
+              fx: { salud: -16, cordura: -6 } }
+          ] },
+        { t: 'Hablar con ellos', sub: 'Depende de tu carisma. Y puede salir bien del todo.',
+          r: [
+            { p: U.clamp(0.22 + s.stats.carisma / 200, 0.18, 0.7),
+              t: 'Les cuentas cuánto cobras y cuánto podrían cobrar ellos. Se lo piensan y te dan una dirección.',
+              fx: { carisma: 10 }, cazaRegalo: true },
+            { p: 0.55, t: 'No hay conversación posible. Sí hay costillas.',
+              fx: { salud: -18, notoriedad: 6 } }
+          ] },
+        { t: 'Enseñar la placa del Gremio',
+          req: function (st) { return !!st.flags.en_el_gremio; },
+          sub: 'A veces basta. A veces es peor.',
+          r: [
+            { p: 0.5, t: 'Se miran, calculan lo que cuesta pegarle a alguien del Gremio y se van.',
+              fx: { reputacion: 6, notoriedad: 4 } },
+            { p: 0.5, t: 'Justo por eso han venido.', fx: { salud: -14, notoriedad: 8 } }
+          ] }
+      ]
+    };
   };
 
   /* ============================================================
      5. LA CAPTURA
      ============================================================ */
+  /* Lo que te cuesta que se haya enterado de que le buscas. Cada vía
+     que falló durante la búsqueda le dio un aviso, y aquí se cobra. */
+  SW.durezaCaptura = function (s) {
+    const c = s.contrato;
+    return Math.min(20, (c && c.alerta ? c.alerta : 0) * 3);
+  };
+
   SW.GEN.capturar = function (rng, s) {
     const c = s.contrato;
+    const extra = SW.durezaCaptura(s);
     return {
       id: 'cz_captura', gen: true, cazaPaso: 'captura',
       t: '<span class="scene-tag">LA CAPTURA</span>' +
          '<p>Tienes a <b>' + c.nombre + '</b> localizado. A partir de aquí solo hay una oportunidad.</p>' +
+         (extra ? '<p>Te ha visto venir de lejos: está esperando. <b>+' + extra + ' de dificultad</b> ' +
+                  'por el ruido que hiciste buscándole.</p>' : '') +
          '<p class="dim">Vivo paga ×' + c.vivo + '. Muerto, el contrato base.</p>',
       c: [
-        { t: 'Entrar por la fuerza', cazaCaptura: 'fuerza', sub: 'Combate. Rápido y sucio.' },
+        { t: 'Entrar por la fuerza', cazaCaptura: 'fuerza', sub: 'Combate a dificultad ' + (c.dif + extra) + '.' },
         { t: 'Aturdirle a la primera', cazaCaptura: 'aturdir', minijuegoCaza: true,
           sub: 'Un solo disparo, a tiempo. Si fallas, se acabó lo fácil.' },
         { t: 'Hablar con él antes', cazaCaptura: 'hablar', sub: 'Puede entregarse. O engañarte.' },
@@ -240,54 +410,81 @@
     };
   };
 
+  /* Un intento de captura que sale mal no siempre acaba a tiros. Antes
+     sí: las cuatro vías desembocaban en combate y encadenar contratos
+     era encadenar peleas hasta que una te mataba. Ahora, la mitad de
+     las veces el objetivo simplemente se te escapa: pierdes una pista,
+     él se pone más nervioso, y vuelves a buscarle. Cuesta tiempo en
+     vez de sangre, que es lo que debe costar fallar. */
+  const falloCaptura = function (g, extra, plus) {
+    const s = g.s, rng = g.rng, c = s.contrato;
+    if (rng.chance(0.55)) {
+      const perdida = c.pistas && c.pistas.length ? c.pistas.pop() : null;
+      c.rastro = (c.pistas || []).length;
+      c.alerta = (c.alerta || 0) + 2;
+      c.fase = 'buscar';
+      g.log('Se te escapa por los tejados antes de que puedas hacer nada. ' +
+            (perdida ? 'Y el sitio que sabías ya no vale.' : 'Vuelta a empezar.'), 'mal');
+      g.aplicarFx({ cordura: -5, destreza: 3 }, {});
+      return;
+    }
+    c.estado = 'muerto'; c.fase = 'entrega';
+    g.iniciarCombate({ dif: c.dif + extra + plus, contrato: true });
+    c.pendienteCombate = true;
+  };
+
+  /* Con el objetivo esposado en la bodega, la entrega es la misma
+     escena, no la del año que viene: esperar un año con un preso
+     atado no lo mejora para nadie. */
+  const seguirAEntrega = function (g) {
+    g.cola.unshift(g.prepararGen(SW.GEN.entregar(g.rng, g.s)));
+    g.fase = 'evento';
+  };
+
   SW.resolverCaptura = function (g, modo) {
     const s = g.s, rng = g.rng, c = s.contrato;
     if (!c) return;
+    const extra = SW.durezaCaptura(s);
 
     if (modo === 'fuerza') {
       g.log('Entras por la puerta y no hay conversación.', 'res');
       c.fase = 'entrega'; c.estado = 'muerto';
-      g.iniciarCombate({ dif: c.dif, contrato: true, botin: 0 });
+      g.iniciarCombate({ dif: c.dif + extra, contrato: true, botin: 0 });
       c.pendienteCombate = true;
       return;
     }
     if (modo === 'aturdir') {
-      const p = U.clamp(0.30 + (s.stats.destreza - c.dif) / 130, 0.08, 0.85);
+      const p = U.clamp(0.30 + (s.stats.destreza - c.dif - extra) / 130, 0.08, 0.85);
       if (rng.chance(p)) {
         g.log('Un disparo de aturdimiento limpio. Ni se entera.', 'bien');
-        c.estado = 'vivo'; c.fase = 'entrega';
+        c.estado = 'vivo'; c.fase = 'entrega'; seguirAEntrega(g);
       } else {
         g.log('Fallas el primer disparo y se acabó lo fácil.', 'mal');
-        c.estado = 'muerto'; c.fase = 'entrega';
-        g.iniciarCombate({ dif: c.dif + 10, contrato: true });
-        c.pendienteCombate = true;
+        falloCaptura(g, extra, 10);
       }
       return;
     }
     if (modo === 'hablar') {
-      const p = U.clamp(0.26 + (s.stats.carisma - c.dif) / 140, 0.06, 0.8);
+      const p = U.clamp(0.26 + (s.stats.carisma - c.dif - extra) / 140, 0.06, 0.8);
       if (rng.chance(p)) {
         g.log('Le convences de que contigo tiene más futuro que huyendo.', 'bien');
         c.estado = 'vivo'; c.fase = 'entrega'; c.hablado = true;
         g.aplicarFx({ carisma: 8 }, {});
+        seguirAEntrega(g);
       } else {
         g.log('Te da conversación mientras alcanza algo debajo de la mesa.', 'mal');
-        c.estado = 'muerto'; c.fase = 'entrega';
-        g.iniciarCombate({ dif: c.dif + 6, contrato: true });
-        c.pendienteCombate = true;
+        falloCaptura(g, extra, 6);
       }
       return;
     }
     // esperar
-    const p = U.clamp(0.34 + (s.stats.intelecto - c.dif) / 140, 0.08, 0.85);
+    const p = U.clamp(0.34 + (s.stats.intelecto - c.dif - extra) / 140, 0.08, 0.85);
     if (rng.chance(p)) {
       g.log('Sale solo, de madrugada, como llevabas semanas viendo.', 'bien');
-      c.estado = 'vivo'; c.fase = 'entrega';
+      c.estado = 'vivo'; c.fase = 'entrega'; seguirAEntrega(g);
     } else {
       g.log('Sale acompañado. Cuatro personas y ninguna amable.', 'mal');
-      c.estado = 'muerto'; c.fase = 'entrega';
-      g.iniciarCombate({ dif: c.dif + 14, contrato: true });
-      c.pendienteCombate = true;
+      falloCaptura(g, extra, 14);
     }
   };
 
@@ -382,8 +579,12 @@
     if (c.pendienteCombate) { c.pendienteCombate = false; }
     if (c.fase === 'viaje') {
       // hay que llegar: con nave es más rápido
+      /* Ir hasta allí consumía casi la mitad de todo el tiempo del
+         contrato: tres escalas sin nave, dos con ella, y cada escala
+         se comía una acción del año. Se viaja, pasa una cosa por el
+         camino y se llega. */
       c.viajes = (c.viajes || 0) + 1;
-      const listo = s.mundo === c.destino || c.viajes >= (s.nave ? 2 : 3);
+      const listo = s.mundo === c.destino || c.viajes >= (s.nave ? 1 : 2);
       if (listo) {
         if (s.mundo !== c.destino) g.mover(c.destino, 'siguiendo un contrato');
         c.fase = 'buscar';
