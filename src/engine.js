@@ -154,7 +154,19 @@
     if (esp.id === 'droide') { s.dotes.fuerza = 0; s.stats.fuerza = 0; }
     if (s.sensible) s.stats.fuerza = 4;
 
-    if (esp.id === 'clon') SW.prepararClon(s, rng);
+    /* Los DOS son clones. El defectuoso se quedaba fuera de esta línea y
+       nacía sin designación, sin chip, sin lote y sin hermanos: un
+       humano cualquiera con otras estadísticas. Por eso «no tenía nada
+       diferente». Primero es un clon; después, uno que salió mal. */
+    if (esp.id === 'clon' || esp.id === 'clon_nulo') {
+      SW.prepararClon(s, rng);
+      if (esp.id === 'clon_nulo' && SW.prepararClonNulo) SW.prepararClonNulo(s, rng);
+      // se nace soldado: no hay que buscar trabajo, y no puede haber otro
+      s.bando = 'gar';
+      s.trabajo = 'clon_soldado';
+      s.rango = 'recluta de Kamino';
+      s.sueldo = 0;
+    }
 
     clampStats(s);
     return s;
@@ -189,7 +201,15 @@
     const m = SW.mundo(this.s.mundo);
     this.log('Nace ' + this.s.nombre + ' en ' + this.s.mundo + ' (' + m.r + '). Era: ' + this.s.eraN + '.', 'nac');
     this.hito('Nacimiento en ' + this.s.mundo);
-    if (this.s.especie === 'clon') this.log('Designación ' + this.s.nombre + '. Lote de Kamino. Crecerás al doble de velocidad.', 'res');
+    if (this.s.especie === 'clon') {
+      this.log('Designación ' + this.s.nombre + '. Lote de Kamino. Crecerás al doble de velocidad.', 'res');
+      this.log('Perteneces al Gran Ejército de la República antes de saber andar. No es un trabajo: es lo que eres.', 'res');
+    }
+    if (this.s.especie === 'clon_nulo') {
+      this.log('Designación ' + this.s.nombre + '. La <b>N</b> del final significa «no conforme».', 'res');
+      this.log('Naces con el mismo contrato que tus hermanos y con una marca roja en el expediente. ' +
+               'El chip inhibidor no ha prendido bien. Todavía no sabes lo que eso significa.', 'mal');
+    }
   }
 
   /** Cola de vitrinas: la interfaz las muestra una a una */
@@ -483,6 +503,7 @@
     if (SW.pasoAnual) SW.pasoAnual(this);
     if (SW.pasoTripulacion) SW.pasoTripulacion(this);
     if (SW.pasoNegocios) SW.pasoNegocios(this);
+    if (SW.pasoClon) SW.pasoClon(this);
     if (s.muerto) return;
     this.avanzarEstudio();
     if (SW.pasoAprendiz) SW.pasoAprendiz(this);
@@ -1054,7 +1075,38 @@
     /* Un oficio a la vez, y avisando. Antes tomarEmpleo pisaba el
        anterior en silencio: te metías en el Gremio y seguías «siendo»
        mecánico, con las dos pestañas abiertas y ninguna coherente. */
+    /* ---- vida de clon: destino, traslado y deserción ---- */
+    if (d.pedirDestino && SW.asignarDestino) {
+      const pd = d.pedirDestino;
+      if (pd.p >= 1 || rng.chance(pd.p)) {
+        SW.asignarDestino(this, pd.id);
+      } else {
+        this.log('Lo anotan, lo leen y no lo tienen en cuenta. Como casi siempre.', 'mal');
+        SW.asignarDestino(this, 'infanteria');
+      }
+    }
+    if (d.abrirDesercion && SW.GEN.desercion) {
+      this.cola.unshift(this.prepararGen(SW.GEN.desercion(rng, s)));
+      this.fase = 'evento';
+    }
+    if (d.desertar && SW.hacerDesertor) SW.hacerDesertor(this, d.desertar);
+    if (d.llevaHermano) {
+      const h = (s.relaciones || []).filter(function (r) { return r.tipo === 'hermano de lote'; })[0];
+      if (h) { h.afecto = Math.min(100, h.afecto + 30); h.quien = 'desertó contigo'; }
+    }
+    if (d.pedirTraslado && SW.pedirTrasladoClon) SW.pedirTrasladoClon(this);
+    if (d.vigilancia) s.vigilancia = U.clamp((s.vigilancia || 0) + d.vigilancia, 0, 100);
+    if (d.buscadoMenos) s.buscado = Math.max(0, (s.buscado || 0) - d.buscadoMenos);
+
     if (d.empleo) {
+      /* A un clon en filas no se le contrata: es propiedad del ejército.
+         Antes bastaba con bajar a un puerto para que te ofrecieran ser
+         mecánico, y aceptabas. */
+      if (SW.clonEnServicio && SW.clonEnServicio(s) &&
+          !/^clon_/.test(d.empleo.id)) {
+        this.log('Eres propiedad del Gran Ejército. Nadie puede contratarte, y tú no puedes firmar nada.', 'mal');
+        return;
+      }
       if (SW.chocaConTrabajo && SW.chocaConTrabajo(s, d.empleo.id)) {
         this.cola.unshift(this.prepararGen(SW.menuDejarTrabajo(this, d.empleo)));
         this.fase = 'evento';
@@ -1077,7 +1129,7 @@
       this.log('Sueltas ' + s.carga.n + ' por la esclusa. Adiós a ' + U.cr(s.carga.coste) + '.', 'mal');
       s.carga = null;
     }
-    if (d.viajarA) { this.abrirMapaViaje = true; s.destinoSugerido = d.viajarA; }
+    if (d.viajarA && !(SW.clonEnServicio && SW.clonEnServicio(s))) { this.abrirMapaViaje = true; s.destinoSugerido = d.viajarA; }
     if (d.abrirBodega && SW.menuBodega) { this.cola.unshift(this.prepararGen(SW.menuBodega(this))); this.fase = 'evento'; }
     if (d.rutaViaje && SW.resolverRuta) SW.resolverRuta(this, d.rutaViaje);
 
@@ -1236,7 +1288,11 @@
       s.contadores.enemigosPoliticos = (s.contadores.enemigosPoliticos || 0) + 1;
       this.log('Te acabas de ganar un enemigo con memoria.', 'mal');
     }
-    if (d.viajar) this.abrirMapaViaje = true;
+    if (d.viajar) {
+      if (SW.clonEnServicio && SW.clonEnServicio(s)) {
+        this.log('No tienes permiso de movimiento. Los clones no viajan: se les despliega.', 'mal');
+      } else this.abrirMapaViaje = true;
+    }
     if (d.fuerzaMenu) this.cola.unshift(this.prepararGen(this.menuFuerza()));
     if (d.clinica) this.cola.unshift(this.prepararGen(this.menuClinica()));
     if (d.accionMenu) this.cola.unshift(this.prepararGen(SW.GEN[rng.chance(0.45) && s.nave ? 'dogfight' : 'accion'](rng, s)));
@@ -1637,6 +1693,10 @@
     this.log('Droide ' + s.droide.tipo + ' ' + s.droide.nombre + ' a tu servicio.', 'bien');
   };
   Game.prototype.darNave = function (nave) {
+    if (SW.clonEnServicio && SW.clonEnServicio(this.s)) {
+      this.log('Pilotas lo que te asignan y lo devuelves al hangar. Un clon no tiene nave propia.', 'mal');
+      return;
+    }
     const s = this.s;
     s.nave = nave;
     s.naveEstado = 85;
@@ -1722,6 +1782,15 @@
     const s = this.s;
     const c = SW.carrera(id);
     if (!c) return;
+    /* Un solo sitio para una sola regla: mientras eres propiedad del
+       Gran Ejército, el único oficio posible es el tuyo. Bloquearlo
+       evento por evento era imposible —el menú de empleo, la puerta del
+       Senado, una escena de puerto— así que se cierra en el embudo por
+       el que pasan todos. */
+    if (SW.clonEnServicio && SW.clonEnServicio(s) && !/^clon_/.test(id)) {
+      this.log('No puedes aceptarlo: perteneces al Gran Ejército y tu destino ya está asignado.', 'mal');
+      return;
+    }
     s.trabajo = id;
     /* Si tu oficio ES el Gremio, tienes la placa. Parece obvio y no lo
        era: los rangos de la carrera se llaman «Novato del Gremio» y
@@ -1749,6 +1818,10 @@
   };
   Game.prototype.unirseOrden = function (cual) {
     const s = this.s;
+    if (SW.clonEnServicio && SW.clonEnServicio(s)) {
+      this.log('Eres un soldado clon. A los Jedi los tienes de generales, no de maestros.', 'mal');
+      return;
+    }
     if (cual === 'jedi') {
       if (!SW.ordenActiva(s.era)) {
         this.log('No hay Orden a la que presentarse en esta época. Solo ruinas y rumores.', 'mal');
@@ -1988,9 +2061,16 @@
     }
     if (s.buscado > 0) {
       const antes = s.buscado;
-      s.buscado = Math.max(0, s.buscado - 45);
-      this.log('Cambiar de sistema despista a quien te buscaba' + (s.buscado > 0 ? ', pero no del todo' : '') + '.', s.buscado > 0 ? 'res' : 'bien');
-      if (antes >= 45) this.aplicarFx({ notoriedad: -6 }, {});
+      /* Cambiar de planeta despista a una banda local. No despista a un
+         ejército con tu cara archivada y equipos de recuperación en
+         cuarenta sistemas: a un desertor clon se le sigue buscando. */
+      const perseguido = s.flags.buscado_desertor && !s.flags.dado_por_muerto;
+      s.buscado = Math.max(perseguido ? 25 : 0, s.buscado - (perseguido ? 12 : 45));
+      this.log(perseguido
+        ? 'Cambias de sistema. Tu designación viaja más rápido que tú.'
+        : 'Cambiar de sistema despista a quien te buscaba' + (s.buscado > 0 ? ', pero no del todo' : '') + '.',
+        s.buscado > 0 ? 'res' : 'bien');
+      if (antes >= 45 && !perseguido) this.aplicarFx({ notoriedad: -6 }, {});
     }
 
     const dato = SW.datoMundo ? SW.datoMundo(d) : null;
@@ -2942,6 +3022,11 @@
        escritas para este menú no se veían nunca. Ahora se elige: la
        carta estelar es una opción más, no la única. */
     if (id === 'viaje') {
+      /* Un clon en filas no coge un billete: o le despliegan, o deserta. */
+      if (SW.clonEnServicio && SW.clonEnServicio(s) && SW.GEN.clonNoViaja) {
+        this.cola.push(this.prepararGen(SW.GEN.clonNoViaja(rng, s)));
+        this.fase = 'evento'; return;
+      }
       const pool = this.eventosPosibles(SW.ACTOS.viaje || []);
       if (pool.length && rng.chance(0.6)) {
         const inst = this.menuSituaciones(pool, 'viaje', true);
@@ -2953,6 +3038,12 @@
     // La clínica no compite con eventos: si la pides, se abre la clínica.
     // Antes «Cuerpo y mente» te soltaba cualquier cosa menos curarte.
     if (id === 'clinica') { this.cola.push(this.prepararGen(this.menuClinica())); this.fase = 'evento'; return; }
+    /* «Semana tranquila en la unidad» con dos botones era todo lo que
+       tenía un clon en su propia pestaña. Ahora es donde se hace su vida. */
+    if (id === 'escuadron' && SW.clonEnServicio && SW.clonEnServicio(s) && SW.menuEscuadronClon) {
+      this.cola.push(this.prepararGen(SW.menuEscuadronClon(this)));
+      this.fase = 'evento'; return;
+    }
     // Los bajos fondos se adaptan: un clon en servicio no monta un cártel
     if (id === 'crimen' && SW.actividadPermitida &&
         SW.actividadPermitida(s, 'crimen') === 'limitado' && SW.GEN.crimenLimitado) {

@@ -73,7 +73,7 @@
     },
     {
       id: 'cl_despliegue', min: 10, max: 22, w: 20, esp: CLON, unaVez: true,
-      era: ['guerras_clon'], slots: { p: 'mundo' },
+      era: ['republica_tardia', 'guerras_clon', 'imperio_temprano'], slots: { p: 'mundo' },
       t: 'Primer despliegue. Cañonera abierta sobre {p}, fuego antiaéreo y un general jedi gritando algo que no oyes.',
       c: [
         { t: 'Saltar el primero', fx: { fisico: 10, destreza: 10, cordura: -8, reputacion: 10 }, contador: { batallas: 1 }, out: 'Aterrizas antes que nadie. Sobrevives. Los dos hechos están relacionados menos de lo que crees.' },
@@ -83,7 +83,7 @@
       ]
     },
     {
-      id: 'cl_general', min: 11, max: 30, w: 13, esp: CLON, era: ['guerras_clon'], slots: { n: 'nombre' },
+      id: 'cl_general', min: 11, max: 30, w: 13, esp: CLON, era: ['republica_tardia', 'guerras_clon', 'imperio_temprano'], slots: { n: 'nombre' },
       t: 'Tu general jedi, {n}, te pregunta tu opinión delante de los oficiales. Nadie te había preguntado nunca nada.',
       c: [
         { t: 'Dar tu opinión de verdad', fx: { intelecto: 10, carisma: 10, reputacion: 8 }, rel: { tipo: 'general jedi', afecto: 55 }, faccion: 'orden_jedi+15', out: 'La adopta. La compañía pierde a dos hombres en vez de a veinte.' },
@@ -92,7 +92,7 @@
       ]
     },
     {
-      id: 'cl_baja', min: 11, max: 34, w: 15, esp: CLON, era: ['guerras_clon'],
+      id: 'cl_baja', min: 11, max: 34, w: 15, esp: CLON, era: ['republica_tardia', 'guerras_clon', 'imperio_temprano'],
       req: function (s) { return s.relaciones.some(function (r) { return r.tipo === 'hermano de lote'; }); },
       t: 'Cae uno de tus hermanos de lote. Tiene tu cara. Siempre tienen tu cara.',
       c: [
@@ -102,7 +102,7 @@
       ]
     },
     {
-      id: 'cl_civil', min: 12, max: 34, w: 12, esp: CLON, era: ['guerras_clon'], slots: { p: 'mundo' },
+      id: 'cl_civil', min: 12, max: 34, w: 12, esp: CLON, era: ['republica_tardia', 'guerras_clon', 'imperio_temprano'], slots: { p: 'mundo' },
       t: 'En {p}, una familia local se ha quedado entre vuestra posición y la artillería separatista.',
       c: [
         { t: 'Detener el avance y sacarlos', fx: { alineamiento: 20, cordura: 10, reputacion: -6 }, out: 'Perdéis la posición. Los cuatro civiles viven.' },
@@ -111,7 +111,7 @@
       ]
     },
     {
-      id: 'cl_desercion', min: 14, max: 40, w: 8, esp: CLON, era: ['guerras_clon'], slots: { p: 'mundo' },
+      id: 'cl_desercion', min: 14, max: 40, w: 8, esp: CLON, era: ['republica_tardia', 'guerras_clon', 'imperio_temprano'], slots: { p: 'mundo' },
       req: function (s) { return s.flags.duda_guerra || s.stats.cordura < 45 || s.especie === 'clon_nulo'; },
       t: 'En {p} hay granjas donde han desaparecido clones antes. Nadie los busca demasiado.',
       c: [
@@ -122,7 +122,7 @@
       ]
     },
     {
-      id: 'cl_chip', min: 14, max: 44, w: 7, esp: CLON, era: ['guerras_clon'], unaVez: true,
+      id: 'cl_chip', min: 14, max: 44, w: 7, esp: CLON, era: ['republica_tardia', 'guerras_clon', 'imperio_temprano'], unaVez: true,
       req: function (s) { return s.flags.chip_inhibidor; },
       t: 'Migrañas. Un médico clon te enseña una radiografía y señala una mancha en el lóbulo. "Todos lo tenemos. No sé para qué es."',
       c: [
@@ -144,25 +144,18 @@
 
   /* ---- guion: la asignación y la Orden 66 no se dejan al azar ---- */
   push(SW.GUION, [
-    {
-      id: 'cl_asignacion', min: 9, max: 14, prio: 90, esp: CLON, era: ['guerras_clon'], unaVez: true,
-      req: function (s) { return !s.trabajo; },
-      t: 'Fin de la instrucción. Un kaminoano lee tu expediente y decide para qué sirves. Puedes influir un poco.',
-      c: [
-        { t: 'Infantería de línea', sub: 'Lo que se espera de ti.', empleo: { id: 'clon_soldado', sueldo: 0 }, fx: { destreza: 8, fisico: 8 }, bando: 'gar' },
-        { t: 'Aspirante a comando ARC', sub: 'Iniciativa permitida. Muy pocos pasan.', req: function (s) { return s.stats.destreza > 45; }, empleo: { id: 'clon_arc', sueldo: 0 }, fx: { destreza: 14, cordura: 6 }, bando: 'gar' },
-        { t: 'Médico de campaña', sub: 'Sacas a los tuyos de la cañonera.', req: function (s) { return s.stats.intelecto > 35; }, empleo: { id: 'clon_medico', sueldo: 0 }, fx: { intelecto: 12 }, habilidad: 'medico', bando: 'gar' },
-        { t: 'Piloto', sub: 'Cañonera, ARC-170 o bombardero.', req: function (s) { return s.stats.destreza > 40; }, empleo: { id: 'clon_piloto', sueldo: 0 }, fx: { destreza: 12, intelecto: 6 }, habilidad: 'piloto', bando: 'gar' },
-        { t: 'Fallar las pruebas a propósito', sub: 'A ver qué pasa con los que no sirven.', fx: { cordura: -10, intelecto: 8, reputacion: -12 }, flag: 'marcado_defectuoso', out: 'Te mandan a mantenimiento en Kamino. Ves salir a tus hermanos sin ti.' }
-      ]
-    },
+    /* La asignación vive ahora en data-clon-servicio.js (cls_asignacion).
+       La que había aquí se ha retirado, no desactivado: coexistían y te
+       asignaban destino dos veces, una a los cinco años y otra a los
+       siete. Además repartía el oficio con `empleo:`, sin fijar
+       `destinoClon`, así que el resto del juego no se enteraba. */
     /* La Orden 66 de un clon vive ahora en data-orden66.js: es una
        cadena de escenas dentro del mismo año (el chip, el general que
        se defiende, el minuto siguiente) y no una sola pantalla con
        cuatro botones. Esta entrada queda como red de seguridad por si
        aquel guion no llega a dispararse. */
     {
-      id: 'cl_orden66', min: 20, max: 46, prio: 40, esp: CLON, era: ['guerras_clon'], unaVez: true,
+      id: 'cl_orden66', min: 20, max: 46, prio: 40, esp: CLON, era: ['republica_tardia', 'guerras_clon', 'imperio_temprano'], unaVez: true,
       req: function (s) { return !s.flags.o66_vivida && !s.flags.orden66_pasada; },
       t: '<b>Buena ejecución de la Orden 66.</b><br>La voz llega por el canal general. Es un código antiguo. A tu lado, tu general jedi se gira hacia ti sin entender nada.',
       c: [

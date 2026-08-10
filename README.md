@@ -108,7 +108,19 @@ Un golpe fuerte no baja la salud y ya: abre una **herida** que reduce tu salud m
 - Cada era tiene sus propias carreras, facciones, estudios y eventos.
 
 ### Ser un clon
-Una especie jugable con guion propio: naces en Kamino con una designación CT-, **envejeces al doble**, tienes hermanos de lote idénticos y un chip en la cabeza. Instrucción, asignación de especialidad, primer despliegue, apodo de unidad, pintar la armadura, deserción… y la **Orden 66**, que llega sí o sí, ocupa varias escenas seguidas y cuya resolución depende de si descubriste el chip a tiempo.
+No es una especie con otras estadísticas: es **otra forma de jugar**. Naces en Kamino con una designación CT-, envejeces al doble, tienes hermanos de lote idénticos y un chip en la cabeza — y naces **ya con el oficio puesto**, porque eres propiedad del Gran Ejército de la República.
+
+Mientras estés en filas:
+
+- **No puedes tener otro trabajo.** Nadie puede contratarte y tú no puedes firmar nada.
+- **No puedes viajar.** No compras billetes: te despliegan. La pestaña de Viajar te enseña la pared y la única puerta que hay.
+- **No hay Gremio, ni nave propia, ni negocios, ni política.** Media galaxia no existe para ti.
+- **Te asignan un destino** —infantería, piloto, médico de campaña o comando ARC— y puedes pedir, no elegir. Se pide por escrito y consta.
+- Tu vida pasa en la pestaña de **Escuadrón**: entrenar, presentarte voluntario, estar con los tuyos, pedir traslado.
+
+La única salida es **desertar**: irse en una lanzadera de madrugada, hacerse pasar por muerto en el próximo despliegue o llevarse a un hermano. En cuanto lo haces se abre la galaxia entera… y sale detrás un equipo de recuperación con tu misma cara. Cambiar de sistema ya no te limpia el rastro: tu designación viaja más rápido que tú.
+
+**El clon defectuoso** (`clon_nulo`) no es un clon con más intelecto. Su designación acaba en **-N**, de «no conforme», el chip inhibidor no le prendió bien y lleva una marca roja en el expediente desde el primer año. Eso significa revisiones periódicas, una barra de **vigilancia** que sube sola y que se ve en «Entre manos», y una retirada de la unidad esperando al final del camino si llega a 70. A cambio, el chip manda menos sobre él: cuando llega la **Orden 66**, obedece un 70% de las veces frente al 86% de un clon normal.
 
 ### Sistemas
 - **11 estadísticas** (salud, Fuerza, destreza, intelecto, carisma, suerte, cordura, reputación, notoriedad, alineamiento y créditos).

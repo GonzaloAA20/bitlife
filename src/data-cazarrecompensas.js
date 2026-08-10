@@ -65,6 +65,8 @@
     slots: { p: 'mundoAqui', l: 'lugar', k: 'banda' },
     req: function (s) {
       if (s.flags.en_el_gremio) return false;
+      // un clon en filas no entra en ningún gremio: ya pertenece a alguien
+      if (SW.clonEnServicio && SW.clonEnServicio(s)) return false;
       // ni a cualquiera ni en cualquier sitio: hace falta mano y algo de fama
       const apto = s.stats.fisico > 38 || s.stats.destreza > 42 || s.stats.notoriedad > 25;
       const sitio = ['Nevarro', 'Tatooine', 'Nar Shaddaa', 'Ord Mantell', 'Rodia', 'Sriluur',

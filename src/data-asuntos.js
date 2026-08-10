@@ -39,6 +39,22 @@
         pie: (s.añosDeFrenteRestantes || 0) + ' años de campaña · ' + (cmp.medallas || 0) + ' condecoraciones',
         c: 'frente', urg: 3 });
     }
+    /* Un clon en filas tiene que ver a qué unidad pertenece y, si salió
+       marcado, cuánto le están mirando. Sin esto la presión del
+       expediente era un número invisible y no se notaba nada. */
+    if (SW.clonEnServicio && SW.clonEnServicio(s)) {
+      const D = SW.DESTINOS_CLON && SW.DESTINOS_CLON[s.destinoClon];
+      a.push({ ic: D ? D.ic : '⛨', n: 'Gran Ejército de la República',
+        d: D ? D.n : 'a la espera de destino',
+        pie: 'Designación ' + (s.designacion || s.nombre) + ' · sin permiso de movimiento',
+        c: 'frente', urg: 1 });
+      const v = SW.vigilanciaClon ? SW.vigilanciaClon(s) : 0;
+      if (v > 0) {
+        a.push({ ic: '◍', n: 'Expediente marcado', d: 'unidad no conforme',
+          pie: 'Vigilancia ' + v + '/100 · a los 70 se retira la unidad',
+          c: 'caza', urg: v >= 55 ? 1 : 3 });
+      }
+    }
     if (s.carga) {
       a.push({ ic: '▣', n: 'Carga en bodega', d: s.carga.n,
         pie: 'comprada en ' + s.carga.origen + ' por ' + U.cr(s.carga.coste) +

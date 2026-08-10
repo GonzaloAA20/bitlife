@@ -52,10 +52,28 @@
      ¿QUÉ ACTIVIDADES TIENEN SENTIDO AHORA MISMO?
      Se consulta desde el menú anual: lo que no encaja, no sale.
      ============================================================ */
+  /* Todo lo que se le cierra a un clon MIENTRAS ESTÁ EN FILAS.
+     Antes esto estaba condicionado a `era === 'guerras_clon'` y no se
+     cumplía nunca: un clon nace en el 32 ABY y la guerra empieza en el
+     22, así que sus años de cadete caen en la República Tardía y la
+     comprobación daba falso. El resultado era un soldado de propiedad
+     estatal comprando naves y firmando contratos de caza. */
+  SW.CERRADO_EN_FILAS = ['nave', 'taller', 'viaje', 'gremio', 'mercancia', 'tripulacion',
+    'negocios', 'senado', 'politica', 'exploracion', 'trabajo'];
+
   SW.actividadPermitida = function (s, id) {
     const clon = s.especie === 'clon' || s.especie === 'clon_nulo';
     const jedi = s.trabajo === 'jedi';
     const sith = s.trabajo === 'sith';
+    const enFilas = SW.clonEnServicio ? SW.clonEnServicio(s) : false;
+
+    /* La regla grande, antes que ninguna otra: si eres propiedad del
+       ejército, la mitad del juego no existe para ti. */
+    if (enFilas && SW.CERRADO_EN_FILAS.indexOf(id) >= 0) {
+      // «Viajar» sí se abre: para enseñarte por qué no puedes viajar
+      // y para ofrecerte lo único que hay, que es desertar.
+      return id === 'viaje';
+    }
 
     if (id === 'escuadron') {
       // te echaron, desertaste o se acabó tu ejército: no hay unidad
@@ -68,17 +86,8 @@
     }
     if (id === 'crimen') {
       // un clon en servicio o un jedi en la Orden no se meten a contrabandistas
-      if (clon && !s.flags.desertor && !s.flags.expulsado_ejercito && s.era === 'guerras_clon') return 'limitado';
+      if (enFilas) return 'limitado';
       if (jedi) return 'limitado';
-      return true;
-    }
-    if (id === 'nave' || id === 'taller') {
-      if (clon && !s.flags.desertor && !s.flags.expulsado_ejercito && s.era === 'guerras_clon') return false;
-      return true;
-    }
-    if (id === 'viaje') {
-      if (clon && !s.flags.desertor && !s.flags.expulsado_ejercito && s.era === 'guerras_clon') return false;
-      if (s.contrato) return true;
       return true;
     }
     /* Después de la Orden 66 no hay Consejo que reparta misiones, ni
