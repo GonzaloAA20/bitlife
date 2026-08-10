@@ -99,6 +99,12 @@
       '<div><b>' + m.carreras + '</b><span>carreras</span></div>' +
       '<div><b>' + m.poderes + '</b><span>poderes</span></div>' +
       '</div>' +
+      ((SW.reliquias && SW.reliquias().length)
+        ? '<div class="reliquias-inicio">' + SW.reliquias().map(function (id) {
+            const r = SW.RELIQUIAS[id];
+            return r ? '<span title="' + U.esc(r.d) + '">' + r.ico + ' ' + U.esc(r.n) + '</span>' : '';
+          }).join('') + '<em>lo que te llevaste de otra vida</em></div>'
+        : '') +
       '<div class="disclaimer">Proyecto de fan sin ánimo de lucro. No afiliado a Lucasfilm ni a Disney.</div>' +
       '</div></div>';
 
@@ -177,6 +183,7 @@
       pronombre: 'él',
       ambicion: (SW.AMBICIONES[0] || {}).id,
       dificultad: 'normal',
+      reliquia: null,
       semilla: '',
       apariencia: UI.aparienciaAleatoria(rng)
     };
@@ -308,6 +315,23 @@
     });
     h += '</div><p class="nota">' + U.esc(dif.d) + '</p></div>';
 
+    /* Reliquias: lo que te llevaste de una vida anterior. Sólo aparece
+       si alguna vez conseguiste algo que sobreviviera a tu personaje. */
+    const rel = SW.reliquias ? SW.reliquias() : [];
+    if (rel.length) {
+      h += '<div class="bloque reliquias"><h3>RELIQUIA</h3><div class="chips">' +
+        '<button class="chip' + (!c.reliquia ? ' on' : '') + '" data-rel="">Ninguna</button>';
+      rel.forEach(function (id) {
+        const r = SW.RELIQUIAS[id];
+        if (!r) return;
+        h += '<button class="chip rel' + (c.reliquia === id ? ' on' : '') + '" data-rel="' + U.esc(id) + '">' +
+          r.ico + ' ' + U.esc(r.n) + '</button>';
+      });
+      const rr = c.reliquia && SW.RELIQUIAS[c.reliquia];
+      h += '</div><p class="nota">' + (rr ? U.esc(rr.d) + ' <b>' + U.esc(rr.efecto) + '</b>'
+        : 'Empiezas con las manos vacías, como todo el mundo.') + '</p></div>';
+    }
+
     h += '<label class="campo">SEMILLA <span class="dim">(opcional — misma semilla, misma vida)</span><input id="in-semilla" value="' + U.esc(c.semilla) + '" placeholder="dejar vacío = azar"></label>';
     h += '<div class="acciones"><button class="btn grande" data-a="empezar">▸ EMPEZAR VIDA</button>' +
       '<button class="btn fantasma" data-a="rand-todo">⟳ todo al azar</button></div>' +
@@ -321,7 +345,7 @@
   UI.bindCrear = function () {
     const c = UI.creador;
     UI.app.onclick = function (e) {
-      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo],[data-apv],[data-apciclo],[data-rand],[data-amb],[data-dif]');
+      const b = e.target.closest('[data-a],[data-esp],[data-era],[data-rasgo],[data-apv],[data-apciclo],[data-rand],[data-amb],[data-dif],[data-rel]');
       if (!b || b.disabled) return;
       UI.leerCampos();
       if (b.dataset.rand) {
@@ -369,6 +393,7 @@
       if (a === 'rand-cara') { c.apariencia = UI.aparienciaAleatoria(c.rng); UI.renderCrear(); return; }
       if (b.dataset.amb) { c.ambicion = b.dataset.amb; UI.renderCrear(); return; }
       if (b.dataset.dif) { c.dificultad = b.dataset.dif; UI.renderCrear(); return; }
+      if (b.dataset.rel != null) { c.reliquia = b.dataset.rel || null; UI.renderCrear(); return; }
       if (a === 'rand-nombre') { c.nombre = SW.genNombreCompleto(c.rng, c.especie); UI.renderCrear(); return; }
       if (a === 'rand-todo') {
         const rng = c.rng;
@@ -416,6 +441,8 @@
     UI.app.onchange = null;
     // la sangre pesa: dinero, nombre, reputación y un talento heredados
     if (UI.herencia && SW.aplicarHerencia) { SW.aplicarHerencia(UI.juego, UI.herencia); UI.herencia = null; }
+    // lo que te llevaste de una vida anterior
+    if (c.reliquia && SW.ponerReliquia) SW.ponerReliquia(UI.juego, c.reliquia);
     UI.renderJuego();
   };
 
@@ -518,6 +545,17 @@
     const r = SW.etiquetaRacha ? SW.etiquetaRacha(s) : null;
     if (r) h += '<div class="tb-aviso racha ' + r.c + '"><b>' + (r.c === 'buena' ? '▲' : '▼') + ' ' + r.t + '</b><span>racha</span></div>';
     if (s.mision) h += '<div class="tb-aviso mision" title="misión de la Orden en ' + U.esc(s.mision.mundo) + '"><b>✷ misión</b><span>' + U.esc(s.mision.mundo) + '</span></div>';
+    if (s.caza) h += '<div class="tb-aviso caza" title="expediente abierto en ' + U.esc(s.caza.mundo) + '"><b>⌖ caza</b><span>' + U.esc(s.caza.mundo) + '</span></div>';
+    /* La atención de Vader: cada jedi que cierras llena un poco más la
+       barra. Cuando se llena, baja él. */
+    if (SW.esInquisidor && SW.esInquisidor(s)) {
+      const v = SW.amenazaVader(s);
+      h += '<div class="tb-aviso vader' + (v >= 100 ? ' lleno' : v >= 60 ? ' alto' : '') +
+        '" title="Atención de Darth Vader: ' + v + '%">' +
+        '<span class="casco-vader" aria-hidden="true"></span>' +
+        '<div class="vader-col"><b>' + v + '%</b>' +
+        '<div class="vader-barra"><i style="width:' + v + '%"></i></div></div></div>';
+    }
     // la barra es una rejilla con áreas con nombre: sin envoltorio, esto
     // se colocaría solo en la primera casilla y se comería el nombre
     return h ? '<div class="tb-avisos">' + h + '</div>' : '';
@@ -946,9 +984,13 @@
       h += UI.htmlMinijuego(inst.ref);
     }
     h += '<div class="ev-ops">';
+    /* Durante un duelo el teclado numérico es del duelo: enseñar «1» en
+       la opción de escape haría creer que pulsar 1 la elige. */
+    const sinNumero = mini === 'sable';
     inst.opciones.forEach(function (o, i) {
-      h += '<button class="op' + (o.bloqueada ? ' bloq' : '') + '" data-op="' + i + '"' + (o.bloqueada ? ' disabled' : '') + '>' +
-        (i < 9 ? '<u class="op-n">' + (i + 1) + '</u>' : '') +
+      h += '<button class="op' + (o.bloqueada ? ' bloq' : '') + (sinNumero ? ' sin-n' : '') +
+        '" data-op="' + i + '"' + (o.bloqueada ? ' disabled' : '') + '>' +
+        (i < 9 && !sinNumero ? '<u class="op-n">' + (i + 1) + '</u>' : '') +
         '<span class="op-t">' + U.esc(o.txt) + '</span>' +
         (o.sub ? '<span class="op-s">' + U.esc(o.sub) + '</span>' : '') + '</button>';
     });
@@ -1026,6 +1068,16 @@
 
       // si hay texto escribiéndose, la primera tecla lo completa
       if (UI._maquina && UI._maquina.activa) { UI.completarTexto(); e.preventDefault(); return; }
+
+      /* en mitad de un duelo el teclado es del duelo: si no, el «1» se
+         iría al menú de opciones y te sacaría de la pelea */
+      if (UI.mini && UI.mini.teclas && UI.mini.pulsar && !UI.mini.terminado) {
+        const T = { '1': 'alto', '2': 'medio', '3': 'bajo', '4': 'esquiva', '5': 'entrar',
+                    'ArrowUp': 'alto', 'ArrowRight': 'medio', 'ArrowDown': 'bajo',
+                    'ArrowLeft': 'esquiva', ' ': 'entrar' };
+        const t = T[e.key];
+        if (t) { UI.mini.pulsar(t); e.preventDefault(); return; }
+      }
 
       const ops = [].slice.call(document.querySelectorAll('.evento .op:not([disabled])'));
       if (ops.length) {
@@ -1137,6 +1189,30 @@
      MINIJUEGOS DE REFLEJOS
      ============================================================ */
   UI.htmlMinijuego = function (ref) {
+    if (ref.minijuego === 'sable') {
+      const P = SW.paramsDuelo(ref);
+      const linea = function (id, sim, txt) {
+        return '<div class="sb-linea" data-l="' + id + '"><b>' + sim + '</b>' +
+          '<div class="sb-carril"><span class="sb-zona"></span><i class="sb-filo"></i></div>' +
+          '<em>' + txt + '</em></div>';
+      };
+      return '<div class="mini mini-sable" id="mini">' +
+        '<div class="sb-cab"><span class="sb-forma">FORMA ' + P.forma.num + ' · ' + U.esc(P.forma.n) + '</span>' +
+        '<span class="sb-cont" id="sb-cont">1 / ' + P.asaltos + '</span></div>' +
+        '<div class="sb-arena" id="sb-arena">' +
+        linea('alto', '▲', 'alto') + linea('medio', '▬', 'medio') + linea('bajo', '▼', 'bajo') +
+        '<div class="sb-flash" id="sb-flash"></div></div>' +
+        '<div class="sb-botones" id="sb-botones">' +
+        '<button class="sb-btn" data-sb="alto"><b>1</b> ▲ PARAR</button>' +
+        '<button class="sb-btn" data-sb="medio"><b>2</b> ▬ PARAR</button>' +
+        '<button class="sb-btn" data-sb="bajo"><b>3</b> ▼ PARAR</button>' +
+        '<button class="sb-btn esq" data-sb="esquiva"><b>4</b> ✧ ESQUIVAR</button>' +
+        '<button class="sb-btn ent" data-sb="entrar"><b>5</b> ⚔ ENTRAR</button>' +
+        '</div>' +
+        '<p class="mini-pie" id="sb-pie">Para en la línea por la que viene. Cuanto más ajustada la parada, ' +
+        'más le abres. <b>✧</b> para las estocadas, <b>⚔</b> cuando se abra él.</p>' +
+        '<div class="sb-marcador" id="sb-marcador"></div></div>';
+    }
     if (ref.minijuego === 'desenfundar') {
       return '<div class="mini mini-draw" id="mini">' +
         '<button class="draw-zona" id="draw-zona"><span id="draw-txt">ESPERA…</span></button>' +
@@ -1161,6 +1237,145 @@
     UI.pararMinijuego();
     const dif = ref.dificultad || 50;
     const s = UI.juego.s;
+
+    /* ---------- duelo de sables ----------
+       Varios intercambios seguidos. En cada uno el rival anuncia por
+       dónde entra y el filo recorre el carril: hay que responder en la
+       línea correcta y lo más ajustado posible. Parar pronto sólo te
+       cubre; parar al filo le abre la guardia. */
+    if (ref.minijuego === 'sable') {
+      const P = SW.paramsDuelo(ref);
+      const arena = $('#sb-arena'), cont = $('#sb-cont'), pie = $('#sb-pie');
+      const flash = $('#sb-flash'), marcador = $('#sb-marcador');
+      const lineas = {};
+      ['alto', 'medio', 'bajo'].forEach(function (l) {
+        lineas[l] = arena.querySelector('.sb-linea[data-l="' + l + '"]');
+      });
+      const res = { asaltos: P.asaltos, puntos: 0, perfectas: 0, buenas: 0, pronto: 0, fallos: 0,
+                    forma: ref.forma, fase: ref.fase || 0 };
+      const st = { terminado: false, timers: [], raf: 0, activo: null, n: 0, teclas: true };
+      UI.mini = st;
+      const espera = function (ms, fn) { st.timers.push(setTimeout(fn, ms)); };
+
+      const pintarMarcador = function () {
+        let h = '';
+        for (let i = 0; i < P.asaltos; i++) {
+          const v = res.marcas && res.marcas[i];
+          h += '<i class="' + (v || '') + '"></i>';
+        }
+        marcador.innerHTML = h;
+      };
+      res.marcas = [];
+      pintarMarcador();
+
+      const limpiar = function () {
+        ['alto', 'medio', 'bajo'].forEach(function (l) {
+          lineas[l].classList.remove('viene', 'estocada', 'hueco');
+          lineas[l].querySelector('.sb-filo').style.width = '0%';
+          lineas[l].querySelector('.sb-zona').style.display = 'none';
+        });
+      };
+
+      const cerrar = function (marca, txt, clase) {
+        if (st.activo) st.activo.cerrado = true;
+        cancelAnimationFrame(st.raf);
+        res.marcas.push(marca);
+        pintarMarcador();
+        pie.innerHTML = txt;
+        flash.className = 'sb-flash ' + clase;
+        espera(180, function () { flash.className = 'sb-flash'; });
+        limpiar();
+        if (res.marcas.length >= P.asaltos) { espera(520, terminar); return; }
+        espera(P.pausa, asalto);
+      };
+
+      const resolver = function (tipo, momento) {
+        const a = st.activo;
+        if (!a || a.cerrado) return;
+        const bien = tipo === a.espera;
+        if (!bien) {
+          res.fallos++; res.puntos -= 1;
+          cerrar('fallo', a.tipo === 'hueco'
+            ? '<b>Se abre y no entras.</b> Cierra la guardia y te cobra la duda.'
+            : (a.tipo === 'estocada' ? '<b>Paras una estocada.</b> No se para: se esquiva.'
+                                     : '<b>Guardia equivocada.</b> Entra por donde no mirabas.'), 'mal');
+          return;
+        }
+        const r = momento / a.ventana;
+        if (r < 0.22) {
+          res.pronto++;
+          cerrar('pronto', 'Te precipitas. Cubres, pero se recompone antes que tú.', 'flojo');
+        } else if (r < 0.58) {
+          res.buenas++; res.puntos += 1;
+          cerrar('buena', 'Parada limpia. Chispas y nada más.', 'bien');
+        } else {
+          res.perfectas++; res.puntos += 2;
+          cerrar('perfecta', a.tipo === 'hueco'
+            ? '<b>Entras por el hueco.</b> Eso le va a durar.'
+            : '<b>Al filo.</b> Le desvías la hoja y le abres entero.', 'critico');
+        }
+      };
+
+      const asalto = function () {
+        if (st.terminado) return;
+        st.n++;
+        cont.textContent = st.n + ' / ' + P.asaltos;
+        const d = Math.random();
+        let pHueco = P.pHueco + (P.empuje ? 0.12 : 0);
+        let tipo, linea, esperaTecla;
+        if (d < P.pEstocada) { tipo = 'estocada'; linea = ['alto', 'medio', 'bajo'][Math.floor(Math.random() * 3)]; esperaTecla = 'esquiva'; }
+        else if (d < P.pEstocada + pHueco) { tipo = 'hueco'; linea = ['alto', 'medio', 'bajo'][Math.floor(Math.random() * 3)]; esperaTecla = 'entrar'; }
+        else { tipo = 'corte'; linea = ['alto', 'medio', 'bajo'][Math.floor(Math.random() * 3)]; esperaTecla = linea; }
+
+        // los últimos intercambios de una fase dura van más rápidos
+        const ventana = Math.round(P.ventana * (1 - Math.min(0.22, (st.n - 1) * 0.045)));
+        const el = lineas[linea], filo = el.querySelector('.sb-filo'), zona = el.querySelector('.sb-zona');
+        el.classList.add('viene');
+        if (tipo === 'estocada') el.classList.add('estocada');
+        if (tipo === 'hueco') el.classList.add('hueco');
+        zona.style.display = 'block';
+        pie.innerHTML = tipo === 'estocada' ? 'Punta. <b>Esquiva.</b>'
+          : tipo === 'hueco' ? 'Se ha abierto. <b>Entra.</b>'
+          : 'Viene por <b>' + linea + '</b>.';
+
+        const t0 = performance.now();
+        st.activo = { tipo: tipo, linea: linea, espera: esperaTecla, ventana: ventana, t0: t0, cerrado: false };
+        const paso = function (t) {
+          if (st.terminado || !st.activo || st.activo.cerrado) return;
+          const p = (t - t0) / ventana;
+          filo.style.width = Math.min(100, p * 100) + '%';
+          if (p >= 1.08) {
+            res.fallos++; res.puntos -= 1;
+            cerrar('fallo', tipo === 'hueco' ? 'Dejas pasar el hueco. No habrá muchos más.'
+                                             : '<b>Te alcanza.</b> No has llegado.', 'mal');
+            return;
+          }
+          st.raf = requestAnimationFrame(paso);
+        };
+        st.raf = requestAnimationFrame(paso);
+      };
+
+      const terminar = function () {
+        if (st.terminado) return;
+        st.terminado = true;
+        const grado = SW.notaDuelo(res);
+        UI.juego.duelo = res;
+        UI.finMinijuego(grado, res.perfectas + ' al filo · ' + res.buenas + ' limpias · ' +
+          res.pronto + ' precipitadas · ' + res.fallos + ' encajadas');
+      };
+
+      st.pulsar = function (tipo) {
+        if (st.terminado || !st.activo || st.activo.cerrado) return;
+        resolver(tipo, performance.now() - st.activo.t0);
+      };
+      $('#sb-botones').onclick = function (ev) {
+        const b = ev.target.closest('[data-sb]');
+        if (b) st.pulsar(b.dataset.sb);
+      };
+      pie.innerHTML = 'Aguanta la guardia…';
+      espera(700, asalto);
+      return;
+    }
 
     if (ref.minijuego === 'desenfundar') {
       const zona = $('#draw-zona'), txt = $('#draw-txt');

@@ -279,6 +279,47 @@
     L.rect(19, 36, 10, 1, pal[3]);
   };
 
+  /* --- el casco. Ese casco. --- */
+  S2.casco_vader = function (L) {
+    const pal = PAL.negro;
+    // cúpula
+    for (let y = 4; y < 22; y++) {
+      const t = (y - 4) / 18;
+      const ancho = Math.round(9 + Math.sqrt(t) * 7);
+      for (let x = 24 - ancho; x <= 24 + ancho; x++) {
+        const lat = (x - (24 - ancho)) / (ancho * 2);
+        L.set(x, y, pal[lat < 0.2 ? 0 : lat < 0.52 ? 1 : lat < 0.82 ? 2 : 3]);
+      }
+    }
+    // ala de la cúpula, que es lo que le da la silueta
+    L.rect(8, 20, 32, 3, pal[2]);
+    L.rect(8, 20, 32, 1, pal[0]);
+    // máscara: mejillas anguladas
+    for (let y = 23; y < 40; y++) {
+      const t = (y - 23) / 17;
+      const ancho = Math.round(15 - t * 6);
+      for (let x = 24 - ancho; x <= 24 + ancho; x++) {
+        const lat = (x - (24 - ancho)) / (ancho * 2);
+        L.set(x, y, pal[lat < 0.16 ? 1 : lat < 0.5 ? 2 : 3]);
+      }
+    }
+    // ojos: dos triángulos que no miran a nada
+    L.rect(13, 24, 8, 4, '#1a1418');
+    L.rect(27, 24, 8, 4, '#1a1418');
+    L.rect(14, 25, 6, 2, '#3a2a30');
+    L.rect(28, 25, 6, 2, '#3a2a30');
+    // el triángulo de la nariz y la rejilla
+    L.rect(22, 27, 4, 6, pal[3]);
+    L.rect(19, 34, 10, 1, '#181c22');
+    L.rect(20, 36, 8, 1, '#181c22');
+    L.rect(21, 38, 6, 1, '#181c22');
+    // el brillo raspado de una pieza quemada
+    L.rect(16, 8, 3, 7, '#5e6874');
+    L.rect(31, 30, 2, 5, '#4a5260');
+    // el corte que le hizo alguien
+    L.rect(30, 6, 1, 9, '#7a5a3a');
+  };
+
   /* --- peto de armadura --- */
   S2.armadura = function (L, din) {
     const pal = din === 'beskar' ? PAL.beskar : PAL.hierro;

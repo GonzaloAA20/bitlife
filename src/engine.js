@@ -476,6 +476,8 @@
     if (s.muerto) return;
     if (SW.cobrarPeligro) SW.cobrarPeligro(this);
     if (SW.olvidoAtencion) SW.olvidoAtencion(this);
+    if (SW.pasoAnual) SW.pasoAnual(this);
+    if (s.muerto) return;
     this.avanzarEstudio();
     if (SW.pasoAprendiz) SW.pasoAprendiz(this);
     if (s.muerto) return;
@@ -519,6 +521,12 @@
     if (s.mision && SW.pasoMision && this.rng.chance(0.7)) {
       const p = SW.pasoMision(this);
       if (p) this.cola.push(this.prepararGen(p));
+    }
+
+    // una caza de la Inquisición no espera a que te apetezca
+    if (s.caza && SW.pasoCazaJedi && this.rng.chance(0.75)) {
+      const pc = SW.pasoCazaJedi(this);
+      if (pc) this.cola.push(this.prepararGen(pc));
     }
 
     // un contrato en marcha manda sobre lo demás: es lo que estás haciendo
@@ -726,6 +734,8 @@
         else v = parseFloat(v) || 0;
       }
       if (k === 'creditos' && v === -999999) v = -Math.max(0, s.stats.creditos);
+      // lo que llevas encima puede cambiar lo que vale cada cosa
+      if (SW.fxMod) v = SW.fxMod(s, k, v);
       // cuanto más alto está algo, menos aporta cada acierto
       if (v > 0 && s.stats[k] != null && k !== 'creditos' && k !== 'alineamiento') {
         // curva, no recta: de 0 a 70 cuesta poco, de 85 a 100 cuesta mucho
@@ -838,6 +848,10 @@
       res = rng.weighted(d.r, function (o) { return o.p == null ? 1 : o.p; });
       this.aplicarNodo(d, slots, inst, true);
     }
+    /* Qué rama ha salido: la cadena de escenas suele vivir dentro del
+       resultado sorteado («si sales vivo, sigue por aquí»), no en la
+       opción. Sin esto, media Purga se cortaba a la primera tirada. */
+    this._nodoElegido = res;
     this.aplicarNodo(res, slots, inst, false);
   };
 
@@ -882,9 +896,42 @@
     if (d.tacticaN) { this.log('› ' + op.txt, 'eleccion'); this.resolverTacticaNave(d.tacticaN); return; }
     if (d.carreraLinea) { this.log('› ' + op.txt, 'eleccion'); SW.resolverCarrera(this, d.carreraLinea); return; }
     this.cambios = {};
+    this._nodoElegido = null;
     this.elegir(inst, i);
     if (this.aplicarExtra) this.aplicarExtra(d);
     this.volcarCambios();
+    const nodo = this._nodoElegido;
+    this._nodoElegido = null;
+    this.encadenar(nodo && nodo.cadena ? nodo : d);
+  };
+
+  /* Cadena: una escena empuja la siguiente en el MISMO año. Es lo que
+     convierte la Orden 66 en una noche seguida y no en cuatro sucesos
+     sueltos repartidos por la década. Va DESPUÉS de aplicar los
+     efectos: si la elección te ha matado, no hay siguiente escena. */
+  Game.prototype.encadenar = function (d) {
+    if (!d || !d.cadena || this.s.muerto) return;
+    const id = typeof d.cadena === 'function' ? d.cadena(this) : d.cadena;
+    if (!id || !SW.ESCENAS || !SW.ESCENAS[id]) return;
+    /* si la elección ha abierto un combate, la escena siguiente no se
+       construye ahora: se guarda el nombre y se monta cuando la pelea
+       termine, con el estado ya actualizado */
+    if (this.escena) { this.colaTrasCombate = id; return; }
+    const sig = SW.ESCENAS[id](this);
+    if (!sig) { this.fase = this.cola.length ? 'evento' : this.fase; return; }
+    this.cola.unshift(this.prepararGen(sig));
+    this.fase = 'evento';
+  };
+
+  /** la escena que estaba esperando a que acabase la pelea */
+  Game.prototype.reanudarCadena = function () {
+    const id = this.colaTrasCombate;
+    this.colaTrasCombate = null;
+    if (!id || this.s.muerto || !SW.ESCENAS || !SW.ESCENAS[id]) return;
+    const sig = SW.ESCENAS[id](this);
+    if (!sig) { if (this.cola.length) this.fase = 'evento'; return; }
+    this.cola.push(this.prepararGen(sig));
+    this.fase = 'evento';
   };
 
   Game.prototype.aplicarNodo = function (d, slots, inst, soloBase) {
@@ -1169,6 +1216,44 @@
     }
     if (d.puesto) s.puestoGuerra = d.puesto;
     if (d.dejarFrente) { s.flags.en_el_frente = false; s.añosDeFrenteRestantes = 0; this.log('Te licencian. Se acabó el frente.', 'bien'); }
+
+    /* --- claves que usan las escenas encadenadas (Purga, pruebas,
+       Inquisición). Son pequeñas y no merecen cada una su gancho. --- */
+    if (d.hito) this.hito(U.fill(d.hito, slots));
+    if (d.rango) {
+      s.rango = d.rango;
+      s.padawan = /iniciado|padawan/i.test(d.rango);
+      this.log('Ahora eres <b>' + d.rango + '</b>.', 'bien');
+    }
+    if (d.ventaja && s.o66) s.o66.ventaja = (s.o66.ventaja || 0) + d.ventaja;
+    if (d.maestroAfecto && SW.miMaestro) {
+      const mm = SW.miMaestro(this);
+      if (mm) mm.afecto = U.clamp(mm.afecto + d.maestroAfecto, -100, 100);
+    }
+    if (d.relCambio) {
+      const rc = s.relaciones.filter(function (r) { return r.nombre === d.relCambio.nombre; })[0];
+      if (rc) rc.afecto = U.clamp(rc.afecto + (d.relCambio.afecto || 0), -100, 100);
+    }
+    if (d.pruebaOk && SW.contarPrueba) SW.contarPrueba(this, d);
+    if (d.hazteInquisidor && SW.hazteInquisidor) SW.hazteInquisidor(this);
+    if (d.cazaJedi && SW.marcarJediCazado) SW.marcarJediCazado(this, d.cazaJedi);
+    if (d.aceptaCaza) {
+      s.caza = Object.assign({ fase: 'rastro', intentos: 0, aviso: 0 }, d.aceptaCaza);
+      this.log('Expediente abierto: ' + s.caza.perfil.n + ' en ' + s.caza.mundo + '.', 'res');
+      if (SW.ESCENAS && SW.ESCENAS.inq_rastro) {
+        this.cola.unshift(this.prepararGen(SW.ESCENAS.inq_rastro(this)));
+        this.fase = 'evento';
+      }
+    }
+    if (d.cazaRastro && SW.resolverRastro) {
+      const sc = SW.resolverRastro(this, d.cazaRastro);
+      if (sc) { this.cola.unshift(this.prepararGen(sc)); this.fase = 'evento'; }
+    }
+    if (d.cazaCerco && SW.resolverCerco) {
+      const sc = SW.resolverCerco(this, d.cazaCerco);
+      if (sc) { this.cola.unshift(this.prepararGen(sc)); this.fase = 'evento'; }
+    }
+
     if (d.muerte) this.morir(d.muerteTxt || 'Una mala decisión, la última.');
 
     if (d.combate) this.iniciarCombate(d.combate);
@@ -1842,7 +1927,11 @@
       { t: '⛨ Defensa y contra', tactica: 'defensa', sub: 'Castiga embestidas. Poco daño contra el resto.' },
       { t: '↯ Maniobra astuta', tactica: 'astuta', sub: 'Abre guardias. Depende del intelecto.' },
       { t: '✦ Usar la Fuerza', tactica: 'fuerza', sub: 'Ignora la postura, pero cansa.', req: function (st) { return st.sensible && st.stats.fuerza > 20; } },
-      { t: '⚡ Jugártela', tactica: 'minijuego', sub: 'Todo a una jugada. Reflejos puros.' },
+      e.sables
+        ? { t: '⚔⚔ Cruzar hojas', tactica: 'minijuego',
+            sub: e.cfg.vader === 2 ? 'Lo único que le hace daño. Lee la línea y para al filo.'
+                                   : 'Intercambio de verdad: lee por dónde entra y para al filo.' }
+        : { t: '⚡ Jugártela', tactica: 'minijuego', sub: 'Todo a una jugada. Reflejos puros.' },
       { t: '⚑ Retirarte', tactica: 'huir', sub: 'Vivir para contarlo.' }
     ];
     return this.prepararGen({
@@ -1882,6 +1971,8 @@
         if (s.stats.salud <= 0 && !s.muerto) { this.morir('Le alcanzaron mientras huía.'); return; }
       }
       this.escena = null;
+      if (e.cfg.huirFatal) { this.morir(e.cfg.huirFatal); return; }
+      this.reanudarCadena();
       return;
     }
 
@@ -1892,6 +1983,9 @@
 
     const ventaja = duelo(tac, e.postura);
     let dmg = 0, recib = 0, coste = 0, txt = '';
+    /* Segunda fase de Vader: no cae a golpes. La táctica corriente sólo
+       sirve para no morir; para hacerle algo hay que cruzar hojas. */
+    const vader2 = e.cfg.vader === 2;
     const skill = e.poder, dif = e.dif;
     const cansado = e.aguante < 35 ? 0.5 : (e.aguante < 65 ? 0.78 : 1);
     // sin aire encajas peor, y un rival duro pega más fuerte siempre
@@ -1933,6 +2027,11 @@
       if (ok && s.stats.alineamiento < -30) s.stats.cordura -= 2;
     }
 
+    if (vader2) {
+      dmg *= 0.2;
+      if (this.rng.chance(0.5)) txt = 'Le pegas. Es como pegarle a una puerta blindada que además contesta.';
+    }
+
     e.aguante = U.clamp(e.aguante - coste + 6, 0, 100);
     e.hpEnemigo -= dmg;
     if (recib > 0) this.aplicarFx({ salud: -recib }, {});
@@ -1957,6 +2056,27 @@
   /* --- minijuego de reflejos dentro del combate --- */
   Game.prototype.eventoMinijuego = function () {
     const s = this.s;
+    /* Si los dos llevan sable, esto no es «pulsa cuando pase la barra»:
+       es un intercambio de golpes en el que hay que leer la línea de
+       ataque y responder con la parada correcta, y donde tu forma de
+       combate cambia el margen, el número de asaltos y lo que devuelves. */
+    if (this.escena && this.escena.sables) {
+      const f = SW.formaDuelo ? SW.formaDuelo(s.forma) : null;
+      return {
+        id: 'escena_duelo', gen: true,
+        t: '<span class="scene-tag">DUELO DE SABLES</span>' +
+           '<p>Lee de dónde viene el golpe y para ahí. Si fallas, entra.</p>' +
+           (f ? '<p class="dim">Forma ' + f.n + ' — ' + f.d + '</p>' : ''),
+        minijuego: 'sable',
+        dificultad: U.clamp(this.escena.dif || 50, 20, 99),
+        forma: s.forma || 'Shii-Cho',
+        pericia: Math.round(s.stats.destreza * 0.5 + (s.sensible ? s.stats.fuerza * 0.5 : 0) +
+          (s.habilidades.indexOf('duelista') >= 0 ? 14 : 0)),
+        rival: this.escena.cfg && this.escena.cfg.canon ? 'leyenda' : null,
+        fase: this.escena.cfg && this.escena.cfg.faseVader ? this.escena.cfg.faseVader : 0,
+        c: [{ t: 'Volver a la táctica normal', tactica: 'cancelar' }]
+      };
+    }
     // con sable se para el filo; con bláster se desenfunda; sin nada, reflejos a pelo
     const modo = s.sable ? 'filo' : (SW.tieneArmaFuego(s) ? 'desenfundar' : 'filo');
     return {
@@ -1989,6 +2109,34 @@
       pericia: Math.round(s.stats.fuerza * 0.6 + s.stats.intelecto * 0.3 + s.stats.cordura * 0.1),
       c: [{ t: 'No fiarte de la Fuerza y hacerlo a ojo', retoSalta: true }]
     }));
+    this.fase = 'evento';
+  };
+
+  /* --- duelo suelto: cruzar hojas sin que haya barra de vida ---
+     Lo usan la Purga y las cacerías: no se trata de tumbar a nadie,
+     sino de salir vivo del intercambio. El resultado entra por la
+     misma puerta que los retos de concentración. */
+  Game.prototype.retoDuelo = function (cfg) {
+    const s = this.s;
+    this.reto = cfg;
+    const f = SW.formaDuelo ? SW.formaDuelo(s.forma) : null;
+    this.cola.unshift(this.prepararGen({
+      id: cfg.id || 'reto_duelo', gen: true,
+      t: '<span class="scene-tag">' + (cfg.tag || 'HOJA CONTRA FUEGO') + '</span>' +
+         '<p>' + (cfg.txt || 'Lee de dónde viene y responde en esa línea.') + '</p>' +
+         (f ? '<p class="dim">Forma ' + f.num + ' · ' + f.n + ' — ' + f.d + '</p>' : ''),
+      minijuego: 'sable',
+      modo: cfg.modo || 'desvio',
+      dificultad: U.clamp(cfg.dif || 60, 15, 99),
+      forma: s.forma || (s.sable && s.sable.forma) || 'Shii-Cho',
+      pericia: Math.round(s.stats.destreza * 0.5 + (s.sensible ? s.stats.fuerza * 0.5 : 0) +
+        (s.habilidades.indexOf('duelista') >= 0 ? 14 : 0)),
+      fase: cfg.fase || 0,
+      rival: cfg.rival || null,
+      asaltos: cfg.asaltos || 0,
+      c: cfg.c || [{ t: 'Bajar la hoja y aceptar lo que venga', retoSalta: true }]
+    }));
+    this.fase = 'evento';
   };
 
   /** llamado por la interfaz con el resultado del minijuego */
@@ -1998,13 +2146,17 @@
     if (this.reto) {
       const r = this.reto;
       this.reto = null;
+      this.duelo = null;
       const nodo = grado >= 2 ? (r.critico || r.bien)
                  : grado === 1 ? r.bien
                  : grado === 0 ? (r.medio || r.mal) : r.mal;
       if (nodo) { this.cambios = {}; this.aplicarNodo(nodo, {}, null, false); this.volcarCambios(); }
-      if (grado >= 1) this.aplicarFx({ fuerza: grado === 2 ? 6 : 3 }, {});
-      else if (grado < 0) this.aplicarFx({ cordura: -5 }, {});
+      if (grado >= 1 && !r.sinPremio) this.aplicarFx({ fuerza: grado === 2 ? 6 : 3 }, {});
+      else if (grado < 0 && !r.sinPremio) this.aplicarFx({ cordura: -5 }, {});
       clampStats(this.s);
+      // un reto también puede empujar la escena siguiente del mismo año
+      if (nodo) this.encadenar(nodo);
+      if (r.despues && !this.s.muerto) this.encadenar({ cadena: r.despues });
       if (!this.cola.length && !this.s.muerto) this.fase = 'menu';
       return;
     }
@@ -2029,6 +2181,29 @@
       }
       return;
     }
+    /* Duelo de sables: el daño no sale de una tabla de cuatro casillas,
+       sino de lo que ha pasado intercambio a intercambio y de la forma
+       con la que peleas. */
+    if (this.duelo) {
+      const res = this.duelo;
+      this.duelo = null;
+      const d = SW.dañoDuelo(this, res);
+      e.aguante = U.clamp(e.aguante - (d.forma.coste || 18), 0, 100);
+      e.hpEnemigo -= d.dmg;
+      if (d.recib > 0) this.aplicarFx({ salud: -d.recib }, {});
+      if (d.forma.oscuro && res.perfectas >= 2) {
+        this.aplicarFx({ cordura: -3, alineamiento: -3 }, {});
+        this.log('Vaapad te devuelve lo que le das. Disfrutas más de lo que deberías.', 'mal');
+      }
+      const bueno = d.dmg > d.recib;
+      this.log((res.fallos === 0 ? 'No te toca ni una vez. ' : '') +
+        (res.perfectas >= 3 ? 'Le has leído entero. ' : '') +
+        '<span class="dim">(le haces ' + d.dmg + ', recibes ' + d.recib + ')</span>', bueno ? 'bien' : 'mal');
+      if (grado >= 2) s.stats.reputacion += 2;
+      this.siguienteAsalto();
+      return;
+    }
+
     // grado: 2 crítico · 1 bien · 0 flojo · -1 fallo
     let dmg = 0, recib = 0, txt = '';
     const pega = (e.golpe || 1);
@@ -2051,6 +2226,10 @@
   Game.prototype.finCombate = function (victoria) {
     const e = this.escena, s = this.s;
     if (!e) return;
+    /* Algunas peleas no acaban donde acaba la barra de vida: la de
+       Vader tiene dos fases y la caza de un jedi tiene un después.
+       El gancho puede quedarse con el final entero. */
+    if (SW.finCombateExtra && SW.finCombateExtra(this, e, victoria)) return;
     // una misión de la Orden que se resuelve a golpes se cierra aquí
     if (e.cfg.mision && SW.cerrarMision) SW.cerrarMision(this, 'combate', victoria ? 1 : -1);
     if (victoria) {
@@ -2079,12 +2258,13 @@
     } else {
       const hp = e.hpEnemigo;
       this.escena = null;
-      if (SW.consecuenciaDerrota) { SW.consecuenciaDerrota(this, e.cfg, hp); return; }
+      if (SW.consecuenciaDerrota) { SW.consecuenciaDerrota(this, e.cfg, hp); this.reanudarCadena(); return; }
       this.log('El enemigo aguanta más que tú. Te retiras maltrecho.', 'mal');
       this.aplicarFx({ salud: -10, cordura: -6, reputacion: -4 }, {});
     }
     this.escena = null;
     if (this.s.stats.salud <= 0 && !this.s.muerto) this.morir('Heridas de combate.');
+    this.reanudarCadena();
   };
 
   /* ---------------- Combate espacial ---------------- */
@@ -2539,6 +2719,12 @@
     if (id === 'orden' && SW.menuOrden) {
       const m = SW.menuOrden(this);
       if (m) { this.cola.push(this.prepararGen(m)); this.fase = 'evento'; return; }
+    }
+    if (id === 'inquisicion' && SW.menuInquisicion) {
+      const m = SW.menuInquisicion(this);
+      if (m) { this.cola.push(this.prepararGen(m)); this.fase = 'evento'; }
+      this.actividadUsada = s.acciones <= 0; this.fase = this.cola.length ? 'evento' : 'menu';
+      return;
     }
     const pool = SW.ACTOS[id] || [];
     let posibles = this.eventosPosibles(pool);

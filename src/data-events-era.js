@@ -190,7 +190,11 @@
   /* ---- guion: la Purga no puede depender del azar ---- */
   push(SW.GUION, [
   {
-    id: 'gc_orden66_jedi', min: 22, max: 200, prio: 100, era: ['guerras_clon'], req: esJedi, unaVez: true,
+    /* La Purga de un jedi vive en data-orden66.js: una cadena de escenas
+       dentro del mismo año. Esto queda de red por si aquel guion no
+       llega a dispararse (por ejemplo, en una era sin calendario). */
+    id: 'gc_orden66_jedi', min: 22, max: 200, prio: 40, era: ['guerras_clon'], unaVez: true,
+    req: function (s) { return esJedi(s) && !s.flags.o66_vivida && !s.flags.orden66_pasada; },
     t: '<b>Los soldados que llevan meses a tu lado se giran a la vez.</b> No hay aviso. No hay motivo. Sus rifles suben.',
     c: [
       { t: 'Correr', r: [

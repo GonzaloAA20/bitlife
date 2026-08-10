@@ -60,6 +60,45 @@ Los maestros también tienen nombre: al entrar en la Orden (o al arrodillarte an
 ### El camino de la Fuerza
 No es una carrera más. Un jedi **no puede casarse** (o lo hace en secreto, y eso tiene su propio evento), **no acumula posesiones**, recibe misiones del Consejo y **no se alista en ningún ejército** — ni siquiera en las Guerras Clon, donde el rango de general se lo dan sin preguntarle. Un sith tampoco se alista: manipula. Y llegado el momento se topa con la **Regla de los Dos**, que solo tiene una salida limpia y ninguna cómoda.
 
+### La Orden 66
+No es un evento con cuatro botones: es **una noche entera encadenada dentro del mismo año**. Cae en el año que le toca —**19 ABY**, calculado sobre el calendario galáctico, no sobre tu edad— y lo que te pasa depende de **lo que eres** cuando suena la orden.
+
+- **Caballero o maestro jedi**: la orden, el pasillo a la carrera desviando disparos (minijuego de sable), la salida del cerco y la **baliza del Templo**, que llama a todos los supervivientes a volver a casa y ha sido reescrita hace seis horas. Sobrevivir ronda el **43%** con decisiones al azar; jugando bien sube por encima del 75% y jugando mal baja del 5%.
+- **Padawan**: es más duro (**~39%**) y depende de **tu maestro** —su pericia y lo que os tengáis—, que puede **quedarse atrás para que tú subas a la lanzadera**. Y después, un control de salida imperial que un crío con trenza no sabe cruzar.
+- **Clon**: la orden entra por debajo del casco y resistirse es un minijuego de concentración contra tu propio chip. Matar a tu general **no es un botón**: es un jedi a doce metros con la hoja encendida, y hay cuatro formas de intentarlo, todas caras.
+- **Civil**: la Purga desde una ventana, y a la mañana siguiente el registro puerta por puerta.
+
+Si llegas a la Purga con el alineamiento neutro o tirando a oscuro, **puede** aparecer una mujer con una capa sin insignias y una oferta. Es raro y no siempre pasa.
+
+### La Inquisición y el casco
+Si aceptas, tienes pestaña propia y **años de cacería**: rastrear (Fuerza, presión, papeleo o hacer de cebo), cercar y cerrar. Cada jedi que cierras llena **una barra junto a un casco negro en la cabecera**. Cuando se llena, alguien decide que has crecido demasiado y baja a verlo en persona.
+
+La pelea con **Darth Vader** tiene dos fases. La primera es dura y se puede ganar. Después se para, ladea la cabeza y dice una frase; a partir de ahí una parada limpia ya no le hace nada —solo cuentan las que le abren la guardia— y cada hueco que dejas se paga entero. Ganar es **casi imposible**: menos del 1% jugando muy bien, y no llega al 7% jugando de forma prácticamente perfecta con la forma adecuada.
+
+Si lo consigues, se desbloquea el **casco de Vader**, que se guarda entre partidas y puedes equipar en el creador de cualquier vida futura: la fama cuenta casi el doble y algo tira de ti hacia abajo un poco cada año.
+
+Y si sobreviviste a la Purga y **no** aceptaste, son ellos los que vienen: escondido bien, tres de cada cuatro reciben al menos una visita en veinte años; buscando a otros supervivientes, todos.
+
+### Las pruebas de Caballero
+Un padawan no pasa a jedi por acumular años. Hay **cinco pruebas y se hacen seguidas en el mismo día**: Pericia (duelo contra un miembro del Consejo), Valor, la Carne (esta no se aprueba, se paga: un apego, un brazo o el miedo a morir), el Espíritu y la Perspicacia. Con tres superadas te cortan la trenza. Con menos, «dentro de unos años» — y eso es literal: vuelve a tocar a los tres.
+
+### Duelos de sable
+Cuando los dos lleváis sable, *jugártela* deja de ser un botón y pasa a ser **cruzar hojas**: varios intercambios seguidos en los que el rival anuncia por dónde entra —alto, medio o bajo— y hay que responder en la línea correcta y **lo más ajustado posible**. Parar pronto solo te cubre; parar al filo le abre la guardia. Hay estocadas que no se paran (se esquivan) y huecos por los que hay que entrar.
+
+**La forma importa**, y mucho:
+
+| Forma | Margen | Intercambios | Contra | Encajas |
+|---|---|---|---|---|
+| I · Shii-Cho | normal | 5 | — | poco |
+| II · Makashi | amplio | 5 | alta | normal |
+| III · Soresu | el más amplio | 7 | baja | casi nada |
+| IV · Ataru | estrecho | 6 | muy alta | mucho |
+| V · Shien/Djem So | justo | 5 | alta, crece con los golpes recibidos | bastante |
+| VI · Niman | normal | 5 | media | poco |
+| VII · Juyo/Vaapad | el más estrecho | 6 | brutal | mucho, y te arrastra al lado oscuro |
+
+Contra disparos de bláster el reparto cambia: Makashi casi no sirve y Soresu es un muro. Contra Vader en su segunda fase, Soresu te mantiene vivo y no le mata; hace falta una forma que devuelva de verdad.
+
 ### Heridas
 Un golpe fuerte no baja la salud y ya: abre una **herida** que reduce tu salud máxima mientras siga abierta y tarda años en cerrar sola. Se puede acelerar en una clínica pagando. La salud, mientras tanto, se regenera lentamente hasta el techo que dejen las heridas.
 
@@ -69,7 +108,7 @@ Un golpe fuerte no baja la salud y ya: abre una **herida** que reduce tu salud m
 - Cada era tiene sus propias carreras, facciones, estudios y eventos.
 
 ### Ser un clon
-Una especie jugable con guion propio: naces en Kamino con una designación CT-, **envejeces al doble**, tienes hermanos de lote idénticos y un chip en la cabeza. Instrucción, asignación de especialidad, primer despliegue, apodo de unidad, pintar la armadura, deserción… y la **Orden 66**, que llega sí o sí y cuya resolución depende de si descubriste el chip a tiempo.
+Una especie jugable con guion propio: naces en Kamino con una designación CT-, **envejeces al doble**, tienes hermanos de lote idénticos y un chip en la cabeza. Instrucción, asignación de especialidad, primer despliegue, apodo de unidad, pintar la armadura, deserción… y la **Orden 66**, que llega sí o sí, ocupa varias escenas seguidas y cuya resolución depende de si descubriste el chip a tiempo.
 
 ### Sistemas
 - **11 estadísticas** (salud, Fuerza, destreza, intelecto, carisma, suerte, cordura, reputación, notoriedad, alineamiento y créditos).
@@ -77,7 +116,8 @@ Una especie jugable con guion propio: naces en Kamino con una designación CT-, 
 - **La Fuerza**: sensibilidad de nacimiento o despertar tardío, poderes de luz y oscuridad, cristales kyber, construcción de sable (8 colores) y formas de combate.
 - **Naves**: compra, mejoras, estado del casco, rutas de carga legales y no tanto, polizones y averías.
 - **Combate por lectura, no por fuerza bruta**: el rival telegrafía su postura (embestida, guardia o finta) y hay un triángulo — agresivo rompe fintas, defensa castiga embestidas, la maniobra astuta abre guardias. Medido sobre 1.000 combates: leer la postura gana el **91%**; ir siempre a saco, el 60% y a costa de salud y aguante; elegir siempre mal, el 1%.
-- **Minijuegos de reflejos**: en cualquier asalto puedes *jugártela*. Con arma de fuego es un duelo al desenfundar (esperas la señal y disparas; si te adelantas, pierdes); con sable, detener el filo dentro de la guardia abierta. La ventana depende de tu destreza y de la dificultad.
+- **Minijuegos de reflejos**: en cualquier asalto puedes *jugártela*. Con arma de fuego es un duelo al desenfundar (esperas la señal y disparas; si te adelantas, pierdes); sin sable, detener el filo dentro de la guardia abierta. La ventana depende de tu destreza y de la dificultad. **Si los dos lleváis sable es otra cosa**: ver «Duelos de sable» más arriba.
+- **Escenas encadenadas**: una decisión puede empujar a la siguiente escena dentro del mismo año, sin pasar por el menú. Es lo que convierte la Orden 66 en una noche seguida y las pruebas de Caballero en un solo día.
 - **Relaciones**: familia, amistades, parejas, rivales, socios, aprendices, hijos, droides y mascotas, con nivel de afecto.
 - **Facciones**: Imperio, Rebelión, Orden Jedi, Sith, cárteles Hutt, mandalorianos, Sol Negro y más, con reputación propia.
 - **Prisión, deudas, adicciones, guerra, epidemias, herencias, legado y vejez.**
@@ -151,6 +191,9 @@ src/data-events-nave.js      eventos que exigen una mejora concreta montada
 src/data-carrera.js          carreras de naves: circuitos, trazadas y accidentes
 src/data-fuerza.js           el camino jedi y sith, con sus renuncias
 src/data-fuerza-atencion.js  quién se fija en ti: reclutamiento, amenaza o cacería
+src/duelo-sable.js           las siete formas, el duelo por intercambios y las reliquias
+src/data-orden66.js          la Purga encadenada por rama y las pruebas de Caballero
+src/data-inquisidor.js       cacerías, la barra de Vader y el jefe final en dos fases
 src/engine.js                estado, ciclo anual, efectos, combate, muerte
 src/summary.js               tarjeta de vida, enlaces para compartir, métricas
 src/ui.js                    interfaz completa

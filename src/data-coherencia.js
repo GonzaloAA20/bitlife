@@ -81,6 +81,13 @@
       if (s.contrato) return true;
       return true;
     }
+    /* Después de la Orden 66 no hay Consejo que reparta misiones, ni
+       Templo al que volver: un jedi superviviente no «va a la Orden»,
+       se esconde. */
+    if (id === 'orden') {
+      if (s.flags.orden66_pasada || s.flags.superviviente_purga) return false;
+      return true;
+    }
     if (id === 'gremio') return !!s.flags.en_el_gremio;
     if (id === 'senado') return !!s.flags.en_el_senado;
     if (id === 'fuerza') return s.sensible || s.stats.fuerza > 5;
@@ -221,10 +228,14 @@
       if (fueraDelEjercito) return false;
       if (clon && ['rebelion', 'nueva_republica', 'primera_orden'].indexOf(s.era) >= 0) return false;
     }
-    // la vida de la Orden se acaba con la Orden 66
-    if (JEDI_EV.test(id) && (s.flags.ejecuto_orden66 || s.flags.orden66_pasada)) {
+    // la vida de la Orden se acaba con la Orden 66: ni misiones, ni
+    // maestro, ni pruebas de caballero, ni padawan que tomar
+    if ((JEDI_EV.test(id) || /^(pd_|prueba_)/.test(id)) &&
+        (s.flags.ejecuto_orden66 || s.flags.orden66_pasada)) {
       if (s.trabajo !== 'jedi') return false;
     }
+    // un inquisidor no vive escenas de la Orden ni de la vida del Templo
+    if ((JEDI_EV.test(id) || /^(pd_|prueba_)/.test(id)) && s.flags.inquisidor) return false;
     // eventos atados a un mundo que ya no existe
     if (e.mundo && e.mundo.length === 1 && !SW.mundoViable(e.mundo[0], s.era)) return false;
     return true;

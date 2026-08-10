@@ -156,9 +156,14 @@
         { t: 'Fallar las pruebas a propósito', sub: 'A ver qué pasa con los que no sirven.', fx: { cordura: -10, intelecto: 8, reputacion: -12 }, flag: 'marcado_defectuoso', out: 'Te mandan a mantenimiento en Kamino. Ves salir a tus hermanos sin ti.' }
       ]
     },
+    /* La Orden 66 de un clon vive ahora en data-orden66.js: es una
+       cadena de escenas dentro del mismo año (el chip, el general que
+       se defiende, el minuto siguiente) y no una sola pantalla con
+       cuatro botones. Esta entrada queda como red de seguridad por si
+       aquel guion no llega a dispararse. */
     {
-      id: 'cl_orden66', min: 20, max: 46, prio: 100, esp: CLON, era: ['guerras_clon'], unaVez: true,
-      slots: { n: 'nombre' },
+      id: 'cl_orden66', min: 20, max: 46, prio: 40, esp: CLON, era: ['guerras_clon'], unaVez: true,
+      req: function (s) { return !s.flags.o66_vivida && !s.flags.orden66_pasada; },
       t: '<b>Buena ejecución de la Orden 66.</b><br>La voz llega por el canal general. Es un código antiguo. A tu lado, tu general jedi se gira hacia ti sin entender nada.',
       c: [
         { t: 'Obedecer', req: function (s) { return !s.flags.chip_extraido; },

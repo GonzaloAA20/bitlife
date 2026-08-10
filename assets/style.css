@@ -1165,3 +1165,134 @@ body.sin-crt::after { display: none; }
 .atajos b { color: var(--txt-dim); }
 @media (pointer: coarse) { .atajos { display: none; } }
 .stat[title] { cursor: help; }
+
+/* ============================================================
+   DUELO DE SABLES
+   Tres líneas de guardia, el filo recorriendo el carril y una
+   franja al final que es donde la parada abre al rival.
+   ============================================================ */
+.mini-sable { display: flex; flex-direction: column; gap: 10px; }
+.sb-cab {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .16em;
+  color: var(--txt-dim); text-transform: uppercase;
+}
+.sb-forma { color: var(--ambar); }
+.sb-cont { color: var(--txt); }
+.sb-arena {
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  padding: 10px; border: 1px solid var(--linea); background: #07090c;
+  border-radius: 3px; overflow: hidden;
+}
+.sb-linea {
+  display: grid; grid-template-columns: 22px 1fr 52px; align-items: center; gap: 8px;
+  opacity: .35; transition: opacity .12s;
+}
+.sb-linea b { font-size: 15px; color: var(--txt-dim); text-align: center; }
+.sb-linea em { font-style: normal; font-family: var(--mono); font-size: 9px;
+  letter-spacing: .14em; color: var(--txt-dim); text-transform: uppercase; }
+.sb-linea.viene { opacity: 1; }
+.sb-linea.viene b { color: var(--cian); text-shadow: 0 0 12px rgba(58,214,255,.6); }
+.sb-linea.viene em { color: var(--txt); }
+.sb-carril {
+  position: relative; height: 16px; background: #0d1116;
+  border: 1px solid #1c232a; border-radius: 2px; overflow: hidden;
+}
+.sb-zona {
+  display: none; position: absolute; top: 0; bottom: 0; right: 0; width: 42%;
+  background: linear-gradient(90deg, rgba(255,176,58,0), rgba(255,176,58,.22));
+  border-left: 1px dashed rgba(255,176,58,.5);
+}
+.sb-filo {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 0;
+  background: linear-gradient(90deg, rgba(255,77,94,0), rgba(255,77,94,.75));
+  box-shadow: 2px 0 12px rgba(255,77,94,.7);
+}
+.sb-linea.estocada .sb-filo { background: linear-gradient(90deg, rgba(201,138,255,0), rgba(201,138,255,.8)); box-shadow: 2px 0 12px rgba(201,138,255,.7); }
+.sb-linea.estocada b { color: var(--morado); }
+.sb-linea.hueco .sb-filo { background: linear-gradient(90deg, rgba(106,255,138,0), rgba(106,255,138,.7)); box-shadow: 2px 0 12px rgba(106,255,138,.6); }
+.sb-linea.hueco b { color: var(--verde); }
+.sb-flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .12s; }
+.sb-flash.bien { background: rgba(58,214,255,.12); opacity: 1; }
+.sb-flash.critico { background: rgba(255,176,58,.2); opacity: 1; }
+.sb-flash.flojo { background: rgba(138,146,152,.14); opacity: 1; }
+.sb-flash.mal { background: rgba(255,77,94,.22); opacity: 1; }
+
+.sb-botones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sb-btn {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .1em; padding: 12px 4px;
+  min-height: 46px; color: var(--txt); background: var(--panel2);
+  border: 1px solid var(--linea); border-radius: 3px; cursor: pointer;
+}
+.sb-btn b { color: var(--txt-dim); font-weight: 400; margin-right: 4px; }
+.sb-btn:hover, .sb-btn:active { border-color: var(--cian); color: #cfefff; background: #101a20; }
+.sb-btn.esq { border-color: #3d2a52; }
+.sb-btn.esq:hover, .sb-btn.esq:active { border-color: var(--morado); color: #e6d4ff; }
+.sb-btn.ent { border-color: #23472e; }
+.sb-btn.ent:hover, .sb-btn.ent:active { border-color: var(--verde); color: #d4ffdf; }
+
+.sb-marcador { display: flex; gap: 4px; justify-content: center; }
+.sb-marcador i { width: 12px; height: 4px; background: #1c232a; border-radius: 2px; }
+.sb-marcador i.perfecta { background: var(--ambar); box-shadow: 0 0 8px rgba(255,176,58,.6); }
+.sb-marcador i.buena    { background: var(--cian); }
+.sb-marcador i.pronto   { background: #4a5259; }
+.sb-marcador i.fallo    { background: var(--rojo); }
+
+@media (max-width: 480px) {
+  .sb-botones { grid-template-columns: repeat(3, 1fr); }
+  .sb-btn { font-size: 10px; letter-spacing: .04em; }
+  .sb-linea { grid-template-columns: 18px 1fr 40px; }
+}
+
+/* ---- la frase de Vader entre las dos fases ---- */
+.vader-linea {
+  border-left: 2px solid var(--rojo); padding: 8px 0 8px 12px; margin: 12px 0;
+  font-size: 16px; line-height: 1.5; color: #f0d6d9;
+  text-shadow: 0 0 18px rgba(255,77,94,.25);
+}
+.vader-linea b { color: #fff; letter-spacing: .04em; }
+
+/* ---- barra de atención de Vader en la cabecera ---- */
+.tb-aviso.vader { flex-direction: row; align-items: center; gap: 7px; border-color: #4a1c22; }
+.tb-aviso.vader .vader-col { display: flex; flex-direction: column; gap: 3px; }
+.tb-aviso.vader.alto { border-color: #7a2028; background: linear-gradient(180deg,#1c0a0d,#12070a); }
+.tb-aviso.vader.lleno { border-color: var(--rojo); animation: vaderPulso 1.1s ease-in-out infinite; }
+@keyframes vaderPulso { 0%,100% { box-shadow: 0 0 0 rgba(255,77,94,0); } 50% { box-shadow: 0 0 16px rgba(255,77,94,.55); } }
+.tb-aviso.vader span:last-child { font-family: var(--mono); font-size: 9px; color: var(--txt-dim); }
+.vader-barra { width: 44px; height: 5px; background: #1c232a; border-radius: 3px; overflow: hidden; }
+.vader-barra i { display: block; height: 100%; background: linear-gradient(90deg,#7a2028,var(--rojo)); }
+/* La silueta del casco, dibujada con dos gradientes: la cúpula clara
+   arriba, los ojos negros en medio y la rejilla apuntando abajo. */
+.casco-vader {
+  width: 17px; height: 20px; display: inline-block; flex: 0 0 auto;
+  clip-path: polygon(50% 0%, 84% 12%, 96% 42%, 78% 58%, 86% 86%, 50% 100%, 14% 86%, 22% 58%, 4% 42%, 16% 12%);
+  background:
+    linear-gradient(180deg, #6b7482 0%, #39414d 34%, #22272f 55%, #14171c 100%);
+  position: relative;
+}
+.casco-vader::before {
+  content: ''; position: absolute; left: 11%; right: 11%; top: 38%; height: 20%;
+  background: #07080a;
+  clip-path: polygon(0 0, 38% 18%, 62% 18%, 100% 0, 100% 74%, 60% 100%, 40% 100%, 0 74%);
+}
+.tb-aviso.vader.alto .casco-vader::before { background: #1c0a0d; box-shadow: 0 0 6px rgba(255,77,94,.5); }
+.tb-aviso.vader.lleno .casco-vader::before { background: #3a0d12; box-shadow: 0 0 10px rgba(255,77,94,.9); }
+.tb-aviso.caza { border-color: #5a3a12; }
+
+/* ---- reliquias en el creador ---- */
+.reliquias .chip.rel { border-color: #5a2028; color: #f0c8cc; }
+.reliquias .chip.rel.on { background: #240a0e; border-color: var(--rojo); color: #fff; }
+/* durante el duelo la opción de escape no lleva número: el teclado es del duelo */
+.op.sin-n { padding-left: 14px; }
+/* reliquias desbloqueadas, en la portada */
+.reliquias-inicio {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center;
+  margin: 14px 0 4px;
+}
+.reliquias-inicio span {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; padding: 4px 10px;
+  color: #f0c8cc; border: 1px solid #5a2028; background: #180a0c; border-radius: 2px;
+}
+.reliquias-inicio em {
+  font-style: normal; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--txt-dim);
+}
