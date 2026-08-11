@@ -102,6 +102,19 @@ Contra disparos de bláster el reparto cambia: Makashi casi no sirve y Soresu es
 ### Heridas
 Un golpe fuerte no baja la salud y ya: abre una **herida** que reduce tu salud máxima mientras siga abierta y tarda años en cerrar sola. Se puede acelerar en una clínica pagando. La salud, mientras tanto, se regenera lentamente hasta el techo que dejen las heridas.
 
+### Mundos que dejan de existir
+Seis planetas tienen **fecha exacta de destrucción** en años galácticos, no «a partir de tal época»: Mandalore (19 ABY), Kamino (18 ABY), Alderaan, Jedha y Scarif (los tres el año 0) y Hosnian Prime (34 DBY). Antes de esa fecha se puede vivir allí y viajar allí con normalidad; después, el mapa te desvía a un refugio.
+
+Y si te pilla dentro, **el día es una escena de la que se puede no salir**:
+
+- Los finales que avisan —un desmantelamiento, una campaña— te dan uno o tres años de margen y una escena de evacuación con buenas probabilidades. En Kamino, con tiempo, sale el 84%.
+- Los que no avisan son un disparo desde la órbita. En Alderaan, a pie, **sobrevive el 15%**; con nave propia en el hangar, el 51%; quedándote, ninguno. Sacar a otra gente primero baja tus posibilidades a propósito.
+- Si no lo consigues, **mueres allí**: «Estaba en Alderaan el día que dejó de existir».
+
+Tampoco se puede *nacer* en un mundo que ya no existe: el creador filtra las cunas por el año en el que naces, así que Alderaan desaparece de la lista si eliges la Primera Orden.
+
+Hay un auditor para todo esto: `node tools/auditar-tiempo.js` cruza especies × épocas × mundos × años y saca lo que no cuadra.
+
 ### La época manda
 - Solo puedes presentarte al Templo Jedi en las eras en que la Orden existe. Durante la Purga, ser sensible a la Fuerza es un delito con recompensa.
 - El **Gran Ejército de la República** admite clones y jedi al mando. Un civil que se aliste en las Guerras Clon va a una fuerza de defensa planetaria, a la Confederación o al contrabando: al alistarte **eliges bando explícitamente** entre los que existen en tu era.

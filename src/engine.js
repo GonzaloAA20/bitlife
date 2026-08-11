@@ -1075,6 +1075,8 @@
     /* Un oficio a la vez, y avisando. Antes tomarEmpleo pisaba el
        anterior en silencio: te metías en el Gremio y seguías «siendo»
        mecánico, con las dos pestañas abiertas y ninguna coherente. */
+    if (d.finMundo && SW.resolverFinDeMundo) { SW.resolverFinDeMundo(this, d.finMundo); return; }
+
     /* ---- vida de clon: destino, traslado y deserción ---- */
     if (d.pedirDestino && SW.asignarDestino) {
       const pd = d.pedirDestino;
@@ -2037,11 +2039,12 @@
     if (!SW.mundo(d)) { this.log('No hay forma de llegar allí.', 'mal'); return; }
     /* Y un destino que en esta época ya no existe tampoco vale: nadie se
        muda a Alderaan en el 40 DBY. */
-    if (SW.mundoViable && !SW.mundoViable(d, s.era)) {
+    if (SW.mundoViable && !SW.mundoViable(d, s.era, SW.anioGalactico ? SW.anioGalactico(s) : null)) {
       const caido = (SW.MUNDOS_CAIDOS || {})[d];
       this.log(caido ? caido.txt : 'Allí ya no queda nada a donde llegar.', 'mal');
       const alt = SW.refugioDe ? SW.refugioDe(rng, d) : this.mundoCercano();
-      if (!alt || alt === d || !SW.mundo(alt) || !SW.mundoViable(alt, s.era)) return;
+      if (!alt || alt === d || !SW.mundo(alt) ||
+          !SW.mundoViable(alt, s.era, SW.anioGalactico ? SW.anioGalactico(s) : null)) return;
       this.log('Acabas en ' + alt + ', que es lo más cerca que se puede llegar.', 'res');
       return this.mover(alt, motivo);
     }

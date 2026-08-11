@@ -35,7 +35,12 @@
     { id: 'chagriano', n: 'Chagriano', vida: 96, mods: { intelecto: 14, carisma: 12, fisico: -4 }, rasgo: 'Voz de anfiteatro. Naciste para presidir algo.', home: ['Champala'] },
     { id: 'muun', n: 'Muun', vida: 100, mods: { intelecto: 20, carisma: 6, fisico: -12, creditos: 20000 }, rasgo: 'Banca intergaláctica en la sangre. El interés compuesto es tu religión.', home: ['Muunilinst'] },
     { id: 'neimoidiano', n: 'Neimoidiano', vida: 88, mods: { intelecto: 12, carisma: 8, fisico: -8, creditos: 12000, reputacion: -8 }, rasgo: 'Gremio de Comercio. Cobarde y riquísimo, en ese orden.', home: ['Neimoidia', 'Cato Neimoidia'] },
-    { id: 'kaminoano', n: 'Kaminoano', vida: 92, mods: { intelecto: 24, cordura: 10, fisico: -10, carisma: -8 }, rasgo: 'Genética por encima de ética. Muy alto, muy frío.', home: ['Kamino'] },
+    /* Kamino se desmantela en el 18 ABY y los kaminoanos no tienen otro
+       mundo. Los que quedaron trabajan para quien les pague, así que se
+       les añaden dos destinos de diáspora y se les cierra la Primera
+       Orden: nacer kaminoano en el 10 DBY dejaba una cuna imposible. */
+    { id: 'kaminoano', n: 'Kaminoano', vida: 92, mods: { intelecto: 24, cordura: 10, fisico: -10, carisma: -8 }, rasgo: 'Genética por encima de ética. Muy alto, muy frío.', home: ['Kamino', 'Nar Shaddaa', 'Coruscant'],
+      soloEra: ['alta_republica', 'republica_tardia', 'guerras_clon', 'imperio_temprano', 'rebelion', 'nueva_republica'] },
     { id: 'quarren', n: 'Quarren', vida: 84, mods: { intelecto: 8, destreza: 8, carisma: -6, notoriedad: 6 }, rasgo: 'Del mismo mundo que los mon calamari y en el bando contrario.', home: ['Mon Cala'] },
     { id: 'ortolano', n: 'Ortolano', vida: 78, mods: { carisma: 14, intelecto: 6, fisico: -6 }, rasgo: 'Oído absoluto. La música te sale sin pedir permiso.', home: ['Orto'] },
     { id: 'bith', n: 'Bith', vida: 82, mods: { intelecto: 18, carisma: 8, fisico: -10 }, rasgo: 'Manos precisas y oído analítico. Músico o cirujano.', home: ['Clak\'dor VII'] },

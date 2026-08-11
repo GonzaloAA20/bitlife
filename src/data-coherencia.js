@@ -31,7 +31,9 @@
     'Scarif': { desde: ['nueva_republica', 'primera_orden'],
                 txt: 'De Scarif queda un cinturón de escombros y un mar hirviendo.' },
     'Jedha': { desde: ['nueva_republica', 'primera_orden'],
-               txt: 'La Ciudad Santa se la llevó un disparo de prueba. Queda el cráter.' }
+               txt: 'La Ciudad Santa se la llevó un disparo de prueba. Queda el cráter.' },
+    'Hosnian Prime': { desde: [],
+               txt: 'El sistema Hosnian se apagó en una tarde, con la Nueva República dentro.' }
   };
 
   /** ¿se puede vivir aquí en esta época? */
@@ -154,10 +156,16 @@
      ============================================================ */
   SW.GUION = SW.GUION || [];
 
-  /* tu mundo deja de existir bajo tus pies */
+  /* Tu mundo deja de existir bajo tus pies. Esto es la red de
+     seguridad para los mundos sin fecha exacta: los que la tienen los
+     lleva `fm_final` (data-fin-de-mundo.js), que sí se puede fallar y
+     donde sí te puedes quedar dentro. */
   SW.GUION.push({
     id: 'coh_mundo_caido', min: 0, max: 200, prio: 95,
-    req: function (s) { return !SW.mundoViable(s.mundo, s.era) && !s.flags['evacuado_' + s.mundo]; },
+    req: function (s) {
+      if (SW.FIN_DE_MUNDO && SW.FIN_DE_MUNDO[s.mundo]) return false;
+      return !SW.mundoViable(s.mundo, s.era) && !s.flags['evacuado_' + s.mundo];
+    },
     t: 'Aquí ya no se puede seguir.',
     c: [{ t: 'Salir de aquí como sea', evacuar: true }]
   });
@@ -182,10 +190,12 @@
     ]
   });
 
-  /* Kamino cae: un clon que siga allí tiene que salir */
+  /* Kamino cae. Sólo salta si no lo ha cogido ya el módulo de fin de
+     mundo, que lo data en el 18 ABY y da tres años de aviso. */
   SW.GUION.push({
     id: 'coh_kamino', min: 0, max: 200, prio: 92, unaVez: true,
     req: function (s) {
+      if (SW.FIN_DE_MUNDO && SW.FIN_DE_MUNDO['Kamino']) return false;
       return s.mundo === 'Kamino' && !SW.mundoViable('Kamino', s.era);
     },
     t: 'El Imperio ha empezado a desmantelar Ciudad Tipoca. Las plataformas caen al mar una a una.',

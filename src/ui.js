@@ -313,7 +313,12 @@
       '</p></div>';
 
     h += '<label class="campo"><span class="campo-cab">MUNDO NATAL<button class="btn mini dado" data-rand="mundo">⟳ al azar</button></span><select data-set="mundo">';
-    const mundos = esp.soloEra ? esp.home : esp.home.concat(SW.MUNDO_NOMBRES.filter(function (m) { return esp.home.indexOf(m) < 0; }));
+    /* No se puede nacer en un planeta que ya no existe cuando naces.
+       Se podía elegir Alderaan naciendo en el 10 DBY, diez años después
+       de que lo desintegraran. */
+    const mundos = (esp.soloEra ? esp.home : esp.home.concat(SW.MUNDO_NOMBRES.filter(function (m) { return esp.home.indexOf(m) < 0; })))
+      .filter(function (m) { return UI.cunaPosible(m, era.id); });
+    if (mundos.indexOf(c.mundo) < 0) c.mundo = mundos[0] || c.mundo;
     mundos.forEach(function (m) {
       h += '<option value="' + U.esc(m) + '"' + (c.mundo === m ? ' selected' : '') + '>' + U.esc(m) + ' — ' + U.esc(SW.mundo(m).r) + '</option>';
     });
@@ -380,14 +385,14 @@
           const esp = rng.pick(SW.ESPECIES);
           c.especie = esp.id;
           if (esp.soloEra) c.era = rng.pick(esp.soloEra);
-          c.mundo = rng.pick(esp.home);
+          c.mundo = UI.cunaAlAzar(rng, esp, c.era);
           c.nombre = SW.genNombreCompleto(rng, esp.id);
         } else if (q === 'era') {
           const esp0 = SW.ESPECIES.filter(function (x) { return x.id === c.especie; })[0];
           c.era = esp0.soloEra ? rng.pick(esp0.soloEra) : rng.pick(SW.ERAS).id;
         } else if (q === 'mundo') {
           const esp0 = SW.ESPECIES.filter(function (x) { return x.id === c.especie; })[0];
-          c.mundo = esp0.soloEra ? rng.pick(esp0.home) : rng.pick(SW.MUNDO_NOMBRES);
+          c.mundo = UI.cunaAlAzar(rng, esp0, c.era, true);
         } else if (q === 'rasgo') {
           c.rasgo = rng.weighted(SW.RASGOS).id;
         }
@@ -426,7 +431,7 @@
         const esp = rng.pick(SW.ESPECIES);
         c.especie = esp.id;
         c.era = esp.soloEra ? rng.pick(esp.soloEra) : rng.pick(SW.ERAS).id;
-        c.mundo = rng.pick(esp.home);
+        c.mundo = UI.cunaAlAzar(rng, esp, c.era);
         c.rasgo = rng.weighted(SW.RASGOS).id;
         c.nombre = SW.genNombreCompleto(rng, esp.id);
         c.apariencia = UI.aparienciaAleatoria(rng);
@@ -451,6 +456,24 @@
     const n = $('#in-nombre'), s = $('#in-semilla');
     if (n) UI.creador.nombre = n.value.trim() || UI.creador.nombre;
     if (s) UI.creador.semilla = s.value.trim();
+  };
+
+  /** Un mundo natal al azar que exista de verdad cuando naces. */
+  UI.cunaAlAzar = function (rng, esp, eraId, ancho) {
+    const base = (ancho && !esp.soloEra) ? SW.MUNDO_NOMBRES : esp.home;
+    const ok = base.filter(function (m) { return UI.cunaPosible(m, eraId); });
+    if (ok.length) return rng.pick(ok);
+    // si a esta especie no le queda ni un mundo natal en pie, nace fuera
+    const vivos = SW.MUNDO_NOMBRES.filter(function (m) { return UI.cunaPosible(m, eraId); });
+    return rng.pick(vivos.length ? vivos : SW.MUNDO_NOMBRES);
+  };
+
+  /** ¿Se puede nacer en este mundo eligiendo esta época? */
+  UI.cunaPosible = function (m, eraId) {
+    if (!SW.mundo(m)) return false;
+    const y = (SW.ANIO_ERA || {})[eraId];
+    if (y == null) return true;
+    return !SW.mundoVivoEn || SW.mundoVivoEn(m, y);
   };
 
   UI.empezar = function () {
