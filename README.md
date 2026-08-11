@@ -102,6 +102,20 @@ Contra disparos de bláster el reparto cambia: Makashi casi no sirve y Soresu es
 ### Heridas
 Un golpe fuerte no baja la salud y ya: abre una **herida** que reduce tu salud máxima mientras siga abierta y tarda años en cerrar sola. Se puede acelerar en una clínica pagando. La salud, mientras tanto, se regenera lentamente hasta el techo que dejen las heridas.
 
+### La carrera política
+Un solo escalafón, con el vocabulario y el techo de cada época. Cinco escalones desde *aprendiz de despacho* hasta *figura del Senado*, y en las épocas donde existe de verdad, un sexto: **la jefatura**.
+
+| época | techo | |
+|---|---|---|
+| Alta República · República Tardía | **Canciller Supremo** | 400.000 cr |
+| Nueva República | **Canciller de la Nueva República** | 400.000 cr |
+| Guerras Clon | figura del Senado | la Cancillería la ocupa Palpatine y no sale a concurso |
+| Imperio Temprano | portavoz de comité | por encima está el Emperador, y eso no se vota |
+| Era de la Rebelión | enlace con el Moff | el Senado está disuelto |
+| Primera Orden | gobernador general | no hay Senado: voló con Hosnian Prime |
+
+La jefatura **no es un ascenso más**: hace falta intelecto > 84, carisma > 88, reputación > 84 y **cuatro años en la cumbre**, y aun cumpliéndolo es una elección con rivales que se puede perder. Campaña limpia, gastarte la fortuna o sacar los trapos de los otros — y si lo segundo sale mal, sale a la luz.
+
 ### Mundos que dejan de existir
 Seis planetas tienen **fecha exacta de destrucción** en años galácticos, no «a partir de tal época»: Mandalore (19 ABY), Kamino (18 ABY), Alderaan, Jedha y Scarif (los tres el año 0) y Hosnian Prime (34 DBY). Antes de esa fecha se puede vivir allí y viajar allí con normalidad; después, el mapa te desvía a un refugio.
 

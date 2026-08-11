@@ -331,6 +331,8 @@
       if (c.esp && c.esp.indexOf(s.especie) < 0) return false;
       if (c.id === 'jedi' && !SW.ordenActiva(s.era)) return false;
       if (c.fam === 'fuerza' && !s.sensible) return false;
+      // carreras que existen sólo como respaldo y no se ofrecen sueltas
+      if (c.noOfrecer) return false;
       return true;
     });
     if (filtro === 'legal') pool = pool.filter(function (c) { return !c.ilegal; });

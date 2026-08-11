@@ -504,6 +504,7 @@
     if (SW.pasoTripulacion) SW.pasoTripulacion(this);
     if (SW.pasoNegocios) SW.pasoNegocios(this);
     if (SW.pasoClon) SW.pasoClon(this);
+    if (SW.pasoPolitica) SW.pasoPolitica(this);
     if (s.muerto) return;
     this.avanzarEstudio();
     if (SW.pasoAprendiz) SW.pasoAprendiz(this);
@@ -1257,6 +1258,7 @@
     if (d.quitarRuido) { s.stats.notoriedad = Math.max(0, s.stats.notoriedad - 10); }
     if (d.instalarMejora) this.instalarMejora(d.instalarMejora);
     // no se puede ser jedi y senador a la vez: hay que salirse de uno
+    if (d.jefatura && SW.resolverJefatura) { SW.resolverJefatura(this, d.jefatura); return; }
     if (d.empleoPolitico != null && SW.caminoLibre && !SW.caminoLibre(s, 'politico')) {
       this.cola.unshift(this.prepararGen(SW.GEN.dejarCamino(rng, s, 'politico')));
       return;
@@ -1266,7 +1268,7 @@
       if (esc) {
         s.escalonPolitico = d.empleoPolitico;
         s.flags.carrera_politica = true;
-        this.tomarEmpleo('politico', esc.sueldo);
+        this.tomarEmpleo('politico', esc.sueldo, true);
         // el cargo se llama como se llame en esta época
         const nombreCargo = SW.nombreEscalon ? SW.nombreEscalon(s, d.empleoPolitico) : esc.n;
         s.rango = U.titleCase(nombreCargo);
@@ -1780,7 +1782,7 @@
   };
 
   /* ---------------- Trabajo ---------------- */
-  Game.prototype.tomarEmpleo = function (id, sueldo) {
+  Game.prototype.tomarEmpleo = function (id, sueldo, callado) {
     const s = this.s;
     const c = SW.carrera(id);
     if (!c) return;
@@ -1791,6 +1793,14 @@
        el que pasan todos. */
     if (SW.clonEnServicio && SW.clonEnServicio(s) && !/^clon_/.test(id)) {
       this.log('No puedes aceptarlo: perteneces al Gran Ejército y tu destino ya está asignado.', 'mal');
+      return;
+    }
+    /* La carrera política tiene su propia escalera por época. Cualquier
+       escena vieja que intente meterte de «senador» a pelo entra por el
+       primer escalón, no por donde le apetezca. */
+    if (id === SW.REDIRIGE_A_POLITICA && SW.ESCALONES) {
+      this.aplicarNodo({ empleoPolitico: 0 }, {}, null, false);
+      s.flags.carrera_politica = true;
       return;
     }
     s.trabajo = id;
@@ -1808,8 +1818,14 @@
     s.añosEnTrabajo = 0;
     s.rendimiento = 50;
     if (c.faccion) s.faccionRep[c.faccion] = U.clamp((s.faccionRep[c.faccion] || 0) + 15, -100, 100);
-    this.log('Empiezas como ' + s.rango + ' (' + c.n + '). ' + U.cr(s.sueldo) + '/año.', 'bien');
-    this.hito('Empieza como ' + c.n);
+    /* `callado` es para quien va a anunciar el cargo él mismo: la carrera
+       política fijaba el rango después y el registro decía primero
+       «empiezas como aprendiz de despacho, 400.000 cr» y luego «ahora
+       eres Canciller Supremo». */
+    if (!callado) {
+      this.log('Empiezas como ' + s.rango + ' (' + c.n + '). ' + U.cr(s.sueldo) + '/año.', 'bien');
+      this.hito('Empieza como ' + c.n);
+    }
   };
   Game.prototype.perderTrabajo = function () {
     const s = this.s;
@@ -3062,7 +3078,9 @@
     if (id === 'taller' && SW.menuTaller && s.nave) {
       this.cola.push(this.prepararGen(SW.menuTaller(this))); this.fase = 'evento'; return;
     }
-    if (id === 'senado' && SW.menuPolitica) {
+    /* Una sola pestaña de Política: si estás en la carrera, se abre la
+       pantalla del escalafón; si no, el sorteo de escenas de siempre. */
+    if ((id === 'senado' || id === 'politica') && SW.menuPolitica && s.flags.carrera_politica) {
       this.cola.push(this.prepararGen(SW.menuPolitica(this))); this.fase = 'evento'; return;
     }
     if (id === 'oscuro' && SW.menuOscuro) {
@@ -3118,7 +3136,7 @@
       else if (id === 'mercado') this.cola.push(this.prepararGen(this.menuTienda()));
       else if (id === 'salud') this.cola.push(this.prepararGen(this.menuClinica()));
       else if (id === 'clinica') this.cola.push(this.prepararGen(this.menuClinica()));
-      else if (id === 'senado' && SW.menuPolitica) this.cola.push(this.prepararGen(SW.menuPolitica(this)));
+      else if ((id === 'senado' || id === 'politica') && SW.menuPolitica && s.flags.carrera_politica) this.cola.push(this.prepararGen(SW.menuPolitica(this)));
       else if (id === 'oscuro' && SW.menuOscuro) this.cola.push(this.prepararGen(SW.menuOscuro(this)));
       else if (id === 'fuerza') this.cola.push(this.prepararGen(this.menuFuerza()));
       else if (id === 'taller' && SW.menuTaller && s.nave) this.cola.push(this.prepararGen(SW.menuTaller(this)));

@@ -100,7 +100,7 @@
       return true;
     }
     if (id === 'gremio') return !!s.flags.en_el_gremio || s.trabajo === 'cazarrecompensas';
-    if (id === 'senado') return !!s.flags.en_el_senado;
+    if (id === 'senado') return false;      // fusionada en «politica»
     if (id === 'fuerza') return s.sensible || s.stats.fuerza > 5;
     return true;
   };

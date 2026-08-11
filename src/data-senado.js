@@ -27,7 +27,16 @@
     { id: 3, n: 'senador del sector', sueldo: 78000,
       req: function (s) { return s.stats.intelecto > 66 && s.stats.carisma > 68 && s.stats.reputacion > 55; } },
     { id: 4, n: 'figura del Senado', sueldo: 140000,
-      req: function (s) { return s.stats.intelecto > 72 && s.stats.carisma > 76 && s.stats.reputacion > 70; } }
+      req: function (s) { return s.stats.intelecto > 72 && s.stats.carisma > 76 && s.stats.reputacion > 70; } },
+    /* La jefatura. No es un ascenso más: es una elección con rivales,
+       hace falta llevar años arriba y no todas las épocas la tienen
+       (bajo el Imperio el puesto está ocupado por alguien que no se
+       presenta a nada). Lo controla `tope` en POLITICA_ERA. */
+    { id: 5, n: 'Canciller Supremo', sueldo: 400000, jefatura: true,
+      req: function (s) {
+        return s.stats.intelecto > 84 && s.stats.carisma > 88 && s.stats.reputacion > 84 &&
+               (s.añosEnCumbre || 0) >= 4;
+      } }
   ];
 
   /* ============================================================
@@ -41,30 +50,37 @@
      ============================================================ */
   SW.POLITICA_ERA = {
     alta_republica: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
-                          'senador del sector', 'figura del Senado'], tope: 4,
+                          'senador del sector', 'figura del Senado', 'Canciller Supremo'], tope: 5,
       casa: 'el Senado de la República', nota: 'La República se está expandiendo y hacen falta manos.' },
     republica_tardia: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
-                            'senador del sector', 'figura del Senado'], tope: 4,
+                            'senador del sector', 'figura del Senado', 'Canciller Supremo'], tope: 5,
       casa: 'el Senado Galáctico', nota: 'Todo se decide en comités que duran años.' },
+    /* En las Guerras Clon la silla está ocupada por Palpatine y no la
+       suelta: se puede llegar a figura del Senado y no más arriba. */
     guerras_clon: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
                         'senador del sector', 'figura del Senado'], tope: 4,
-      casa: 'el Senado Galáctico', nota: 'Cada mes se votan poderes de emergencia nuevos.' },
+      casa: 'el Senado Galáctico', nota: 'Cada mes se votan poderes de emergencia nuevos.',
+      techoPorque: 'La Cancillería no sale a concurso: la ocupa Palpatine y cada año tiene más poderes.' },
     imperio_temprano: { n: ['auxiliar de la administración', 'concejal de distrito', 'gobernador adjunto',
                             'senador del Senado Imperial', 'portavoz de comité'], tope: 4,
-      casa: 'el Senado Imperial', nota: 'El Senado sigue reuniéndose. Decidir, decide otro.' },
+      casa: 'el Senado Imperial', nota: 'El Senado sigue reuniéndose. Decidir, decide otro.',
+      techoPorque: 'Por encima del Senado Imperial está el Emperador, y ese puesto no se vota.' },
     rebelion: { n: ['auxiliar de la administración', 'concejal de distrito', 'gobernador adjunto',
                     'gobernador planetario', 'enlace con el Moff del sector'], tope: 4,
       casa: 'la administración imperial del sector',
-      nota: 'El Senado está disuelto desde hace años: ahora manda el moff que te toque.', sinSenado: true },
+      nota: 'El Senado está disuelto desde hace años: ahora manda el moff que te toque.', sinSenado: true,
+      techoPorque: 'No hay Senado que presidir: Tarkin lo disolvió y el escalafón acaba en el Moff.' },
     nueva_republica: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
-                           'senador de la Nueva República', 'figura del Senado'], tope: 4,
+                           'senador de la Nueva República', 'figura del Senado', 'Canciller de la Nueva República'],
+      tope: 5,
       casa: 'el Senado de la Nueva República', nota: 'Un Senado nuevo que aún discute dónde sentarse.' },
     primera_orden: { n: ['auxiliar de la administración', 'concejal de distrito', 'gobernador adjunto',
                          'administrador de sector', 'gobernador general'], tope: 4,
       casa: 'la administración de la Primera Orden',
-      nota: 'No hay Senado: voló con Hosnian Prime. Hay órdenes.', sinSenado: true },
+      nota: 'No hay Senado: voló con Hosnian Prime. Hay órdenes.', sinSenado: true,
+      techoPorque: 'Arriba del todo hay un Líder Supremo, y a eso no se opta: se hereda a la fuerza.' },
     era_perdida: { n: ['aprendiz de despacho', 'concejal de distrito', 'delegado planetario',
-                       'consejero del sector', 'figura del consejo'], tope: 4,
+                       'consejero del sector', 'figura del consejo', 'Primer Consejero'], tope: 5,
       casa: 'el consejo de sector', nota: 'Se gobierna a trozos.' }
   };
 
@@ -96,6 +112,20 @@
   }
 
   /* ============================================================
+     UNA SOLA CARRERA POLÍTICA
+     Había dos conviviendo: esta escalera por época y una carrera
+     suelta llamada «Político galáctico» con rangos propios que
+     llegaban hasta Canciller. Se podía acabar de Canciller en la Alta
+     República por el menú genérico de empleo, saltándose la época, el
+     tope y todo lo demás. La vieja se retira del reparto de empleos y
+     lo que hace ahora es meterte por la puerta de abajo de esta.
+     ============================================================ */
+  SW.CARRERAS.forEach(function (c) {
+    if (c.id === 'senador') { c.noOfrecer = true; c.rangos = SW.ESCALONES.map(function (e) { return U.titleCase(e.n); }); }
+  });
+  SW.REDIRIGE_A_POLITICA = 'senador';
+
+  /* ============================================================
      LA PUERTA: hay que haber sido buen estudiante
      ============================================================ */
   SW.EVENTOS = SW.EVENTOS || [];
@@ -125,16 +155,32 @@
      SUBIR ESCALÓN
      ============================================================ */
   SW.GEN = SW.GEN || {};
+  /** El escalón más alto al que se puede llegar en esta época. */
+  SW.topePolitico = function (s) {
+    const p = SW.politicaDe(s);
+    return p.tope == null ? 4 : p.tope;
+  };
+
   SW.GEN.ascensoPolitico = function (rng, s) {
     const actual = s.escalonPolitico || 0;
+    const tope = SW.topePolitico(s);
     const sig = SW.ESCALONES[actual + 1];
-    if (!sig) {
+    if (!sig || actual >= tope) {
+      const pol = SW.politicaDe(s);
       return {
         id: 'sn_cima', gen: true,
-        t: 'Ya no hay escalón por encima del tuyo. Lo que queda es qué haces con el sitio.',
+        t: 'Ya no hay escalón por encima del tuyo.' +
+           (actual >= tope && SW.ESCALONES[actual + 1]
+             ? '<br><span class="dim">' + (pol.techoPorque || 'En esta época el escalafón acaba aquí.') + '</span>'
+             : '<br><span class="dim">Lo que queda es qué haces con el sitio.</span>'),
         c: [{ t: 'Seguir', volver: true }]
       };
     }
+
+    /* La jefatura no es un ascenso: es una elección con rivales. Puedes
+       cumplir los requisitos y perderla igual, que es como funciona. */
+    if (sig.jefatura) return SW.GEN.eleccionJefatura(rng, s, sig);
+
     const listo = sig.req(s);
     if (!listo) {
       return {
@@ -160,6 +206,90 @@
         { t: 'Dejar que se lo lleve otro', fx: { cordura: 6, reputacion: -6 } }
       ]
     };
+  };
+
+  /* ============================================================
+     LA JEFATURA
+     Ser Canciller no es subir un peldaño más: es ganarle el puesto a
+     gente que lleva toda la vida preparándolo. Se puede cumplir todo
+     y perder, y perder tiene precio.
+     ============================================================ */
+  SW.GEN.eleccionJefatura = function (rng, s, esc) {
+    const pol = SW.politicaDe(s);
+    const cargo = SW.nombreEscalon(s, esc.id);
+    const años = s.añosEnCumbre || 0;
+    if (!esc.req(s)) {
+      const falta = [];
+      if (s.stats.intelecto <= 84) falta.push('intelecto ' + s.stats.intelecto + '/85');
+      if (s.stats.carisma <= 88) falta.push('carisma ' + s.stats.carisma + '/89');
+      if (s.stats.reputacion <= 84) falta.push('reputación ' + s.stats.reputacion + '/85');
+      if (años < 4) falta.push(años + '/4 años en la cumbre');
+      return {
+        id: 'sn_jefatura_no', gen: true,
+        t: '<span class="scene-tag">' + U.esc(cargo.toUpperCase()) + '</span>' +
+          '<p>' + (SW.contraer ? SW.contraer('Suena tu nombre para la jefatura de ' + U.esc(pol.casa)) :
+                   'Suena tu nombre para la jefatura de ' + U.esc(pol.casa)) + ' y se apaga solo. ' +
+          'Nadie te lo dice a la cara: simplemente la conversación sigue sin ti.</p>' +
+          '<p class="dim">Te falta: ' + falta.join(' · ') + '</p>',
+        c: [
+          { t: 'Ponerte a ello en serio', fx: { intelecto: 8, carisma: 8, cordura: -8 },
+            out: 'Cuatro años de trabajo por delante y ninguna garantía.' },
+          { t: 'Comprar peso a base de favores', coste: 60000,
+            fx: { reputacion: 16, alineamiento: -14, notoriedad: 8 },
+            out: 'Se compran apoyos, no votos. La diferencia es de matiz y de precio.' },
+          { t: 'Dejarlo estar: ya has llegado lejos', fx: { cordura: 12 },
+            out: 'No todo el mundo quiere la silla. Casi nadie lo admite.' }
+        ]
+      };
+    }
+    /* Cumples. Ahora hay que ganarla. */
+    const base = U.clamp(0.12 + (s.stats.carisma - 88) / 90 + (s.stats.reputacion - 84) / 110 +
+      años * 0.03 + (s.stats.intelecto - 84) / 150, 0.1, 0.6);
+    const conDinero = U.clamp(base + 0.18, 0.15, 0.75);
+    const sucio = U.clamp(base + 0.30, 0.2, 0.88);
+    const pct = function (x) { return Math.round(x * 100) + '%'; };
+    return {
+      id: 'sn_jefatura', gen: true,
+      t: '<span class="scene-tag">ELECCIÓN · ' + U.esc(cargo.toUpperCase()) + '</span>' +
+        '<p>' + (SW.contraer ? SW.contraer('La jefatura de ' + U.esc(pol.casa)) : 'La jefatura de ' + U.esc(pol.casa)) +
+        ' queda libre y esta vez tu nombre está en la lista corta. ' +
+        'Enfrente hay dos o tres que llevan preparando esto desde antes de que tú entraras.</p>' +
+        '<p class="dim">' + años + ' años en la cumbre · intelecto ' + s.stats.intelecto +
+        ' · carisma ' + s.stats.carisma + ' · reputación ' + s.stats.reputacion + '</p>',
+      c: [
+        { t: 'Presentarte y hacer la campaña limpia', sub: pct(base) + ' · si sales, sales entero',
+          jefatura: { p: base, esc: esc.id, limpio: true } },
+        { t: 'Gastarte tu fortuna en la campaña', sub: pct(conDinero) + ' · ' + U.cr(200000),
+          coste: 200000, jefatura: { p: conDinero, esc: esc.id } },
+        { t: 'Sacar lo que tienes de los otros candidatos',
+          sub: pct(sucio) + ' · funciona, y se sabrá algún día',
+          fx: { alineamiento: -22, notoriedad: 14 }, jefatura: { p: sucio, esc: esc.id, sucio: true } },
+        { t: 'Retirar tu nombre', fx: { cordura: 10, reputacion: -6 },
+          out: 'Apoyas a otro y te ganas una deuda que vale casi tanto como el puesto.' }
+      ]
+    };
+  };
+
+  /** Ganar o perder la jefatura. Perderla también cuenta. */
+  SW.resolverJefatura = function (g, cfg) {
+    const s = g.s;
+    const cargo = SW.nombreEscalon(s, cfg.esc);
+    if (g.rng.chance(cfg.p)) {
+      g.aplicarNodo({ empleoPolitico: cfg.esc }, {}, null, false);
+      g.log('<b>Sales elegido ' + cargo + '.</b> Una galaxia entera y tu firma al final de las páginas.', 'bien');
+      g.hito('Alcanza la jefatura: ' + cargo);
+      s.flags.jefatura = true;
+      if (cfg.sucio) s.flags.jefatura_sucia = true;
+      g.aplicarFx({ reputacion: 20, notoriedad: 20, cordura: -10 }, {});
+      return;
+    }
+    g.log('No sales. Gana otro por un puñado de votos que sabes contar de memoria.', 'mal');
+    s.contadores.jefaturasPerdidas = (s.contadores.jefaturasPerdidas || 0) + 1;
+    g.aplicarFx({ cordura: -18, reputacion: -8 }, {});
+    if (cfg.sucio) {
+      g.log('Y lo que sacaste de los otros sale a la luz la semana siguiente.', 'mal');
+      g.aplicarFx({ reputacion: -20, notoriedad: 15 }, {});
+    }
   };
 
   /* ============================================================
@@ -243,11 +373,13 @@
   /* ============================================================
      LA PESTAÑA
      ============================================================ */
+  /* Había DOS pestañas llamadas «Política»: ésta, que es la carrera de
+     verdad, y otra de eventos sueltos de data-world-ext.js. Se veían
+     iguales en la barra y una de las dos no llevaba a ninguna parte.
+     Ahora hay una sola: la de siempre («politica»), que abre esta
+     pantalla en cuanto entras en la carrera y el sorteo de escenas
+     mientras no. Esta entrada se retira. */
   SW.ACTIVIDADES = SW.ACTIVIDADES || [];
-  SW.ACTIVIDADES.push({
-    id: 'senado', n: 'Política', ico: '⚖', desc: 'Escalar, votar y sobrevivir a lo que votaste.', min: 16,
-    req: function (s) { return !!s.flags.carrera_politica; }
-  });
 
   /* Lo que puedes hacer depende del escalón. Antes el menú era el
      mismo siendo concejal que siendo senador, y por eso a veces
@@ -292,10 +424,25 @@
        req: function (st) { return SW.hayEscano(st); }, sub: 'O te la llevas por delante o te lleva a ti' },
      { t: 'Nombrar a los tuyos en puestos clave', fx: { reputacion: 14, alineamiento: -14, creditos: 25000 } },
      { t: 'Negociar la paz entre dos bandos', fx: { carisma: 20, alineamiento: 20, reputacion: 22, cordura: -12 } },
-     { t: 'Presentarte a la jefatura', fx: { carisma: 14, notoriedad: 16, creditos: -50000, reputacion: 16 },
-       sub: 'Muy caro y sin garantías' },
+     /* «Presentarte a la jefatura» estaba aquí como un poder más que
+        cobraba 50.000 y sólo daba estadísticas: una jefatura de mentira
+        al lado de la de verdad. La de verdad es «Optar a la jefatura»,
+        abajo del menú, y es una elección que se puede perder. */
+     { t: 'Preparar el terreno para la jefatura',
+       fx: { carisma: 12, reputacion: 14, notoriedad: 8, creditos: -50000 },
+       sub: 'Cenas, favores y una lista de quién te debe qué',
+       out: 'No te da el puesto. Te da los apoyos que hacen falta cuando quede libre.' },
      { t: 'Retirarte con honores', dejarCargo: true, fx: { cordura: 16, reputacion: 10 } }]
   ];
+
+  /* Los años que llevas en el escalón más alto del Senado. Sin esto la
+     jefatura sería un ascenso más y no lo es: hay que haber estado
+     arriba el tiempo suficiente para que te conozcan. */
+  SW.pasoPolitica = function (g) {
+    const s = g.s;
+    if (!s.flags.carrera_politica) return;
+    if ((s.escalonPolitico || 0) >= 4) s.añosEnCumbre = (s.añosEnCumbre || 0) + 1;
+  };
 
   SW.menuPolitica = function (g) {
     const s = g.s;
@@ -307,8 +454,12 @@
     for (let i = 0; i <= nivel && i < PODERES.length; i++) {
       PODERES[i].forEach(function (o) { c.push(o); });
     }
-    c.push({ t: 'Optar al siguiente escalón', generar: 'ascensoPolitico',
-      sub: sig ? 'Siguiente: ' + sig.n : 'Ya estás arriba del todo' });
+    const tope = SW.topePolitico(s);
+    const hayMas = sig && nivel < tope;
+    c.push({ t: hayMas && sig.jefatura ? 'Optar a la jefatura' : 'Optar al siguiente escalón',
+      generar: 'ascensoPolitico',
+      sub: hayMas ? 'Siguiente: ' + SW.nombreEscalon(s, nivel + 1)
+                  : (SW.politicaDe(s).techoPorque || 'Ya estás arriba del todo') });
     c.push({ t: 'Ir a una votación', generar: 'votacion', sub: 'Lo que votes te va a seguir' });
     c.push({ t: 'Trabajar el distrito', fx: { reputacion: 10, carisma: 6, cordura: -4 },
       sub: 'Aburrido, seguro y suma' });
@@ -319,7 +470,8 @@
 
     // lo que puedes hacer, dicho en voz alta, para que no haya dudas
     const pol = SW.politicaDe(s);
-    const alcance = nivel >= 4 ? (pol.sinSenado
+    const alcance = nivel >= 5 ? 'Presides ' + pol.casa + '. Lo que decidas es la historia que otros leerán.'.replace(/^/, '')
+                  : nivel >= 4 ? (pol.sinSenado
                         ? 'Mandas en un sector entero, y por encima de ti sólo hay uniformes.'
                         : 'Tu voto arrastra a otros y tu firma llega a media galaxia.')
                   : nivel === 3 ? (pol.sinSenado
@@ -333,6 +485,7 @@
       id: 'menu_politica', gen: true, esMenu: true,
       t: 'POLÍTICA — eres <b>' + e.n + '</b>' +
          '<br><span class="dim">' + alcance + '</span>' +
+         '<br><span class="dim">Escalón ' + nivel + ' de ' + SW.topePolitico(s) + ' en ' + pol.casa + '</span>' +
          '<br><span class="dim">Intelecto ' + s.stats.intelecto + ' · carisma ' + s.stats.carisma +
          ' · reputación ' + s.stats.reputacion + '</span>',
       c: c
